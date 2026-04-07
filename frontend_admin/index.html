@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agenda de Compras Web - Administrador</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img class="brand-logo" src="logo_alta.jpg" alt="Service Farma">
+        <div class="brand-copy">
+          <strong>Agenda de Compras</strong>
+          <span>Painel Master</span>
+        </div>
+      </div>
+
+      <div>
+        <p class="eyebrow">Administração</p>
+        <h1>Painel master</h1>
+        <p class="sidebar-copy">
+          Controle de clientes, vigência da ferramenta, base operacional e acompanhamento do ambiente.
+        </p>
+      </div>
+
+      <div class="status-card">
+        <span class="small-label">Projeto</span>
+        <strong>Service Farma</strong>
+        <span id="projectUrlLabel" class="small-copy">Projeto conectado</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-link active" data-section="clientes">Clientes</button>
+        <button class="nav-link" data-section="vigencias">Vigências</button>
+        <button class="nav-link" data-section="tenants">Base operacional</button>
+        <button class="nav-link" data-section="conexao">Conexão avançada</button>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <div class="topbar">
+        <div class="theme-toggle" role="group" aria-label="Tema visual">
+          <button class="theme-chip" type="button" data-theme-choice="light">Claro</button>
+          <button class="theme-chip active" type="button" data-theme-choice="dark">Escuro</button>
+        </div>
+      </div>
+
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Painel administrativo</p>
+          <h2>Clientes e licenciamento</h2>
+          <p class="hero-copy">
+            Interface separada do cliente final, com foco em cadastro comercial, validade da ferramenta e vínculo com a base operacional.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button id="toggleConnectionButton" class="secondary-button" type="button">Conexão do ambiente</button>
+          <button id="loadAdminDataButton" class="secondary-button" type="button">Atualizar painel</button>
+        </div>
+      </header>
+
+      <section id="conexaoSection" class="config-panel hidden">
+        <div>
+          <p class="eyebrow">Conexão</p>
+          <h3>Supabase administrativo</h3>
+          <p class="panel-copy">
+            Esta conexão aponta o painel para o projeto Supabase correto. Você não precisa mudar isso para cadastrar um novo cliente; só altere se trocar de ambiente.
+          </p>
+        </div>
+        <form id="settingsForm" class="settings-form">
+          <label class="field">
+            <span>URL do Supabase</span>
+            <input id="supabaseUrl" type="url" placeholder="https://seu-projeto.supabase.co">
+          </label>
+          <label class="field">
+            <span>Chave da API</span>
+            <input id="supabaseKey" type="password" placeholder="sb_publishable_...">
+          </label>
+          <div class="hero-actions">
+            <button type="submit" class="primary-button">Salvar configuração</button>
+          </div>
+        </form>
+      </section>
+
+      <div id="feedbackBox" class="feedback-box hidden"></div>
+      <section class="stats-grid" id="statsGrid"></section>
+
+      <section id="clientesSection" class="admin-section">
+        <div class="board two-column">
+          <div>
+            <div class="board-header">
+              <div>
+                <p class="eyebrow">Cadastro comercial</p>
+                <h3>Clientes da plataforma</h3>
+              </div>
+              <p id="clientesCount" class="board-copy"></p>
+            </div>
+            <div id="clientesList" class="card-list"></div>
+          </div>
+
+          <div class="form-panel">
+            <p class="eyebrow">Novo cliente</p>
+            <h3>Cadastrar cliente</h3>
+            <form id="clienteForm" class="stack-form">
+              <label class="field">
+                <span>Razão social</span>
+                <input id="razaoSocial" name="razao_social" type="text" required>
+              </label>
+              <label class="field">
+                <span>Nome fantasia</span>
+                <input id="nomeFantasia" name="nome_fantasia" type="text" required>
+              </label>
+              <label class="field">
+                <span>Documento</span>
+                <input id="documento" name="documento" type="text">
+              </label>
+              <label class="field">
+                <span>E-mail responsável</span>
+                <input id="emailResponsavel" name="email_responsavel" type="email">
+              </label>
+              <label class="field">
+                <span>Senha da auditoria</span>
+                <input id="senhaAuditoria" name="senha_auditoria" type="text" placeholder="Ex.: service">
+              </label>
+              <label class="field">
+                <span>Base operacional vinculada</span>
+                <select id="tenantVinculado" name="tenant_id"></select>
+              </label>
+              <div class="hero-actions">
+                <button type="submit" class="primary-button">Salvar cliente</button>
+                <button id="resetClienteFormButton" type="button" class="secondary-button">Limpar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section id="vigenciasSection" class="admin-section hidden">
+        <div class="board two-column">
+          <div>
+            <div class="board-header">
+              <div>
+                <p class="eyebrow">Validade de uso</p>
+                <h3>Licenças e vigência</h3>
+              </div>
+              <p id="vigenciasCount" class="board-copy"></p>
+            </div>
+            <div id="vigenciasList" class="card-list"></div>
+          </div>
+
+          <div class="form-panel">
+            <p class="eyebrow">Nova vigência</p>
+            <h3>Cadastrar vigência</h3>
+            <form id="vigenciaForm" class="stack-form">
+              <label class="field">
+                <span>Cliente</span>
+                <select id="clienteLicenca" name="cliente_id"></select>
+              </label>
+              <label class="field">
+                <span>Plano</span>
+                <input id="planoLicenca" name="plano" type="text" value="basico">
+              </label>
+              <label class="field">
+                <span>Início da vigência</span>
+                <div class="date-input-group">
+                  <input id="inicioVigencia" name="data_inicio_vigencia" type="text" inputmode="numeric" placeholder="DD/MM/AAAA">
+                  <button id="inicioVigenciaPickerButton" class="date-picker-button" type="button" aria-label="Abrir calendário do início da vigência">&#128197;</button>
+                  <input id="inicioVigenciaNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+                </div>
+              </label>
+              <label class="field">
+                <span>Fim da vigência</span>
+                <div class="date-input-group">
+                  <input id="fimVigencia" name="data_fim_vigencia" type="text" inputmode="numeric" placeholder="DD/MM/AAAA">
+                  <button id="fimVigenciaPickerButton" class="date-picker-button" type="button" aria-label="Abrir calendário do fim da vigência">&#128197;</button>
+                  <input id="fimVigenciaNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+                </div>
+              </label>
+              <label class="field">
+                <span>Status</span>
+                <select id="statusLicenca" name="status">
+                  <option value="ativo">Ativo</option>
+                  <option value="implantacao">Implantação</option>
+                  <option value="vencido">Vencido</option>
+                  <option value="bloqueado">Bloqueado</option>
+                </select>
+              </label>
+              <div class="hero-actions">
+                <button type="submit" class="primary-button">Salvar vigência</button>
+                <button id="resetVigenciaFormButton" type="button" class="secondary-button">Limpar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section id="tenantsSection" class="admin-section hidden">
+        <div class="board">
+          <div class="board-header">
+            <div>
+              <p class="eyebrow">Base operacional</p>
+              <h3>Ambientes dos clientes</h3>
+              <p class="board-copy">Cada base operacional isola os dados da agenda de um cliente dentro do sistema.</p>
+            </div>
+            <p id="tenantsCount" class="board-copy"></p>
+          </div>
+          <div id="tenantsList" class="card-list"></div>
+        </div>
+      </section>
+
+      <section class="admin-section">
+        <div class="board">
+          <div class="board-header">
+            <div>
+              <p class="eyebrow">Versões</p>
+              <h3>Histórico de versões</h3>
+              <p class="board-copy">Controle simples das entregas e mudanças aplicadas ao portal e ao painel administrativo.</p>
+            </div>
+          </div>
+          <div id="versionHistoryList" class="card-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

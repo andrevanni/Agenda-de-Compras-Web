@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agenda de Compras Web - Versao de Teste</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <aside class="sidebar">
+      <div>
+        <p class="eyebrow">Agenda de Compras</p>
+        <h1>Painel operacional</h1>
+        <p class="sidebar-copy">
+          Versao de teste com simulacao visual usando dados locais para validar fluxo e navegacao.
+        </p>
+      </div>
+
+      <div class="tenant-card">
+        <span class="tenant-label">Tenant ativo</span>
+        <strong>Drogaria Modelo</strong>
+        <span class="tenant-id">7f8e3a91-demo-tenant</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-link active" data-filter="todas">Todas</button>
+        <button class="nav-link" data-filter="hoje">Hoje</button>
+        <button class="nav-link" data-filter="proximas">Proximas</button>
+        <button class="nav-link" data-filter="atrasadas">Atrasadas</button>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Simulacao sem backend</p>
+          <h2>Agenda pronta para teste</h2>
+          <p class="hero-copy">
+            Use os filtros, abra uma ocorrencia e teste o fluxo de sugestao e tratamento.
+          </p>
+        </div>
+
+        <div class="hero-actions">
+          <button id="refreshButton" class="secondary-button">Recarregar dados mockados</button>
+          <button id="openFirstPending" class="primary-button">Abrir primeira pendencia</button>
+        </div>
+      </header>
+
+      <section class="stats-grid" id="statsGrid"></section>
+
+      <section class="board">
+        <div class="board-header">
+          <div>
+            <p class="eyebrow">Ocorrencias</p>
+            <h3>Fila operacional</h3>
+          </div>
+          <p id="boardDescription" class="board-description"></p>
+        </div>
+
+        <div id="agendaList" class="agenda-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="detailsModal" class="details-modal">
+    <form method="dialog" class="modal-card">
+      <button class="close-button" aria-label="Fechar">x</button>
+
+      <div class="modal-header">
+        <p class="eyebrow">Detalhes da ocorrencia</p>
+        <h3 id="modalTitle">Fornecedor</h3>
+        <p id="modalSubtitle" class="modal-subtitle"></p>
+      </div>
+
+      <div class="modal-grid">
+        <div class="modal-panel">
+          <h4>Resumo</h4>
+          <dl id="summaryList" class="summary-list"></dl>
+        </div>
+
+        <div class="modal-panel">
+          <h4>Sugestao de proxima data</h4>
+          <p id="suggestionText" class="suggestion-text"></p>
+
+          <label class="field">
+            <span>Data da realizacao</span>
+            <input id="completionDate" type="date">
+          </label>
+
+          <label class="field">
+            <span>Proxima data</span>
+            <input id="nextDate" type="date">
+          </label>
+
+          <label class="field">
+            <span>Observacao</span>
+            <textarea id="observation" rows="3" placeholder="Compra confirmada, pedido fechado, etc."></textarea>
+          </label>
+
+          <div class="modal-actions">
+            <button id="useSuggestionButton" type="button" class="secondary-button">Usar sugestao</button>
+            <button id="completeButton" type="button" class="primary-button">Marcar como realizada</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="resultBox" class="result-box hidden"></div>
+    </form>
+  </dialog>
+
+  <script src="script.js"></script>
+</body>
+</html>

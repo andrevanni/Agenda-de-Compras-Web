@@ -54,7 +54,7 @@ def listar_proximas(db: Session, tenant_id: str, data_inicio: date, data_fim: da
         from agenda_ocorrencias ao
         join fornecedores f on f.id = ao.fornecedor_id and f.tenant_id = ao.tenant_id
         left join compradores c on c.id = ao.comprador_id and c.tenant_id = ao.tenant_id
-        where ao.tenant_id = :tenant_id::uuid
+        where ao.tenant_id = cast(:tenant_id as uuid)
           and ao.status = 'PENDENTE'
           and ao.data_prevista between :data_inicio and :data_fim
         order by ao.data_prevista, comprador, f.nome_fornecedor
@@ -86,7 +86,7 @@ def listar_atrasadas(db: Session, tenant_id: str, data_ref: date) -> list[Agenda
         from agenda_ocorrencias ao
         join fornecedores f on f.id = ao.fornecedor_id and f.tenant_id = ao.tenant_id
         left join compradores c on c.id = ao.comprador_id and c.tenant_id = ao.tenant_id
-        where ao.tenant_id = :tenant_id::uuid
+        where ao.tenant_id = cast(:tenant_id as uuid)
           and ao.status = 'PENDENTE'
           and ao.data_prevista < :data_ref
         order by ao.data_prevista, comprador, f.nome_fornecedor
@@ -101,8 +101,8 @@ def _ordered_dias_semana(db: Session, tenant_id: str, fornecedor_id: str) -> lis
         """
         select dia_semana
         from fornecedor_dias_compra
-        where tenant_id = :tenant_id::uuid
-          and fornecedor_id = :fornecedor_id::uuid
+        where tenant_id = cast(:tenant_id as uuid)
+          and fornecedor_id = cast(:fornecedor_id as uuid)
         order by case dia_semana
             when 'SEGUNDA' then 1
             when 'TERCA' then 2
@@ -124,8 +124,8 @@ def _validar_config_fornecedor(db: Session, tenant_id: str, fornecedor_id: str) 
             """
             select frequencia_revisao, comprador_id::text as comprador_id, data_primeiro_pedido
             from fornecedores
-            where tenant_id = :tenant_id::uuid
-              and id = :fornecedor_id::uuid
+            where tenant_id = cast(:tenant_id as uuid)
+              and id = cast(:fornecedor_id as uuid)
             """
         ),
         {"tenant_id": tenant_id, "fornecedor_id": fornecedor_id},
@@ -182,8 +182,8 @@ def sugerir_proxima_data_ocorrencia(db: Session, tenant_id: str, ocorrencia_id: 
             """
             select id::text as id, fornecedor_id::text as fornecedor_id, data_prevista, status
             from agenda_ocorrencias
-            where tenant_id = :tenant_id::uuid
-              and id = :ocorrencia_id::uuid
+            where tenant_id = cast(:tenant_id as uuid)
+              and id = cast(:ocorrencia_id as uuid)
             """
         ),
         {"tenant_id": tenant_id, "ocorrencia_id": ocorrencia_id},
@@ -209,8 +209,8 @@ def tratar_ocorrencia(db: Session, ocorrencia_id: str, payload: AgendaTratarRequ
             """
             select id::text as id, fornecedor_id::text as fornecedor_id, data_prevista, status
             from agenda_ocorrencias
-            where id = :ocorrencia_id::uuid
-              and tenant_id = :tenant_id::uuid
+            where id = cast(:ocorrencia_id as uuid)
+              and tenant_id = cast(:tenant_id as uuid)
             """
         ),
         {
@@ -246,8 +246,8 @@ def tratar_ocorrencia(db: Session, ocorrencia_id: str, payload: AgendaTratarRequ
                 data_realizacao = :data_realizacao,
                 observacao = :observacao,
                 updated_at = now()
-            where id = :ocorrencia_id::uuid
-              and tenant_id = :tenant_id::uuid
+            where id = cast(:ocorrencia_id as uuid)
+              and tenant_id = cast(:tenant_id as uuid)
             """
         ),
         {
@@ -263,8 +263,8 @@ def tratar_ocorrencia(db: Session, ocorrencia_id: str, payload: AgendaTratarRequ
             """
             select id::text as id
             from agenda_ocorrencias
-            where tenant_id = :tenant_id::uuid
-              and fornecedor_id = :fornecedor_id::uuid
+            where tenant_id = cast(:tenant_id as uuid)
+              and fornecedor_id = cast(:fornecedor_id as uuid)
               and data_prevista = :proxima_data
               and status = 'PENDENTE'
             limit 1
@@ -284,7 +284,7 @@ def tratar_ocorrencia(db: Session, ocorrencia_id: str, payload: AgendaTratarRequ
             text(
                 """
                 insert into agenda_ocorrencias (tenant_id, fornecedor_id, comprador_id, data_prevista, status)
-                values (:tenant_id::uuid, :fornecedor_id::uuid, :comprador_id::uuid, :proxima_data, 'PENDENTE')
+                values (cast(:tenant_id as uuid), cast(:fornecedor_id as uuid), cast(:comprador_id as uuid), :proxima_data, 'PENDENTE')
                 returning id::text as id
                 """
             ),
@@ -306,3 +306,5 @@ def tratar_ocorrencia(db: Session, ocorrencia_id: str, payload: AgendaTratarRequ
         proxima_data=proxima_data_final,
         nova_ocorrencia_id=nova_ocorrencia_id,
     )
+
+

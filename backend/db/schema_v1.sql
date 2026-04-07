@@ -27,6 +27,7 @@ create table if not exists fornecedores (
   tenant_id uuid not null references tenants(id) on delete cascade,
   codigo_fornecedor text not null,
   nome_fornecedor text not null,
+  notas_relacionamento text,
   data_primeiro_pedido date not null,
   frequencia_revisao int not null check (frequencia_revisao in (1,2,4,8,12)),
   parametro_estoque int not null check (parametro_estoque >= 0),

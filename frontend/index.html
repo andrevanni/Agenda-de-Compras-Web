@@ -1,0 +1,556 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agenda de Compras Web</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <img id="sidebarLogo" class="brand-logo" src="assets/logo_alta.jpg" alt="Service Farma">
+          <div class="brand-text">
+            <span class="brand-title">Agenda de Compras</span>
+            <span class="brand-sub">Painel Corporativo</span>
+          </div>
+        </div>
+
+        <div class="user-card">
+          <div id="buyerAvatar" class="avatar avatar-lg avatar-placeholder">SF</div>
+          <div class="user-card-info">
+            <strong id="buyerNameLabel">Comprador ativo</strong>
+            <span class="muted">Carteira operacional em uso</span>
+          </div>
+        </div>
+
+        <div class="sidebar-field">
+          <label for="activeBuyerSelect">Comprador ativo</label>
+          <select id="activeBuyerSelect"></select>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-link active" data-section="agenda-dia">Agenda do Dia</button>
+          <button class="nav-link" data-section="proximas-agendas">Pr&oacute;ximas Agendas</button>
+          <button class="nav-link" data-section="atrasadas">Atrasadas</button>
+          <button class="nav-link" data-section="sem-comprador">Sem Comprador</button>
+          <button class="nav-link" data-section="fornecedores">Cadastro de Fornecedores</button>
+          <button class="nav-link" data-section="compradores">Cadastro de Compradores</button>
+        </nav>
+
+      </aside>
+
+      <main class="content">
+        <div class="top-user">
+          <button id="openSettingsButtonTop" class="btn btn-outline" type="button">Personalizar portal</button>
+          <button id="openAuditButtonTop" class="btn btn-outline" type="button">Auditoria</button>
+          <button id="logoutPortalButtonTop" class="btn btn-outline" type="button">Encerrar sessão</button>
+          <div class="theme-toggle" role="group" aria-label="Tema visual">
+            <button id="themeLightButton" class="theme-chip" type="button" data-theme-choice="light">Claro</button>
+            <button id="themeDarkButton" class="theme-chip active" type="button" data-theme-choice="dark">Escuro</button>
+          </div>
+          <div class="top-user-card">
+            <div class="top-user-name">
+              <strong id="topBuyerName">Comprador ativo</strong>
+              <span class="muted">Comprador selecionado</span>
+            </div>
+            <div id="topBuyerAvatar" class="avatar avatar-sm avatar-placeholder">SF</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="page-logo-top">
+            <img id="pageLogo" src="assets/logo_alta.jpg" alt="Service Farma">
+          </div>
+
+          <div id="feedbackBox" class="msg hidden"></div>
+
+          <section id="agenda-dia" class="section-view">
+            <div class="section-title">
+              <div>
+                <h2>Agenda do Dia</h2>
+                <p class="muted">Mostra as agendas pendentes de hoje da carteira do comprador ativo.</p>
+              </div>
+                <div class="actions">
+                <button id="openFirstTodayButton" class="btn btn-sm">Abrir primeiro detalhe</button>
+                </div>
+            </div>
+            <div id="agendaDiaStats" class="kpi-grid"></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data Prevista</th>
+                    <th>C&oacute;digo</th>
+                    <th>Fornecedor</th>
+                    <th>Dias</th>
+                    <th>Frequ&ecirc;ncia</th>
+                    <th>A&ccedil;&otilde;es</th>
+                  </tr>
+                </thead>
+                <tbody id="agendaDiaTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="proximas-agendas" class="section-view hidden">
+            <div class="section-title">
+              <div>
+                <h2>Pr&oacute;ximas Agendas</h2>
+                <p class="muted">Mostra todos os fornecedores do comprador por ordem da data mais pr&oacute;xima para a mais distante.</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data Prevista</th>
+                    <th>C&oacute;digo</th>
+                    <th>Fornecedor</th>
+                    <th>Dias</th>
+                    <th>Frequ&ecirc;ncia</th>
+                    <th>A&ccedil;&otilde;es</th>
+                  </tr>
+                </thead>
+                <tbody id="proximasAgendasTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="atrasadas" class="section-view hidden">
+            <div class="section-title">
+              <div>
+                <h2>Agendas Atrasadas</h2>
+                <p class="muted">Pend&ecirc;ncias com data prevista anterior a hoje, da sua carteira.</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data Prevista</th>
+                    <th>C&oacute;digo</th>
+                    <th>Fornecedor</th>
+                    <th>Dias</th>
+                    <th>Frequ&ecirc;ncia</th>
+                    <th>A&ccedil;&otilde;es</th>
+                  </tr>
+                </thead>
+                <tbody id="atrasadasTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="sem-comprador" class="section-view hidden">
+            <div class="section-title">
+              <div>
+                <h2>Fornecedores Sem Comprador</h2>
+                <p class="muted">Fornecedores ainda n&atilde;o vinculados a nenhum comprador.</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>C&oacute;digo</th>
+                    <th>Fornecedor</th>
+                    <th>Dias</th>
+                    <th>Frequ&ecirc;ncia</th>
+                    <th>A&ccedil;&otilde;es</th>
+                  </tr>
+                </thead>
+                <tbody id="semCompradorTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="fornecedores" class="section-view hidden">
+            <div class="section-title">
+              <div>
+                <h2>Cadastro de Fornecedores</h2>
+                <p class="muted">Cadastre, edite, importe e organize os fornecedores da carteira operacional. Na importa&ccedil;&atilde;o CSV, c&oacute;digo e nome s&atilde;o obrigat&oacute;rios; os demais campos podem vir quando dispon&iacute;veis.</p>
+              </div>
+              <div class="actions">
+                <button id="downloadModeloCsvButton" class="btn btn-outline btn-sm" type="button">Baixar Modelo CSV</button>
+                <input id="importFornecedorFile" type="file" accept=".csv,.txt" hidden>
+                <button id="importFornecedoresButton" class="btn btn-outline btn-sm" type="button">Importar Fornecedores</button>
+                <span id="fornecedorFormMode" class="kpi-emphasis">Novo fornecedor</span>
+              </div>
+            </div>
+            <div id="importPreviewBox" class="msg hidden"></div>
+
+            <form id="fornecedorForm" class="grid-form">
+              <input id="fornecedorId" type="hidden">
+              <input id="fornecedorNotasDraft" type="hidden">
+              <label>C&oacute;digo<br><input id="fornecedorCodigo" name="codigo" required></label>
+              <label>Nome Fornecedor<br><input id="fornecedorNome" name="nome" required></label>
+              <label>Frequ&ecirc;ncia<br>
+                <select id="fornecedorFrequencia" name="frequencia" required>
+                  <option value="1">1 (a cada 28 dias)</option>
+                  <option value="2">2 (a cada 14 dias)</option>
+                  <option value="4">4 (a cada 7 dias)</option>
+                  <option value="8">8 (2 pedidos/semana)</option>
+                  <option value="12">12 (3 pedidos/semana)</option>
+                </select>
+              </label>
+              <div>
+                Dias da semana:<br>
+                <div id="diasSemanaFornecedor" class="checkbox-grid"></div>
+              </div>
+              <label>Data Pedido<br>
+                <div class="date-input-group">
+                  <input id="fornecedorDataPrimeiroPedido" name="data_primeiro_pedido" type="text" inputmode="numeric" placeholder="DD/MM/AAAA" required>
+                  <button id="fornecedorDataPrimeiroPedidoPickerButton" class="date-picker-button" type="button" aria-label="Abrir calendário da data do pedido">&#128197;</button>
+                  <input id="fornecedorDataPrimeiroPedidoNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+                </div>
+              </label>
+              <label>Par&acirc;metro Estoque<br><input id="fornecedorParametroEstoque" name="parametro_estoque" type="number" min="0" value="0" required></label>
+              <label>Lead Time Entrega<br><input id="fornecedorLeadTime" name="lead_time_entrega" type="number" min="0" value="0" required></label>
+              <label>Comprador<br>
+                <select id="fornecedorComprador" name="comprador_id"></select>
+              </label>
+              <div>
+                <strong>Pr&oacute;xima Data Sugerida</strong><br>
+                <span id="sugestaoProximaData" class="muted">Preencha Data Pedido, Frequ&ecirc;ncia e Dias para ver a sugest&atilde;o.</span>
+              </div>
+              <div class="actions">
+                <button id="openFornecedorNotasButton" type="button" class="postit-button">Notas</button>
+                <button type="submit" class="btn">Salvar Fornecedor</button>
+                <button id="resetFornecedorFormButton" type="button" class="btn btn-outline">Limpar</button>
+              </div>
+            </form>
+
+            <h3>Fornecedores Cadastrados</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>C&oacute;digo</th>
+                    <th>Fornecedor</th>
+                    <th>Data Pedido</th>
+                    <th>Dias</th>
+                    <th>Freq</th>
+                    <th>Par&acirc;metro Compra</th>
+                    <th>Comprador</th>
+                    <th>A&ccedil;&otilde;es</th>
+                  </tr>
+                </thead>
+                <tbody id="fornecedoresTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="compradores" class="section-view hidden">
+            <div class="section-title">
+              <div>
+                <h2>Cadastro de Compradores</h2>
+                <p class="muted">Gerencie a equipe com foto, telefone, e-mail e sele&ccedil;&atilde;o r&aacute;pida como comprador ativo.</p>
+              </div>
+              <div class="actions">
+                <span id="compradorFormMode" class="kpi-emphasis">Novo comprador</span>
+              </div>
+            </div>
+
+            <form id="compradorForm" class="grid-form">
+              <input id="compradorId" type="hidden">
+              <input id="compradorFotoAtual" type="hidden">
+              <label>Nome<br><input id="compradorNome" name="nome" required></label>
+              <label>Telefone<br><input id="compradorTelefone" name="telefone"></label>
+              <label>Email<br><input id="compradorEmail" name="email" type="email" required></label>
+              <label>Senha de acesso<br><input id="compradorSenha" name="senha_hash" type="password" placeholder="Defina a senha do comprador"></label>
+              <label>Foto do Comprador (arquivo)<br><input id="compradorFotoArquivo" name="foto_comprador" type="file" accept=".jpg,.jpeg,.png,.webp"></label>
+              <div class="photo-preview-card">
+                <strong>Pr&eacute;-visualiza&ccedil;&atilde;o</strong>
+                <div id="compradorFotoPreview" class="avatar avatar-lg avatar-placeholder">?</div>
+              </div>
+              <div class="actions">
+                <button type="submit" class="btn">Salvar Comprador</button>
+                <button id="resetCompradorFormButton" type="button" class="btn btn-outline">Limpar</button>
+              </div>
+            </form>
+
+            <h3>Compradores Cadastrados</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Foto</th>
+                    <th>Nome</th>
+                    <th>Telefone</th>
+                    <th>Email</th>
+                    <th>A&ccedil;&otilde;es</th>
+                  </tr>
+                </thead>
+                <tbody id="compradoresTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <div class="page-footer-brand">
+            <div class="footer-logo-shell">
+              <img id="footerLogo" src="assets/logo_alta.jpg" alt="Service Farma">
+            </div>
+            <div class="copyright">Powered by Service Farma. Direitos reservados.</div>
+            <div class="version-chip">Vers&atilde;o inicial v0.1.0</div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <dialog id="agendaDetailModal" class="details-modal">
+      <form method="dialog" class="modal-card">
+        <button class="close-button" type="button" data-close-modal="agendaDetailModal" aria-label="Fechar detalhe da agenda">
+          <span class="close-glyph">&#10005;</span>
+        </button>
+        <div class="section-title">
+          <div>
+            <h2>Detalhe da Agenda</h2>
+            <p class="muted">Revise os dados antes de tratar a agenda.</p>
+          </div>
+        </div>
+
+        <div id="agendaDetailGrid" class="grid detail-grid"></div>
+
+        <div class="actions detail-actions">
+          <div id="agendaTreatForm" class="treat-form">
+            <section class="detail-treatment-main">
+              <label class="detail-date-field">
+                Pr&oacute;ximo Pedido (data sugerida edit&aacute;vel)<br>
+                <div class="date-input-group">
+                  <input id="proximaDataInput" type="text" name="proxima_data" inputmode="numeric" placeholder="DD/MM/AAAA" required>
+                  <button id="proximaDataInputPickerButton" class="date-picker-button" type="button" aria-label="Abrir calendário da próxima data">&#128197;</button>
+                  <input id="proximaDataInputNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+                </div>
+              </label>
+
+              <div class="detail-metric-strip">
+                <div class="detail-mini-card">
+                  <strong>Incremento por Tratamento Atual</strong>
+                  <span id="incrementoTratamento" class="muted">+0 dia(s)</span>
+                </div>
+                <div class="detail-mini-card">
+                  <strong>Ajuste da Pr&oacute;xima Data</strong>
+                  <span id="incrementoAjusteProxima" class="muted">+0 dia(s)</span>
+                </div>
+                <div class="detail-mini-card">
+                  <strong>Incremento de Par&acirc;metro Necess&aacute;rio</strong>
+                  <span id="incrementoParametroTotal" class="muted">+0 dia(s)</span>
+                </div>
+              </div>
+
+              <label class="detail-observation-field">
+                Observa&ccedil;&atilde;o<br>
+                <textarea id="agendaObservacao" rows="2" placeholder="Tratado pela tela"></textarea>
+              </label>
+            </section>
+
+            <aside class="detail-treatment-side">
+              <div class="parameter-highlight">
+                <strong>Novo Par&acirc;metro de Compras</strong>
+                <span id="novoParametro" class="kpi-emphasis">0</span>
+              </div>
+              <div class="detail-button-row">
+                <button id="openAgendaSupplierNotesButton" class="postit-button detail-note-action" type="button">Notas</button>
+                <button id="tratarAgendaButton" class="btn btn-table detail-primary-action" type="button">Tratar Agenda</button>
+                <button class="btn btn-outline btn-sm detail-secondary-action" type="button" data-close-modal="agendaDetailModal">Cancelar</button>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div id="agendaDetailFeedback" class="msg hidden"></div>
+      </form>
+    </dialog>
+
+    <dialog id="settingsModal" class="details-modal">
+      <form method="dialog" class="modal-card">
+        <button class="close-button" type="button" data-close-modal="settingsModal" aria-label="Fechar ambiente do portal">
+          <span class="close-glyph">&#10005;</span>
+        </button>
+        <div class="section-title">
+          <div>
+            <h2>Ambiente do Portal</h2>
+            <p class="muted">Configura&ccedil;&atilde;o do Supabase e identidade visual do cliente.</p>
+          </div>
+        </div>
+
+        <div class="grid detail-grid">
+          <label>URL do Supabase<br><input id="supabaseUrl" type="url" placeholder="https://seu-projeto.supabase.co"></label>
+          <label>Chave publishable<br><input id="supabaseKey" type="password" placeholder="sb_publishable_..."></label>
+          <label>Tenant operacional<br><input id="tenantId" type="text" placeholder="UUID do tenant"></label>
+          <label>Logomarca do cliente (arquivo)<br><input id="logoArquivo" type="file" accept=".jpg,.jpeg,.png,.webp"></label>
+          <div class="photo-preview-card">
+            <strong>Pr&eacute;-visualiza&ccedil;&atilde;o da logomarca</strong>
+            <img id="logoPreview" class="logo-preview" src="assets/logo_alta.jpg" alt="Logomarca atual">
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="saveSettingsButton" class="btn" type="button">Salvar Configura&ccedil;&atilde;o</button>
+          <button id="syncAllButton" class="btn btn-outline" type="button">Sincronizar Agora</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="auditPasswordModal" class="details-modal">
+      <form method="dialog" class="modal-card audit-password-card">
+        <button class="close-button" type="button" data-close-modal="auditPasswordModal" aria-label="Fechar senha da auditoria">
+          <span class="close-glyph">&#10005;</span>
+        </button>
+        <div class="section-title">
+          <div>
+            <h2>Auditoria da Opera&ccedil;&atilde;o</h2>
+            <p class="muted">Informe a senha de auditoria cadastrada no painel administrativo para abrir a vis&atilde;o gerencial.</p>
+          </div>
+        </div>
+        <label>
+          Senha da auditoria<br>
+          <input id="auditPasswordInput" type="password" placeholder="Digite a senha cadastrada">
+        </label>
+        <div id="auditPasswordFeedback" class="msg hidden"></div>
+        <div class="actions">
+          <button id="unlockAuditButton" class="btn" type="button">Abrir auditoria</button>
+          <button class="btn btn-outline" type="button" data-close-modal="auditPasswordModal">Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="auditModal" class="details-modal">
+      <form method="dialog" class="modal-card audit-modal-card">
+        <button class="close-button" type="button" data-close-modal="auditModal" aria-label="Fechar auditoria">
+          <span class="close-glyph">&#10005;</span>
+        </button>
+        <div class="section-title">
+          <div>
+            <h2>Auditoria da Opera&ccedil;&atilde;o</h2>
+            <p class="muted">Vis&atilde;o sint&eacute;tica e detalhada dos eventos da agenda, agrupados por comprador.</p>
+          </div>
+          <div class="actions">
+            <button id="refreshAuditButton" class="btn btn-outline btn-sm" type="button">Atualizar vis&atilde;o</button>
+          </div>
+        </div>
+
+        <div class="audit-filter-bar">
+          <label>
+            Per&iacute;odo<br>
+            <select id="auditPeriodPreset">
+              <option value="30dias">Últimos 30 dias</option>
+              <option value="ultimo_mes">Último mês</option>
+              <option value="ultima_semana">Última semana</option>
+              <option value="personalizado">Entre datas</option>
+            </select>
+          </label>
+          <label>
+            In&iacute;cio<br>
+            <div class="date-input-group">
+              <input id="auditStartDate" type="text" inputmode="numeric" placeholder="DD/MM/AAAA">
+              <button id="auditStartDatePickerButton" class="date-picker-button" type="button" aria-label="Abrir calendário da data inicial da auditoria">&#128197;</button>
+              <input id="auditStartDateNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+            </div>
+          </label>
+          <label>
+            Fim<br>
+            <div class="date-input-group">
+              <input id="auditEndDate" type="text" inputmode="numeric" placeholder="DD/MM/AAAA">
+              <button id="auditEndDatePickerButton" class="date-picker-button" type="button" aria-label="Abrir calendário da data final da auditoria">&#128197;</button>
+              <input id="auditEndDateNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+            </div>
+          </label>
+          <div id="auditPeriodSummary" class="audit-period-summary muted"></div>
+        </div>
+
+        <div id="auditSummaryGrid" class="kpi-grid"></div>
+
+        <div class="audit-layout">
+          <section class="audit-block">
+            <div class="section-title">
+              <div>
+                <h3>Leitura sint&eacute;tica</h3>
+                <p class="muted">Indicadores consolidados da opera&ccedil;&atilde;o auditada.</p>
+              </div>
+            </div>
+            <div id="auditInsights" class="audit-insights"></div>
+          </section>
+
+          <section class="audit-block">
+            <div class="section-title">
+              <div>
+                <h3>Intelig&ecirc;ncia artificial</h3>
+                <p class="muted">Planos e recomenda&ccedil;&otilde;es geradas a partir do hist&oacute;rico de eventos.</p>
+              </div>
+            </div>
+            <div id="auditAiAnalysis" class="audit-insights"></div>
+          </section>
+        </div>
+
+        <section class="audit-block">
+          <div class="section-title">
+            <div>
+              <h3>Auditoria por comprador</h3>
+              <p class="muted">Clique para expandir o detalhamento e fazer drill down por evento.</p>
+            </div>
+          </div>
+          <div id="auditBuyerGroups" class="audit-groups"></div>
+        </section>
+      </form>
+    </dialog>
+
+    <dialog id="buyerLoginModal" class="details-modal">
+      <form method="dialog" class="modal-card audit-password-card">
+        <button class="close-button" type="button" data-close-modal="buyerLoginModal" aria-label="Fechar login do comprador">
+          <span class="close-glyph">&#10005;</span>
+        </button>
+        <div class="section-title">
+          <div>
+            <h2>Acesso ao Portal</h2>
+            <p id="buyerLoginHint" class="muted">Entre com o e-mail e a senha. O e-mail do responsável do cliente entra como Administrador do Cliente; os compradores usam o e-mail cadastrado na carteira operacional.</p>
+          </div>
+        </div>
+        <label>
+          E-mail de acesso<br>
+          <input id="buyerLoginEmail" type="email" placeholder="nome@cliente.com.br">
+        </label>
+        <label>
+          Senha<br>
+          <input id="buyerLoginPassword" type="password" placeholder="Digite sua senha">
+        </label>
+        <label id="buyerLoginConfirmWrap" class="hidden">
+          Confirmar senha do primeiro acesso<br>
+          <input id="buyerLoginPasswordConfirm" type="password" placeholder="Repita a senha para ativar o acesso">
+        </label>
+        <div id="buyerLoginFeedback" class="msg hidden"></div>
+        <div class="actions">
+          <button id="buyerLoginButton" class="btn" type="button">Entrar no portal</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="supplierNotesModal" class="details-modal">
+      <form method="dialog" class="modal-card audit-password-card">
+        <button class="close-button" type="button" data-close-modal="supplierNotesModal" aria-label="Fechar notas do fornecedor">
+          <span class="close-glyph">&#10005;</span>
+        </button>
+        <div class="section-title">
+          <div>
+            <h2>Notas do Fornecedor</h2>
+            <p class="muted">Registre pendências, observações e informações importantes do relacionamento com este fornecedor.</p>
+          </div>
+        </div>
+        <input id="supplierNotesSupplierId" type="hidden">
+        <div class="postit-note-shell">
+          <textarea id="supplierNotesInput" rows="10" placeholder="Ex.: combinar nova condição comercial, pendência de entrega, observação sobre atendimento, contato do representante..."></textarea>
+        </div>
+        <div class="actions">
+          <button id="saveSupplierNotesButton" class="btn" type="button">Salvar notas</button>
+          <button class="btn btn-outline" type="button" data-close-modal="supplierNotesModal">Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="script.js"></script>
+  </body>
+</html>

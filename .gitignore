@@ -31,3 +31,7 @@ build/
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Local review artifacts
+_tmp_zip_review/
+Agenda_de_Compras_versao_teste.zip
