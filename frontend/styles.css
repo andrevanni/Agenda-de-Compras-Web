@@ -958,15 +958,7 @@ textarea::placeholder {
 }
 
 .native-date-proxy {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 54px;
-  height: 50px;
-  opacity: 0;
-  cursor: pointer;
-  z-index: 3;
-  display: block;
+  display: none;
 }
 
 .native-date-proxy::-webkit-datetime-edit,

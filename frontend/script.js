@@ -1655,6 +1655,7 @@ function setupDatePickerField(textInputId, nativeInputId, buttonId) {
   const textInput = document.getElementById(textInputId);
   const nativeInput = document.getElementById(nativeInputId);
   const button = document.getElementById(buttonId);
+  let restoringFromPicker = false;
 
   if (!textInput || !nativeInput || !button || textInput.dataset.datePickerBound === "1") {
     return;
@@ -1663,18 +1664,51 @@ function setupDatePickerField(textInputId, nativeInputId, buttonId) {
   textInput.dataset.datePickerBound = "1";
   syncNativeDateProxy(textInput, nativeInput);
 
+  const restoreTextFromIso = (isoValue) => {
+    restoringFromPicker = true;
+    textInput.type = "text";
+    textInput.value = isoValue ? isoToBr(isoValue) : "";
+    syncNativeDateProxy(textInput, nativeInput);
+    window.setTimeout(() => {
+      restoringFromPicker = false;
+      textInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }, 0);
+  };
+
+  const openNativePicker = () => {
+    const isoValue = brToIso(textInput.value) || nativeInput.value || "";
+    textInput.type = "date";
+    textInput.value = isoValue || "";
+    window.setTimeout(() => {
+      if (typeof textInput.showPicker === "function") {
+        textInput.showPicker();
+      } else {
+        textInput.focus();
+        textInput.click();
+      }
+    }, 0);
+  };
+
   textInput.addEventListener("change", () => {
+    if (restoringFromPicker) return;
+    if (textInput.type === "date") {
+      restoreTextFromIso(textInput.value);
+      return;
+    }
+    syncNativeDateProxy(textInput, nativeInput);
+  });
+
+  textInput.addEventListener("blur", () => {
+    if (textInput.type === "date") {
+      restoreTextFromIso(textInput.value);
+      return;
+    }
     syncNativeDateProxy(textInput, nativeInput);
   });
 
   button.addEventListener("click", (event) => {
     event.preventDefault();
-    syncNativeDateProxy(textInput, nativeInput);
-    nativeInput.focus();
-    nativeInput.click();
-    if (typeof nativeInput.showPicker === "function") {
-      nativeInput.showPicker();
-    }
+    openNativePicker();
   });
 
   nativeInput.addEventListener("change", () => {
