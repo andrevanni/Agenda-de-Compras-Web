@@ -397,7 +397,7 @@
     </dialog>
 
     <dialog id="auditPasswordModal" class="details-modal">
-      <form method="dialog" class="modal-card audit-password-card">
+      <form id="auditPasswordForm" method="dialog" class="modal-card audit-password-card">
         <button class="close-button" type="button" data-close-modal="auditPasswordModal" aria-label="Fechar senha da auditoria">
           <span class="close-glyph">&#10005;</span>
         </button>
@@ -413,7 +413,7 @@
         </label>
         <div id="auditPasswordFeedback" class="msg hidden"></div>
         <div class="actions">
-          <button id="unlockAuditButton" class="btn" type="button">Abrir auditoria</button>
+          <button id="unlockAuditButton" class="btn" type="submit">Abrir auditoria</button>
           <button class="btn btn-outline" type="button" data-close-modal="auditPasswordModal">Cancelar</button>
         </div>
       </form>

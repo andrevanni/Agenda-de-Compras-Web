@@ -1656,6 +1656,7 @@ function setupDatePickerField(textInputId, nativeInputId, buttonId) {
   const nativeInput = document.getElementById(nativeInputId);
   const button = document.getElementById(buttonId);
   let restoringFromPicker = false;
+  let pickerOpen = false;
 
   if (!textInput || !nativeInput || !button || textInput.dataset.datePickerBound === "1") {
     return;
@@ -1664,11 +1665,34 @@ function setupDatePickerField(textInputId, nativeInputId, buttonId) {
   textInput.dataset.datePickerBound = "1";
   syncNativeDateProxy(textInput, nativeInput);
 
+  const showNativeInput = () => {
+    nativeInput.style.display = "block";
+    nativeInput.style.position = "absolute";
+    nativeInput.style.inset = "0";
+    nativeInput.style.width = "1px";
+    nativeInput.style.height = "1px";
+    nativeInput.style.opacity = "0";
+    nativeInput.style.pointerEvents = "none";
+    nativeInput.style.zIndex = "-1";
+  };
+
+  const hideNativeInput = () => {
+    nativeInput.style.display = "";
+    nativeInput.style.position = "";
+    nativeInput.style.inset = "";
+    nativeInput.style.width = "";
+    nativeInput.style.height = "";
+    nativeInput.style.opacity = "";
+    nativeInput.style.pointerEvents = "";
+    nativeInput.style.zIndex = "";
+    pickerOpen = false;
+  };
+
   const restoreTextFromIso = (isoValue) => {
     restoringFromPicker = true;
-    textInput.type = "text";
     textInput.value = isoValue ? isoToBr(isoValue) : "";
     syncNativeDateProxy(textInput, nativeInput);
+    hideNativeInput();
     window.setTimeout(() => {
       restoringFromPicker = false;
       textInput.dispatchEvent(new Event("change", { bubbles: true }));
@@ -1677,32 +1701,25 @@ function setupDatePickerField(textInputId, nativeInputId, buttonId) {
 
   const openNativePicker = () => {
     const isoValue = brToIso(textInput.value) || nativeInput.value || "";
-    textInput.type = "date";
-    textInput.value = isoValue || "";
+    nativeInput.value = isoValue || "";
+    showNativeInput();
+    pickerOpen = true;
     window.setTimeout(() => {
-      if (typeof textInput.showPicker === "function") {
-        textInput.showPicker();
+      if (typeof nativeInput.showPicker === "function") {
+        nativeInput.showPicker();
       } else {
-        textInput.focus();
-        textInput.click();
+        nativeInput.focus();
+        nativeInput.click();
       }
     }, 0);
   };
 
   textInput.addEventListener("change", () => {
     if (restoringFromPicker) return;
-    if (textInput.type === "date") {
-      restoreTextFromIso(textInput.value);
-      return;
-    }
     syncNativeDateProxy(textInput, nativeInput);
   });
 
   textInput.addEventListener("blur", () => {
-    if (textInput.type === "date") {
-      restoreTextFromIso(textInput.value);
-      return;
-    }
     syncNativeDateProxy(textInput, nativeInput);
   });
 
@@ -1714,6 +1731,16 @@ function setupDatePickerField(textInputId, nativeInputId, buttonId) {
   nativeInput.addEventListener("change", () => {
     textInput.value = nativeInput.value ? isoToBr(nativeInput.value) : "";
     textInput.dispatchEvent(new Event("change", { bubbles: true }));
+    hideNativeInput();
+  });
+
+  nativeInput.addEventListener("blur", () => {
+    if (!pickerOpen) return;
+    window.setTimeout(() => {
+      if (pickerOpen) {
+        hideNativeInput();
+      }
+    }, 0);
   });
 }
 
@@ -2400,7 +2427,10 @@ function bindStaticEvents() {
     openSupplierNotes(row.supplier.id);
   });
   document.getElementById("buyerLoginButton").addEventListener("click", loginBuyer);
-  document.getElementById("unlockAuditButton").addEventListener("click", unlockAuditView);
+  document.getElementById("auditPasswordForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    unlockAuditView();
+  });
   document.getElementById("auditPeriodPreset").addEventListener("change", () => {
     syncAuditPeriodInputs();
     renderAuditDashboard();
@@ -3205,7 +3235,10 @@ function bindStaticEvents() {
   document.getElementById("saveSupplierNotesButton").addEventListener("click", saveSupplierNotesDraft);
   document.getElementById("buyerLoginButton").addEventListener("click", loginBuyer);
   document.getElementById("buyerLoginEmail").addEventListener("input", updatePortalLoginHint);
-  document.getElementById("unlockAuditButton").addEventListener("click", unlockAuditView);
+  document.getElementById("auditPasswordForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    unlockAuditView();
+  });
   document.getElementById("auditPeriodPreset").addEventListener("change", () => {
     syncAuditPeriodInputs();
     renderAuditDashboard();
