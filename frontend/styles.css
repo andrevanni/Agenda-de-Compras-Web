@@ -774,6 +774,22 @@ textarea::placeholder {
   max-width: min(1320px, calc(100vw - 28px));
 }
 
+.audit-header-actions {
+  align-items: center;
+  gap: 12px;
+}
+
+.audit-close-button {
+  position: static;
+  right: auto;
+  bottom: auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  flex: 0 0 auto;
+  box-shadow: 0 10px 20px rgba(4, 19, 23, 0.18);
+}
+
 .audit-filter-bar {
   display: grid;
   grid-template-columns: 220px 180px 180px 1fr;

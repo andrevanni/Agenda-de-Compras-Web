@@ -421,15 +421,15 @@
 
     <dialog id="auditModal" class="details-modal">
       <form method="dialog" class="modal-card audit-modal-card">
-        <button class="close-button" type="button" data-close-modal="auditModal" aria-label="Fechar auditoria">
-          <span class="close-glyph">&#10005;</span>
-        </button>
         <div class="section-title">
           <div>
             <h2>Auditoria da Opera&ccedil;&atilde;o</h2>
             <p class="muted">Vis&atilde;o sint&eacute;tica e detalhada dos eventos da agenda, agrupados por comprador.</p>
           </div>
-          <div class="actions">
+          <div class="actions audit-header-actions">
+            <button class="close-button audit-close-button" type="button" data-close-modal="auditModal" aria-label="Fechar auditoria">
+              <span class="close-glyph">&#10005;</span>
+            </button>
             <button id="refreshAuditButton" class="btn btn-outline btn-sm" type="button">Atualizar vis&atilde;o</button>
           </div>
         </div>
