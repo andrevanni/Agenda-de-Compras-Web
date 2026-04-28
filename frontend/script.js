@@ -29,6 +29,7 @@ const storageKeys = {
   activeBuyerId: "agenda_cliente_active_buyer_id",
   loggedBuyerId: "agenda_cliente_logged_buyer_id",
   loggedPortalRole: "agenda_cliente_logged_portal_role",
+  sidebarCollapsed: "agenda_sidebar_collapsed",
   loggedPortalEmail: "agenda_cliente_logged_portal_email",
   logoUrl: "agenda_cliente_logo_url",
   theme: "agenda_ui_theme",
@@ -2384,6 +2385,7 @@ function bindStaticEvents() {
   document.getElementById("openSettingsButtonTop").addEventListener("click", openSettings);
   document.getElementById("openAuditButtonTop").addEventListener("click", openAuditPasswordModal);
   document.getElementById("logoutPortalButtonTop").addEventListener("click", logoutPortalSession);
+  document.getElementById("sidebarToggle")?.addEventListener("click", toggleSidebar);
   document.getElementById("openFornecedorNotasButton").addEventListener("click", () => openSupplierNotes());
   document.getElementById("openAgendaSupplierNotesButton").addEventListener("click", () => {
     const row = occurrenceRows().find((item) => item.id === state.selectedOccurrenceId);
@@ -2708,6 +2710,31 @@ function renderKpis() {
       <strong>${value}</strong>
     </div>
   `).join("");
+}
+
+// ============================================================
+// SIDEBAR RECOLHÍVEL
+// ============================================================
+
+function initSidebarState() {
+  const collapsed = localStorage.getItem(storageKeys.sidebarCollapsed) !== "false";
+  const sidebar = document.querySelector(".sidebar");
+  if (!sidebar) return;
+  if (collapsed) {
+    sidebar.classList.add("collapsed");
+  } else {
+    sidebar.classList.remove("collapsed");
+  }
+}
+
+function toggleSidebar() {
+  const sidebar = document.querySelector(".sidebar");
+  if (!sidebar) return;
+  const isCollapsed = sidebar.classList.toggle("collapsed");
+  localStorage.setItem(storageKeys.sidebarCollapsed, isCollapsed ? "true" : "false");
+  if (state.calendarInstance) {
+    setTimeout(() => state.calendarInstance.updateSize(), 230);
+  }
 }
 
 // ============================================================
@@ -3163,6 +3190,7 @@ async function saveNewEvent() {
 
 async function bootstrap() {
   applyTheme();
+  initSidebarState();
   renderSupplierDayCheckboxes([]);
   populateSettings();
   bindStaticEvents();
