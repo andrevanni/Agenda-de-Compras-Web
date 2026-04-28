@@ -1,0 +1,16 @@
+{
+  "name": "Agenda de Compras",
+  "short_name": "Agenda",
+  "description": "Portal operacional de agenda de compras por fornecedor",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1621",
+  "theme_color": "#0f1621",
+  "icons": [
+    {
+      "src": "assets/logo_alta.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    }
+  ]
+}

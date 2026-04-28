@@ -894,6 +894,13 @@ function showSection(sectionId) {
   document.querySelectorAll(".section-view").forEach((section) => {
     section.classList.toggle("hidden", section.id !== sectionId);
   });
+  if (sectionId === "calendario") {
+    if (state.calendarInstance) {
+      setTimeout(() => state.calendarInstance.updateSize(), 50);
+    } else {
+      initCalendar();
+    }
+  }
 }
 
 function mapSupplier(item) {
