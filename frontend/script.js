@@ -2779,6 +2779,10 @@ function initCalendar() {
     slotMaxTime: "18:00:00",
     scrollTime: "08:00:00",
     slotDuration: "00:30:00",
+    navLinks: true,
+    navLinkDayClick: "timeGridDay",
+    selectable: true,
+    selectMirror: true,
     events: buildCalendarEvents(),
     eventClick(info) {
       const { occ } = info.event.extendedProps;
@@ -2788,8 +2792,8 @@ function initCalendar() {
         openGenericEventDetail(occ);
       }
     },
-    dateClick(info) {
-      openNewEventModal(info.dateStr);
+    select(info) {
+      openNewEventModal(info.startStr.slice(0, 10));
     },
   });
 
