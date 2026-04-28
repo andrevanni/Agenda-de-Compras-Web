@@ -335,6 +335,8 @@ body[data-theme="light"] .theme-chip.active {
   display: flex;
   align-items: center;
   gap: 10px;
+  overflow: hidden;
+  width: 100%;
 }
 
 .sidebar.collapsed .nav-link {
