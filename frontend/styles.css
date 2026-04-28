@@ -1128,3 +1128,71 @@ body[data-theme="light"] .postit-note-shell textarea {
     font-size: 20px;
   }
 }
+
+/* ============================================================
+   FullCalendar — integração com o tema do portal
+   ============================================================ */
+
+#fullCalendar {
+  padding: 8px 0 16px;
+}
+
+.fc {
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.fc .fc-button {
+  background: var(--btn-bg, #2563eb);
+  border-color: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.fc .fc-button:hover {
+  opacity: 0.85;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+  background: var(--accent, #1d4ed8);
+  border-color: transparent;
+}
+
+[data-theme="dark"] .fc .fc-col-header-cell,
+[data-theme="dark"] .fc .fc-daygrid-day,
+[data-theme="dark"] .fc .fc-timegrid-col,
+[data-theme="dark"] .fc-theme-standard td,
+[data-theme="dark"] .fc-theme-standard th {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .fc .fc-toolbar-title,
+[data-theme="dark"] .fc .fc-col-header-cell-cushion,
+[data-theme="dark"] .fc .fc-daygrid-day-number {
+  color: var(--text, #f1f5f9);
+}
+
+[data-theme="dark"] .fc .fc-daygrid-day.fc-day-today {
+  background: rgba(37, 99, 235, 0.15);
+}
+
+[data-theme="light"] .fc .fc-daygrid-day.fc-day-today {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.fc .fc-event {
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 1px 4px;
+  cursor: pointer;
+}
+
+.fc .fc-event:hover {
+  opacity: 0.88;
+}

@@ -103,7 +103,7 @@ const mockAgenda = [
 ];
 
 const state = {
-  currentSection: "agenda-dia",
+  currentSection: "calendario",
   selectedOccurrenceId: null,
   tenantName: "Service Farma",
   clientRecordId: null,
@@ -120,6 +120,8 @@ const state = {
   suppliers: structuredClone(mockSuppliers),
   agenda: [],
   auditOccurrences: [],
+  categorias: [],
+  calendarInstance: null,
 };
 
 const feedbackBox = document.getElementById("feedbackBox");
@@ -350,72 +352,6 @@ function updateBuyerCard() {
   applyAvatarMarkup("topBuyerAvatar", filterBuyer, "avatar-sm");
 }
 
-function openBuyerLoginModal() {
-  clearFeedback(document.getElementById("buyerLoginFeedback"));
-  document.getElementById("buyerLoginEmail").value = "";
-  document.getElementById("buyerLoginPassword").value = "";
-  document.getElementById("buyerLoginModal").showModal();
-}
-
-function ensureBuyerLoginSession() {
-  const sessionBuyer = loggedBuyer();
-  if (sessionBuyer) {
-    return true;
-  }
-  if (state.buyers.length) {
-    openBuyerLoginModal();
-    return false;
-  }
-  return true;
-}
-
-function loginBuyer() {
-  const email = document.getElementById("buyerLoginEmail").value.trim().toLowerCase();
-  const password = document.getElementById("buyerLoginPassword").value.trim();
-  const feedbackTarget = document.getElementById("buyerLoginFeedback");
-
-  if (!email || !password) {
-    setFeedback("Informe e-mail e senha do comprador.", "error", feedbackTarget);
-    return;
-  }
-
-  const buyer = state.buyers.find((item) => (item.email ?? "").toLowerCase() === email);
-  if (!buyer) {
-    setFeedback("Comprador não localizado para este cliente.", "error", feedbackTarget);
-    return;
-  }
-
-  if ((buyer.senha_hash ?? "") !== password) {
-    setFeedback("Senha inválida.", "error", feedbackTarget);
-    return;
-  }
-
-  localStorage.setItem(storageKeys.loggedBuyerId, buyer.id);
-  if (!getSettings().activeBuyerId) {
-    localStorage.setItem(storageKeys.activeBuyerId, buyer.id);
-  }
-  closeModal("buyerLoginModal");
-  updateBuyerCard();
-  renderTables();
-}
-
-function occurrenceRows() {
-  return state.agenda
-    .map((occurrence) => {
-      const supplier = supplierById(occurrence.fornecedor_id);
-      return {
-        ...occurrence,
-        supplier,
-        codigo_fornecedor: supplier?.codigo_fornecedor ?? "-",
-        nome_fornecedor: supplier?.nome_fornecedor ?? "Fornecedor não localizado",
-        frequencia_revisao: supplier?.frequencia_revisao ?? 0,
-        dias_compra: supplier?.dias_compra ?? [],
-        comprador_nome: supplier?.comprador_nome ?? "Sem Comprador",
-      };
-    })
-    .filter((row) => row.supplier);
-}
-
 function filteredRows(scope) {
   const rows = occurrenceRows();
   const { activeBuyerId } = getSettings();
@@ -464,23 +400,6 @@ function renderBuyerSelect() {
   updateBuyerCard();
 }
 
-function renderKpis() {
-  const rows = filteredRows("proximas-agendas");
-  const data = [
-    ["Hoje", filteredRows("agenda-dia").length],
-    ["Próximas", rows.filter((row) => row.data_prevista > todayIso()).length],
-    ["Atrasadas", filteredRows("atrasadas").length],
-    ["Sem comprador", state.suppliers.filter((supplier) => !supplier.comprador_id).length],
-  ];
-
-  document.getElementById("agendaDiaStats").innerHTML = data.map(([label, value]) => `
-    <div class="kpi-card">
-      <span class="muted">${label}</span>
-      <strong>${value}</strong>
-    </div>
-  `).join("");
-}
-
 function tableRowForAgenda(row) {
   return `
     <tr>
@@ -494,46 +413,6 @@ function tableRowForAgenda(row) {
       </td>
     </tr>
   `;
-}
-
-function renderAgendaTables() {
-  const sections = [
-    ["agendaDiaTable", "agenda-dia", "Sem agendas pendentes para hoje.", 6],
-    ["proximasAgendasTable", "proximas-agendas", "Sem proximas agendas.", 6],
-    ["atrasadasTable", "atrasadas", "Sem agendas atrasadas.", 6],
-  ];
-
-  sections.forEach(([targetId, scope, emptyText, colspan]) => {
-    const rows = filteredRows(scope);
-    document.getElementById(targetId).innerHTML = rows.length
-      ? rows.map(tableRowForAgenda).join("")
-      : `<tr><td colspan="${colspan}">${emptyText}</td></tr>`;
-  });
-
-  document.querySelectorAll("[data-open-occurrence]").forEach((button) => {
-    button.addEventListener("click", () => openAgendaDetail(button.dataset.openOccurrence));
-  });
-}
-
-function renderSemComprador() {
-  const rows = state.suppliers.filter((supplier) => !supplier.comprador_id);
-  document.getElementById("semCompradorTable").innerHTML = rows.length
-    ? rows.map((row) => `
-      <tr>
-        <td>${row.codigo_fornecedor}</td>
-        <td>${row.nome_fornecedor}</td>
-        <td>${row.dias_compra.join(", ")}</td>
-        <td>${row.frequencia_revisao}</td>
-        <td class="td-actions">
-          <button class="btn btn-outline btn-sm btn-table" data-edit-supplier="${row.id}">Editar Fornecedor</button>
-        </td>
-      </tr>
-    `).join("")
-    : `<tr><td colspan="5">Todos os fornecedores estao vinculados.</td></tr>`;
-
-  document.querySelectorAll("[data-edit-supplier]").forEach((button) => {
-    button.addEventListener("click", () => editSupplier(button.dataset.editSupplier));
-  });
 }
 
 function renderSuppliers() {
@@ -709,40 +588,8 @@ async function backfillMissingPendingOccurrences(suppliers, agendaRows) {
   return createdCount;
 }
 
-async function synchronizePendingAgendaSeeds() {
-  setFeedback("Sincronizando agenda dos fornecedores com a base operacional...", "info");
-  try {
-    let createdCount = 0;
-    for (const supplier of state.suppliers) {
-      const result = await ensurePendingOccurrenceForSupplier(supplier);
-      if (result.created) createdCount += 1;
-    }
-    await loadPortalData({ silent: true, preserveFeedback: true });
-    setFeedback(
-      createdCount
-        ? `Sincronização concluída. ${createdCount} agenda(s) pendente(s) foram geradas.`
-        : "Sincronização concluída. Todos os fornecedores já estavam com agenda pendente ativa.",
-      "success"
-    );
-  } catch (error) {
-    setFeedback(`Não foi possível sincronizar a agenda operacional: ${error.message}`, "error");
-  }
-}
-
 function selectedSupplierDays() {
   return Array.from(document.querySelectorAll('input[name="dias_semana"]:checked')).map((input) => input.value);
-}
-
-function refreshSupplierSuggestion() {
-  const frequency = Number(document.getElementById("fornecedorFrequencia").value || 0);
-  const baseDate = brToIso(document.getElementById("fornecedorDataPrimeiroPedido").value);
-  const days = selectedSupplierDays();
-  if (!baseDate || !frequency || !days.length) {
-    sugestaoProximaData.textContent = "Preencha Data Pedido, Frequência e Dias para ver a sugestão.";
-    return;
-  }
-  const suggested = calculateSuggestedDate(baseDate, frequency, days);
-  sugestaoProximaData.textContent = suggested ? `${formatDate(suggested)} (${DIAS_LABEL[parseIsoToWeekdayName(suggested)]})` : "Não foi possível calcular.";
 }
 
 function renderSupplierDayCheckboxes(selected = []) {
@@ -1035,225 +882,6 @@ function aggregateAuditMetrics(entries) {
   });
 }
 
-function buildAuditRecommendations(entries) {
-  const metrics = aggregateAuditMetrics(entries);
-  const recommendations = [];
-
-  recommendations.push({
-    title: "Resumo executivo",
-    text: `${metrics.total} evento(s) auditado(s), com ${metrics.cumpridas} agenda(s) cumprida(s), ${metrics.postergadas} postergações, ${metrics.aumentos} aumento(s) e ${metrics.reducoes} redução(ões) de parâmetro.`,
-  });
-
-  if (metrics.postergadas >= 3) {
-    recommendations.push({
-      title: "Risco de atraso acumulado",
-      text: "A quantidade de postergações sugere revisar a carga por comprador, os dias de compra e a aderência da frequência de revisão por fornecedor.",
-    });
-  }
-
-  if (metrics.aumentos > metrics.reducoes) {
-    recommendations.push({
-      title: "Pressao de estoque",
-      text: "Os aumentos de parâmetro superaram as reduções. Vale revisar fornecedores com recorrência de ajuste para elevar o parâmetro base ou o lead time esperado.",
-    });
-  } else if (metrics.reducoes > metrics.aumentos) {
-    recommendations.push({
-      title: "Espaco para enxugar estoque",
-      text: "As reduções de parâmetro estão predominando. Considere revisar fornecedores com sobrecobertura e ajustar a política base de parâmetro.",
-    });
-  }
-
-  const withoutBuyer = entries.filter((entry) => entry.buyerId === "sem-comprador").length;
-  if (withoutBuyer) {
-    recommendations.push({
-      title: "Carteira sem dono",
-      text: `${withoutBuyer} evento(s) ainda estão sem comprador vinculado. O ideal é distribuir esses fornecedores para fechar a rastreabilidade da auditoria.`,
-    });
-  }
-
-  if (recommendations.length === 1) {
-    recommendations.push({
-      title: "Operacao estavel",
-      text: "Não foram detectados desvios relevantes. Mantenha a rotina de revisão e acompanhe a evolução semanal dos eventos por comprador.",
-  });
-  }
-
-  return recommendations;
-}
-
-function getAuditRange() {
-  const preset = document.getElementById("auditPeriodPreset")?.value ?? state.auditFilter.preset;
-  const customStart = brToIso(document.getElementById("auditStartDate")?.value ?? "");
-  const customEnd = brToIso(document.getElementById("auditEndDate")?.value ?? "");
-  const today = todayLocalIso();
-
-  if (preset === "ultima_semana") {
-    return { start: addDaysLocalIso(today, -6), end: today, label: "Últimos 7 dias" };
-  }
-
-  if (preset === "ultimo_mes") {
-    const range = previousMonthRange();
-    return { start: range.start, end: range.end, label: `Último mês: ${formatDate(range.start)} até ${formatDate(range.end)}` };
-  }
-
-  if (preset === "personalizado") {
-    return {
-      start: customStart || "",
-      end: customEnd || "",
-      label: customStart && customEnd
-        ? `Período personalizado: ${formatDate(customStart)} até ${formatDate(customEnd)}`
-        : "Período personalizado em aberto",
-    };
-  }
-
-  return { start: addDaysLocalIso(today, -29), end: today, label: "Últimos 30 dias" };
-}
-
-function syncAuditPeriodInputs() {
-  const presetInput = document.getElementById("auditPeriodPreset");
-  const startInput = document.getElementById("auditStartDate");
-  const endInput = document.getElementById("auditEndDate");
-  const summary = document.getElementById("auditPeriodSummary");
-  if (!presetInput || !startInput || !endInput || !summary) return;
-
-  const preset = presetInput.value;
-  const today = todayLocalIso();
-  let start = "";
-  let end = "";
-
-  if (preset === "30dias") {
-    start = addDaysLocalIso(today, -29);
-    end = today;
-  } else if (preset === "ultima_semana") {
-    start = addDaysLocalIso(today, -6);
-    end = today;
-  } else if (preset === "ultimo_mes") {
-    const range = previousMonthRange();
-    start = range.start;
-    end = range.end;
-  } else {
-    start = brToIso(startInput.value) || state.auditFilter.startDate || "";
-    end = brToIso(endInput.value) || state.auditFilter.endDate || "";
-  }
-
-  state.auditFilter = { preset, startDate: start, endDate: end };
-  startInput.value = isoToBr(start);
-  endInput.value = isoToBr(end);
-  startInput.disabled = preset !== "personalizado";
-  endInput.disabled = preset !== "personalizado";
-
-  const range = getAuditRange();
-  summary.textContent = range.label;
-}
-
-function renderAuditDashboard() {
-  const summaryGrid = document.getElementById("auditSummaryGrid");
-  const insights = document.getElementById("auditInsights");
-  const aiAnalysis = document.getElementById("auditAiAnalysis");
-  const buyerGroups = document.getElementById("auditBuyerGroups");
-
-  const entries = state.auditOccurrences
-    .map(classifyAuditEvent)
-    .filter((entry) => entry.status !== "PENDENTE" || entry.meta)
-    .sort((left, right) => String(right.actionDate).localeCompare(String(left.actionDate)));
-
-  const metrics = aggregateAuditMetrics(entries);
-  summaryGrid.innerHTML = [
-    ["Eventos", metrics.total],
-    ["Cumpridas", metrics.cumpridas],
-    ["Postergadas", metrics.postergadas],
-    ["Aumentos", metrics.aumentos],
-    ["Reduções", metrics.reducoes],
-    ["Antecipadas", metrics.antecipadas],
-  ].map(([label, value]) => `
-    <div class="kpi-card">
-      <span class="muted">${label}</span>
-      <strong>${value}</strong>
-    </div>
-  `).join("");
-
-  const syntheticCards = [
-    {
-      title: "Eventos auditáveis",
-      text: metrics.total ? "A trilha combina ocorrências tratadas, parâmetros ajustados e reprogramações feitas na agenda." : "Ainda não há eventos suficientes para a auditoria.",
-    },
-    {
-      title: "Acompanhamento por comprador",
-      text: "A visao abaixo agrupa o historico por comprador e permite expandir o detalhamento dos eventos registrados.",
-    },
-  ];
-
-  insights.innerHTML = syntheticCards.map((item) => `
-    <article class="audit-insight-card">
-      <strong>${item.title}</strong>
-      <div>${item.text}</div>
-    </article>
-  `).join("");
-
-  aiAnalysis.innerHTML = buildAuditRecommendations(entries).map((item) => `
-    <article class="audit-insight-card">
-      <strong>${item.title}</strong>
-      <div>${item.text}</div>
-    </article>
-  `).join("");
-
-  const grouped = new Map();
-  entries.forEach((entry) => {
-    if (!grouped.has(entry.buyerId)) {
-      grouped.set(entry.buyerId, []);
-    }
-    grouped.get(entry.buyerId).push(entry);
-  });
-
-  buyerGroups.innerHTML = grouped.size
-    ? Array.from(grouped.entries()).map(([buyerId, buyerEntries]) => {
-      const buyerMetrics = aggregateAuditMetrics(buyerEntries);
-      return `
-        <details class="audit-group" ${buyerId !== "sem-comprador" ? "open" : ""}>
-          <summary>
-            <div class="audit-group-summary">
-              <strong>${buyerEntries[0].buyerName}</strong>
-              <span class="muted">${buyerEntries.length} evento(s) auditado(s)</span>
-            </div>
-            <div class="audit-group-metrics">
-              <span class="audit-pill">Cumpridas: ${buyerMetrics.cumpridas}</span>
-              <span class="audit-pill">Postergadas: ${buyerMetrics.postergadas}</span>
-              <span class="audit-pill">Aumentos: ${buyerMetrics.aumentos}</span>
-            </div>
-          </summary>
-          <div class="audit-group-body table-wrap">
-            <table class="audit-event-table">
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Fornecedor</th>
-                  <th>Evento</th>
-                  <th>Impacto</th>
-                  <th>Detalhe</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${buyerEntries.map((entry) => `
-                  <tr>
-                    <td>${entry.actionDate ? formatDate(entry.actionDate) : "-"}</td>
-                    <td>${entry.supplierCode} - ${entry.supplierName}</td>
-                    <td>${entry.tipo}</td>
-                    <td>
-                      Parametro: ${Number(entry.meta?.incremento_parametro_dias ?? 0)} dia(s)<br>
-                      Proxima data: ${Number(entry.meta?.ajuste_proxima_data_dias ?? 0)} dia(s)
-                    </td>
-                    <td class="audit-event-note">${entry.resumo}</td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      `;
-    }).join("")
-    : `<div class="msg info">Ainda não há histórico suficiente para montar a auditoria detalhada.</div>`;
-}
-
 function showSection(sectionId) {
   state.currentSection = sectionId;
   clearFeedback();
@@ -1357,105 +985,6 @@ async function fetchSupabase(path, options = {}) {
     return JSON.parse(rawText);
   } catch {
     return rawText;
-  }
-}
-
-async function loadPortalData({ silent = false, preserveFeedback = false } = {}) {
-  if (!silent) {
-    setFeedback("Sincronizando portal do cliente com o Supabase...", "info");
-  }
-  const settings = getSettings();
-  try {
-    await detectSupplierNotesColumn();
-    const [tenantRows, clientRows, buyersRows, supplierRowsRaw, agendaRowsRaw, auditRows] = await Promise.all([
-      fetchSupabase(`/rest/v1/tenants?select=id,nome&id=eq.${settings.tenantId}&limit=1`),
-      fetchSupabase(`/rest/v1/clientes?select=id,nome_fantasia,razao_social,email_responsavel,observacoes&tenant_id=eq.${settings.tenantId}&limit=1`),
-      fetchSupabase(`/rest/v1/compradores?select=id,nome_comprador,telefone,email,foto_path,senha_hash&tenant_id=eq.${settings.tenantId}&order=nome_comprador.asc`),
-      fetchSupabase(`/rest/v1/fornecedores?select=id,codigo_fornecedor,nome_fornecedor,data_primeiro_pedido,frequencia_revisao,parametro_estoque,lead_time_entrega,parametro_compra,comprador_id,compradores(nome_comprador),fornecedor_dias_compra(dia_semana)&tenant_id=eq.${settings.tenantId}&order=nome_fornecedor.asc`),
-      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`),
-      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,observacao,data_realizacao,created_at,updated_at&tenant_id=eq.${settings.tenantId}&order=updated_at.desc`),
-    ]);
-
-    const supplierRows = supplierRowsRaw.map(mapSupplier);
-    let agendaRows = agendaRowsRaw;
-    const createdSeeds = await backfillMissingPendingOccurrences(supplierRows, agendaRowsRaw);
-    if (createdSeeds > 0) {
-      agendaRows = await fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`);
-      if (!silent && !preserveFeedback) {
-        setFeedback(`Portal do cliente carregado com sucesso. ${createdSeeds} agenda(s) pendente(s) foram geradas automaticamente.`, "success");
-      }
-    }
-
-    const clientRow = clientRows[0] ?? null;
-    const clientMeta = parseClientObservacoes(clientRow?.observacoes);
-    state.clientRecordId = clientRow?.id ?? null;
-    state.clientAdminEmail = clientRow?.email_responsavel ?? "";
-    state.tenantName = clientRow?.nome_fantasia ?? tenantRows[0]?.nome ?? "Service Farma";
-    state.clientMeta = clientMeta;
-    if (state.clientAdminEmail) {
-      state.clientMeta.admin_email = state.clientAdminEmail;
-    }
-    if (!state.clientMeta.audit_password && settings.tenantId === "c2f65634-b7e0-47f0-8937-94446540701a") {
-      state.clientMeta.audit_password = "service";
-    }
-
-    if (state.features.fornecedorNotasColuna) {
-      const supplierNotesRows = await fetchSupplierNotesRows();
-      const notesMap = new Map((supplierNotesRows ?? []).map((row) => [row.id, row.notas_relacionamento ?? ""]));
-      supplierRows.forEach((supplier) => {
-        if (notesMap.has(supplier.id)) {
-          supplier.notas_relacionamento = notesMap.get(supplier.id) ?? "";
-        }
-      });
-    } else {
-      const notesMap = getSupplierNotesMap(clientMeta);
-      supplierRows.forEach((supplier) => {
-        supplier.notas_relacionamento = notesMap[supplier.id] ?? supplier.notas_relacionamento ?? "";
-      });
-    }
-
-    state.buyers = buyersRows;
-    state.suppliers = supplierRows;
-    state.agenda = agendaRows;
-    state.auditOccurrences = auditRows;
-
-    if (clientMeta.logo_url) {
-      localStorage.setItem(storageKeys.logoUrl, clientMeta.logo_url);
-    }
-
-    if (tenantNameLabel) {
-      tenantNameLabel.textContent = state.tenantName;
-    }
-    applyLogo();
-
-    renderTables();
-    if (!silent && createdSeeds === 0) {
-      setFeedback("Portal do cliente carregado com sucesso.", "success");
-    } else if (!preserveFeedback) {
-      clearFeedback();
-    }
-  } catch (error) {
-    state.tenantName = "Service Farma";
-    state.clientRecordId = null;
-    state.clientMeta = {};
-    state.buyers = structuredClone(mockBuyers);
-    state.suppliers = structuredClone(mockSuppliers);
-    state.agenda = structuredClone(mockAgenda);
-    state.auditOccurrences = structuredClone(mockAgenda).map((item) => ({
-      ...item,
-      observacao: JSON.stringify({ type: "agenda_treatment", note: "Historico local de apoio." }),
-      data_realizacao: item.status === "REALIZADA" ? todayIso() : null,
-      created_at: `${todayIso()}T00:00:00`,
-      updated_at: `${todayIso()}T00:00:00`,
-    }));
-    if (tenantNameLabel) {
-      tenantNameLabel.textContent = state.tenantName;
-    }
-    applyLogo();
-    renderTables();
-    if (!preserveFeedback) {
-      setFeedback(`Não foi possível carregar a base real. Exibindo dados locais de apoio: ${error.message}`, "warning");
-    }
   }
 }
 
@@ -1633,16 +1162,6 @@ async function tratarAgendaAtual() {
   } catch (error) {
     setFeedback(`Não foi possível tratar a agenda: ${error.message}`, "error", agendaDetailFeedback);
   }
-}
-
-async function fileToDataUrl(file) {
-  if (!file) return null;
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo selecionado."));
-    reader.readAsDataURL(file);
-  });
 }
 
 function syncNativeDateProxy(textInput, nativeInput) {
@@ -2117,115 +1636,6 @@ function parseImportDays(value, frequency) {
   return orderedDays(completed).slice(0, required);
 }
 
-function parseSuppliersCsv(text) {
-  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (lines.length < 2) {
-    throw new Error("O CSV precisa ter cabecalho e pelo menos uma linha.");
-  }
-
-  const delimiter = lines[0].includes(";") ? ";" : ",";
-  const headers = splitCsvLine(lines[0], delimiter);
-  const codigoIndex = resolveColumnIndex(headers, ["codigo", "codigo fornecedor", "cod fornecedor", "cod"]);
-  const fabricanteIndex = resolveColumnIndex(headers, ["fabricante", "nome fornecedor", "fornecedor", "nome"]);
-  const dataPedidoIndex = resolveColumnIndex(headers, ["data pedido", "data do pedido", "data primeiro pedido"]);
-  const frequenciaIndex = resolveColumnIndex(headers, ["frequencia", "frequência", "freq"]);
-  const estoqueIndex = resolveColumnIndex(headers, ["parametro estoque", "parametro de estoque", "parâmetro estoque", "parâmetro de estoque"]);
-  const leadIndex = resolveColumnIndex(headers, ["lead time", "lead time entrega", "leadtime", "leadtime entrega"]);
-  const compradorIndex = resolveColumnIndex(headers, ["comprador", "nome comprador"]);
-  const diasIndex = resolveColumnIndex(headers, ["dias", "dias compra", "dias da semana", "dias de compra"]);
-
-  if ([codigoIndex, fabricanteIndex].some((index) => index < 0)) {
-    throw new Error("CSV invalido. Use colunas: Codigo e Nome.");
-  }
-
-  return lines.slice(1).map((line, rowIndex) => {
-    const parts = splitCsvLine(line, delimiter);
-    const codigo = String(parts[codigoIndex] ?? "").trim().toUpperCase();
-    const fabricante = String(parts[fabricanteIndex] ?? "").trim();
-    const frequencia = parseImportFrequency(frequenciaIndex >= 0 ? parts[frequenciaIndex] : "");
-    const estoqueRaw = String(estoqueIndex >= 0 ? parts[estoqueIndex] ?? "" : "").trim();
-    const leadRaw = String(leadIndex >= 0 ? parts[leadIndex] ?? "" : "").trim();
-    const parametroEstoque = Number(estoqueRaw.replace(",", "."));
-    const leadTime = Number(leadRaw.replace(",", "."));
-    const compradorNome = String(compradorIndex >= 0 ? parts[compradorIndex] ?? "" : "").trim();
-    const buyer = state.buyers.find((item) => item.nome_comprador.toLowerCase() === compradorNome.toLowerCase());
-    const diasCompra = parseImportDays(diasIndex >= 0 ? parts[diasIndex] : "", frequencia);
-
-    if (!codigo || !fabricante) {
-      throw new Error(`Linha ${rowIndex + 2}: codigo ou nome ausente.`);
-    }
-
-    let safeEstoque = Number.isNaN(parametroEstoque) ? frequencia : parametroEstoque;
-    if (safeEstoque < frequencia) {
-      safeEstoque = frequencia;
-    }
-    const safeLead = Number.isNaN(leadTime) || leadRaw === "" ? 1 : leadTime;
-
-    return {
-      tenant_id: getSettings().tenantId,
-      codigo_fornecedor: codigo,
-      nome_fornecedor: fabricante,
-      data_primeiro_pedido: parseImportDate(dataPedidoIndex >= 0 ? parts[dataPedidoIndex] : ""),
-      frequencia_revisao: frequencia,
-      parametro_estoque: safeEstoque,
-      lead_time_entrega: safeLead,
-      comprador_id: buyer?.id ?? null,
-      _dias_compra: diasCompra,
-      _row_number: rowIndex + 2,
-      _import_warning: estoqueRaw !== "" && !Number.isNaN(parametroEstoque) && parametroEstoque < frequencia
-        ? `Fornecedor ${codigo}: parâmetro ajustado para ${frequencia} porque não pode ser menor que a frequência.`
-        : null,
-    };
-  });
-}
-
-function validateSuppliersCsv(text) {
-  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (lines.length < 2) {
-    throw new Error("O CSV precisa ter cabecalho e pelo menos uma linha.");
-  }
-
-  const delimiter = lines[0].includes(";") ? ";" : ",";
-  const headers = splitCsvLine(lines[0], delimiter);
-  const codigoIndex = resolveColumnIndex(headers, ["codigo", "codigo fornecedor", "cod fornecedor", "cod"]);
-  const nomeIndex = resolveColumnIndex(headers, ["fabricante", "nome fornecedor", "fornecedor", "nome"]);
-
-  if ([codigoIndex, nomeIndex].some((index) => index < 0)) {
-    throw new Error("CSV invalido. Use pelo menos as colunas Codigo e Nome.");
-  }
-
-  let validRows = 0;
-  const issues = [];
-  const notices = [];
-
-  lines.slice(1).forEach((line, rowIndex) => {
-    const parts = splitCsvLine(line, delimiter);
-    const codigo = String(parts[codigoIndex] ?? "").trim();
-    const nome = String(parts[nomeIndex] ?? "").trim();
-    if (codigo && nome) {
-      validRows += 1;
-    } else {
-      issues.push(`Linha ${rowIndex + 2}: codigo ou nome ausente.`);
-    }
-  });
-
-  try {
-    const mappedRows = parseSuppliersCsv(text);
-    mappedRows.forEach((row) => {
-      if (row._import_warning) notices.push(row._import_warning);
-    });
-  } catch {
-    // a validacao principal acima ja cobre os erros impeditivos
-  }
-
-  return {
-    totalRows: lines.length - 1,
-    validRows,
-    issues,
-    notices,
-  };
-}
-
 function downloadSupplierCsvTemplate() {
   const content = [
     "Codigo;Nome;Data Pedido;Frequencia;Dias;Parametro Estoque;Lead Time;Comprador",
@@ -2239,242 +1649,6 @@ function downloadSupplierCsvTemplate() {
   link.download = "modelo_fornecedores.csv";
   link.click();
   URL.revokeObjectURL(url);
-}
-
-async function importSuppliersFromFile(file) {
-  if (!file) return;
-  try {
-    const text = await file.text();
-    const preview = validateSuppliersCsv(text);
-    renderImportPreview(
-      preview.issues.length || preview.notices.length
-        ? `Arquivo analisado: ${preview.validRows} linha(s) valida(s) de ${preview.totalRows}. ${preview.issues.length ? `Avisos: ${preview.issues.slice(0, 3).join(" | ")}.` : ""} ${preview.notices.length ? `Ajustes automaticos: ${preview.notices.slice(0, 3).join(" | ")}.` : ""}`.trim()
-        : `Arquivo analisado: ${preview.validRows} linha(s) valida(s) de ${preview.totalRows}. Nenhum problema encontrado.`,
-      preview.issues.length || preview.notices.length ? "warning" : "info"
-    );
-
-    if (!preview.validRows) {
-      setFeedback("Nenhuma linha válida encontrada para importação.", "error");
-      return;
-    }
-
-    const confirmImport = window.confirm(
-      preview.issues.length
-        ? `Foram encontradas ${preview.validRows} linha(s) válidas e ${preview.issues.length} com problema. Deseja importar apenas as linhas válidas?`
-        : preview.notices.length
-          ? `Foram encontradas ${preview.validRows} linha(s) válidas com alguns ajustes automáticos. Deseja continuar com a importação?`
-          : `Foram encontradas ${preview.validRows} linha(s) válidas. Deseja continuar com a importação?`
-    );
-
-    if (!confirmImport) {
-      setFeedback("Importação cancelada após a pré-validação.", "warning");
-      return;
-    }
-
-    const suppliers = parseSuppliersCsv(text);
-    const existingCodes = new Set(
-      state.suppliers.map((item) => String(item.codigo_fornecedor ?? "").trim().toUpperCase()).filter(Boolean)
-    );
-    const createdCount = suppliers.filter((supplier) => !existingCodes.has(supplier.codigo_fornecedor)).length;
-    const updatedCount = suppliers.length - createdCount;
-    let agendaCount = 0;
-    const touchedCodes = [];
-    const normalizedSuppliers = suppliers.map((supplier) => {
-      const {
-        _dias_compra: diasCompraRaw,
-        _row_number: _rowNumber,
-        _import_warning: _ignoredWarning,
-        ...supplierPayload
-      } = supplier;
-      return {
-        supplierPayload,
-        diasCompra: diasCompraRaw ?? ["SEGUNDA"],
-      };
-    });
-
-    const upsertedRows = await fetchSupabase("/rest/v1/fornecedores?on_conflict=tenant_id,codigo_fornecedor", {
-      method: "POST",
-      headers: {
-        Prefer: "resolution=merge-duplicates,return=representation",
-      },
-      body: normalizedSuppliers.map((item) => item.supplierPayload),
-    });
-
-    const upsertedByCode = new Map(
-      (upsertedRows ?? []).map((row) => [String(row.codigo_fornecedor ?? "").trim().toUpperCase(), row.id])
-    );
-
-    const unresolvedCodes = normalizedSuppliers
-      .map((item) => item.supplierPayload.codigo_fornecedor)
-      .filter((codigo) => !upsertedByCode.has(codigo));
-
-    if (unresolvedCodes.length) {
-      const fetchedRows = await fetchSupabase(
-        `/rest/v1/fornecedores?select=id,codigo_fornecedor&tenant_id=eq.${getSettings().tenantId}&codigo_fornecedor=in.(${buildPostgrestInFilter(unresolvedCodes)})`
-      );
-      (fetchedRows ?? []).forEach((row) => {
-        upsertedByCode.set(String(row.codigo_fornecedor ?? "").trim().toUpperCase(), row.id);
-      });
-    }
-
-    for (const item of normalizedSuppliers) {
-      const supplierId = upsertedByCode.get(item.supplierPayload.codigo_fornecedor) ?? null;
-      const diasCompra = item.diasCompra;
-
-      if (!supplierId) {
-        throw new Error(`Não foi possível localizar o fornecedor ${item.supplierPayload.codigo_fornecedor} após o upsert.`);
-      }
-
-      await fetchSupabase(`/rest/v1/fornecedor_dias_compra?fornecedor_id=eq.${supplierId}`, {
-        method: "DELETE",
-      });
-      await fetchSupabase("/rest/v1/fornecedor_dias_compra", {
-        method: "POST",
-        headers: { Prefer: "return=minimal" },
-        body: diasCompra.map((dia) => ({
-          tenant_id: getSettings().tenantId,
-          fornecedor_id: supplierId,
-          dia_semana: dia,
-        })),
-      });
-      const agendaSeed = await ensurePendingOccurrenceForSupplier({
-        id: supplierId,
-        tenant_id: getSettings().tenantId,
-        data_primeiro_pedido: item.supplierPayload.data_primeiro_pedido,
-        frequencia_revisao: item.supplierPayload.frequencia_revisao,
-        dias_compra: diasCompra,
-        comprador_id: item.supplierPayload.comprador_id,
-      });
-      if (agendaSeed.created) {
-        agendaCount += 1;
-      }
-      touchedCodes.push(item.supplierPayload.codigo_fornecedor);
-    }
-
-    const refreshedImportedSuppliers = await fetchPersistedSuppliersByCodes(touchedCodes);
-    const missingSeeds = await backfillMissingPendingOccurrences(refreshedImportedSuppliers, []);
-    agendaCount += missingSeeds;
-
-    const resumo = `Importação concluída. ${createdCount} fornecedor(es) criado(s), ${updatedCount} atualizado(s) e ${agendaCount} agenda(s) gerada(s). Códigos processados: ${touchedCodes.join(", ")}.`;
-    renderImportPreview(resumo, "success");
-    setFeedback(resumo, "success");
-    await loadPortalData({ silent: true, preserveFeedback: true });
-  } catch (error) {
-    renderImportPreview(`Falha na análise/importação: ${error.message}`, "error");
-    setFeedback(`Não foi possível importar fornecedores: ${error.message}`, "error");
-  }
-}
-
-function bindStaticEvents() {
-  if (document.body.dataset.portalEventsBound === "1") {
-    return;
-  }
-  document.body.dataset.portalEventsBound = "1";
-
-  document.querySelectorAll("[data-theme-choice]").forEach((button) => {
-    button.addEventListener("click", () => {
-      localStorage.setItem(storageKeys.theme, button.dataset.themeChoice);
-      applyTheme(button.dataset.themeChoice);
-    });
-  });
-
-  document.querySelectorAll(".nav-link").forEach((button) => {
-    button.addEventListener("click", () => showSection(button.dataset.section));
-  });
-
-  activeBuyerSelect.addEventListener("change", () => {
-    localStorage.setItem(storageKeys.activeBuyerId, activeBuyerSelect.value);
-    renderTables();
-  });
-
-  document.getElementById("fornecedorFrequencia").addEventListener("change", refreshSupplierSuggestion);
-  document.getElementById("fornecedorDataPrimeiroPedido").addEventListener("change", refreshSupplierSuggestion);
-  fornecedorCompradorSelect.addEventListener("change", refreshSupplierSuggestion);
-  setupDatePickerField("fornecedorDataPrimeiroPedido", "fornecedorDataPrimeiroPedidoNative", "fornecedorDataPrimeiroPedidoPickerButton");
-  setupDatePickerField("proximaDataInput", "proximaDataInputNative", "proximaDataInputPickerButton");
-  setupDatePickerField("auditStartDate", "auditStartDateNative", "auditStartDatePickerButton");
-  setupDatePickerField("auditEndDate", "auditEndDateNative", "auditEndDatePickerButton");
-  document.getElementById("fornecedorForm").addEventListener("submit", saveSupplier);
-  document.getElementById("compradorForm").addEventListener("submit", saveBuyer);
-  document.getElementById("resetFornecedorFormButton").addEventListener("click", resetSupplierForm);
-  document.getElementById("resetCompradorFormButton").addEventListener("click", resetBuyerForm);
-  document.getElementById("compradorNome").addEventListener("input", updateBuyerPreview);
-  document.getElementById("compradorFotoArquivo").addEventListener("change", updateBuyerPreview);
-  document.getElementById("logoArquivo").addEventListener("change", async () => {
-    const logoFile = document.getElementById("logoArquivo").files[0];
-    if (!logoFile) return;
-    document.getElementById("logoPreview").src = await fileToDataUrl(logoFile);
-  });
-
-  document.getElementById("saveSettingsButton").addEventListener("click", saveSettings);
-  document.getElementById("syncAllButton").addEventListener("click", async () => {
-    closeModal("settingsModal");
-    await loadPortalData();
-  });
-  const openSettings = () => {
-    populateSettings();
-    document.getElementById("settingsModal").showModal();
-  };
-  const sidebarSettingsButton = document.getElementById("openSettingsButton");
-  if (sidebarSettingsButton) {
-    sidebarSettingsButton.addEventListener("click", openSettings);
-  }
-  document.getElementById("openSettingsButtonTop").addEventListener("click", openSettings);
-  document.getElementById("openAuditButtonTop").addEventListener("click", openAuditPasswordModal);
-  document.getElementById("openAgendaSupplierNotesButton").addEventListener("click", () => {
-    const row = occurrenceRows().find((item) => item.id === state.selectedOccurrenceId);
-    if (!row?.supplier?.id) return;
-    openSupplierNotes(row.supplier.id);
-  });
-  document.getElementById("buyerLoginButton").addEventListener("click", loginBuyer);
-  document.getElementById("auditPasswordForm").addEventListener("submit", (event) => {
-    event.preventDefault();
-    unlockAuditView();
-  });
-  document.getElementById("auditPeriodPreset").addEventListener("change", () => {
-    syncAuditPeriodInputs();
-    renderAuditDashboard();
-  });
-  document.getElementById("auditStartDate").addEventListener("change", () => {
-    document.getElementById("auditPeriodPreset").value = "personalizado";
-    syncAuditPeriodInputs();
-    renderAuditDashboard();
-  });
-  document.getElementById("auditEndDate").addEventListener("change", () => {
-    document.getElementById("auditPeriodPreset").value = "personalizado";
-    syncAuditPeriodInputs();
-    renderAuditDashboard();
-  });
-  document.getElementById("refreshAuditButton").addEventListener("click", async () => {
-    await loadPortalData({ silent: true });
-    renderAuditDashboard();
-  });
-  document.getElementById("downloadModeloCsvButton").addEventListener("click", downloadSupplierCsvTemplate);
-  document.getElementById("openFornecedorNotasButton").addEventListener("click", () => openSupplierNotes());
-  document.getElementById("saveSupplierNotesButton").addEventListener("click", saveSupplierNotesDraft);
-  document.getElementById("importFornecedoresButton").addEventListener("click", () => {
-    document.getElementById("importFornecedorFile").click();
-  });
-  document.getElementById("importFornecedorFile").addEventListener("change", async (event) => {
-    const [file] = event.target.files;
-    await importSuppliersFromFile(file);
-    event.target.value = "";
-  });
-  document.getElementById("openFirstTodayButton").addEventListener("click", () => {
-    const first = filteredRows("agenda-dia")[0];
-    if (!first) {
-      setFeedback("Não há agendas do dia para abrir.", "warning");
-      return;
-    }
-    openAgendaDetail(first.id);
-  });
-
-  document.getElementById("proximaDataInput").addEventListener("change", updateAgendaAdjustment);
-  document.getElementById("tratarAgendaButton").addEventListener("click", tratarAgendaAtual);
-
-  document.querySelectorAll("[data-close-modal]").forEach((button) => {
-    button.addEventListener("click", () => closeModal(button.dataset.closeModal));
-  });
 }
 
 function ensureBuyerSelection() {
@@ -2624,23 +1798,6 @@ function validateSuppliersCsv(text) {
     issues,
     notices,
   };
-}
-
-function renderKpis() {
-  const rows = filteredRows("proximas-agendas");
-  const data = [
-    ["Hoje", filteredRows("agenda-dia").length],
-    ["Próximas", rows.filter((row) => row.data_prevista > todayIso()).length],
-    ["Atrasadas", filteredRows("atrasadas").length],
-    ["Sem comprador", state.suppliers.filter((supplier) => !supplier.comprador_id).length],
-  ];
-
-  document.getElementById("agendaDiaStats").innerHTML = data.map(([label, value]) => `
-    <div class="kpi-card">
-      <span class="muted">${label}</span>
-      <strong>${value}</strong>
-    </div>
-  `).join("");
 }
 
 function renderAgendaTables() {
@@ -3278,6 +2435,35 @@ function bindStaticEvents() {
   document.getElementById("proximaDataInput").addEventListener("change", updateAgendaAdjustment);
   document.getElementById("tratarAgendaButton").addEventListener("click", tratarAgendaAtual);
 
+  // Calendário
+  document.getElementById("newEventButton")?.addEventListener("click", () => openNewEventModal());
+  document.getElementById("saveNewEventButton")?.addEventListener("click", saveNewEvent);
+  document.getElementById("newEventRecorrencia")?.addEventListener("change", () => {
+    const wrap = document.getElementById("newEventRecorrenciaFimWrap");
+    const val = document.getElementById("newEventRecorrencia").value;
+    wrap.classList.toggle("hidden", !val);
+  });
+  document.getElementById("newEventHoraInicio")?.addEventListener("change", () => {
+    const inicio = document.getElementById("newEventHoraInicio").value;
+    if (!inicio) return;
+    const [h, m] = inicio.split(":").map(Number);
+    const fim = `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    document.getElementById("newEventHoraFim").value = fim;
+  });
+
+  // Categorias
+  document.getElementById("categoriaForm")?.addEventListener("submit", saveCategoria);
+  document.getElementById("resetCategoriaFormButton")?.addEventListener("click", () => {
+    document.getElementById("categoriaForm").reset();
+    document.getElementById("categoriaId").value = "";
+    document.getElementById("categoriaFormMode").textContent = "Nova categoria";
+  });
+  document.getElementById("categoriaCor")?.addEventListener("input", () => {
+    const cor = document.getElementById("categoriaCor").value;
+    const preview = document.getElementById("categoriaCorPreview");
+    if (preview) { preview.style.background = cor; }
+  });
+
   document.querySelectorAll("[data-close-modal]").forEach((button) => {
     button.addEventListener("click", () => closeModal(button.dataset.closeModal));
   });
@@ -3517,6 +2703,349 @@ function renderKpis() {
   `).join("");
 }
 
+// ============================================================
+// CALENDÁRIO — FullCalendar
+// ============================================================
+
+function categoriaById(id) {
+  return state.categorias.find((cat) => cat.id === id) ?? null;
+}
+
+function categoriaCorById(id) {
+  return categoriaById(id)?.cor ?? "#6B7280";
+}
+
+function buildCalendarEvents() {
+  return state.agenda
+    .map((occ) => {
+      const supplier = supplierById(occ.fornecedor_id);
+      const cat = categoriaById(occ.categoria_id);
+      const titulo = occ.titulo || supplier?.nome_fornecedor || "Sem título";
+      const cor = cat?.cor ?? "#3B82F6";
+      const start = occ.hora_inicio
+        ? `${occ.data_prevista}T${occ.hora_inicio}`
+        : occ.data_prevista;
+      const end = occ.hora_fim
+        ? `${occ.data_prevista}T${occ.hora_fim}`
+        : null;
+      return {
+        id: occ.id,
+        title: titulo,
+        start,
+        end: end ?? undefined,
+        allDay: !occ.hora_inicio,
+        backgroundColor: cor,
+        borderColor: cor,
+        textColor: "#ffffff",
+        extendedProps: { occ, supplier, cat },
+      };
+    });
+}
+
+function initCalendar() {
+  const el = document.getElementById("fullCalendar");
+  if (!el) return;
+  if (state.calendarInstance) {
+    state.calendarInstance.refetchEvents();
+    return;
+  }
+
+  state.calendarInstance = new FullCalendar.Calendar(el, {
+    locale: "pt-br",
+    initialView: "dayGridMonth",
+    headerToolbar: {
+      left: "prev,next today",
+      center: "title",
+      right: "dayGridMonth,timeGridWeek,timeGridDay",
+    },
+    buttonText: {
+      today: "Hoje",
+      month: "Mês",
+      week: "Semana",
+      day: "Dia",
+    },
+    height: "auto",
+    events: buildCalendarEvents(),
+    eventClick(info) {
+      const { occ } = info.event.extendedProps;
+      if (occ?.fornecedor_id) {
+        openAgendaDetail(occ.id);
+      } else {
+        openGenericEventDetail(occ);
+      }
+    },
+    dateClick(info) {
+      openNewEventModal(info.dateStr);
+    },
+  });
+
+  state.calendarInstance.render();
+}
+
+function refreshCalendar() {
+  if (!state.calendarInstance) {
+    initCalendar();
+    return;
+  }
+  state.calendarInstance.removeAllEvents();
+  state.calendarInstance.addEventSource(buildCalendarEvents());
+}
+
+// ============================================================
+// CATEGORIAS
+// ============================================================
+
+async function loadCategorias() {
+  const settings = getSettings();
+  try {
+    const rows = await fetchSupabase(
+      `/rest/v1/categorias_agenda?select=id,nome,cor,icone,ativo&tenant_id=eq.${settings.tenantId}&ativo=eq.true&order=nome.asc`
+    );
+    state.categorias = rows ?? [];
+  } catch {
+    state.categorias = [
+      { id: "cat-fornecedores", nome: "Fornecedores", cor: "#3B82F6" },
+      { id: "cat-pessoal",      nome: "Pessoal",      cor: "#F59E0B" },
+      { id: "cat-operacional",  nome: "Operacional",  cor: "#10B981" },
+    ];
+  }
+}
+
+function renderCategoriasTable() {
+  const tbody = document.getElementById("categoriasTable");
+  if (!tbody) return;
+  tbody.innerHTML = state.categorias.length
+    ? state.categorias.map((cat) => `
+      <tr>
+        <td><span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:${cat.cor};vertical-align:middle;"></span></td>
+        <td>${cat.nome}</td>
+        <td class="td-actions">
+          <div class="actions">
+            <button class="btn btn-outline btn-sm" data-edit-categoria="${cat.id}">Editar</button>
+            <button class="btn btn-danger btn-sm" data-delete-categoria="${cat.id}">Excluir</button>
+          </div>
+        </td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="3">Nenhuma categoria cadastrada.</td></tr>`;
+
+  tbody.querySelectorAll("[data-edit-categoria]").forEach((btn) => {
+    btn.addEventListener("click", () => editCategoria(btn.dataset.editCategoria));
+  });
+  tbody.querySelectorAll("[data-delete-categoria]").forEach((btn) => {
+    btn.addEventListener("click", () => deleteCategoria(btn.dataset.deleteCategoria));
+  });
+}
+
+function editCategoria(id) {
+  const cat = categoriaById(id);
+  if (!cat) return;
+  document.getElementById("categoriaId").value = cat.id;
+  document.getElementById("categoriaNome").value = cat.nome;
+  document.getElementById("categoriaCor").value = cat.cor;
+  document.getElementById("categoriaCorPreview").style.background = cat.cor;
+  document.getElementById("categoriaFormMode").textContent = `Editando ${cat.nome}`;
+}
+
+async function deleteCategoria(id) {
+  if (!window.confirm("Deseja realmente excluir esta categoria?")) return;
+  try {
+    await fetchSupabase(`/rest/v1/categorias_agenda?id=eq.${id}`, { method: "DELETE" });
+    setFeedback("Categoria excluída com sucesso.", "success");
+    await loadCategorias();
+    renderCategoriasTable();
+    refreshCalendar();
+  } catch (err) {
+    setFeedback(`Não foi possível excluir a categoria: ${err.message}`, "error");
+  }
+}
+
+async function saveCategoria(event) {
+  event.preventDefault();
+  const id    = document.getElementById("categoriaId").value.trim();
+  const nome  = document.getElementById("categoriaNome").value.trim();
+  const cor   = document.getElementById("categoriaCor").value;
+  const settings = getSettings();
+
+  if (!nome) { setFeedback("Informe o nome da categoria.", "error"); return; }
+
+  const payload = { tenant_id: settings.tenantId, nome, cor, ativo: true };
+
+  try {
+    if (id) {
+      await fetchSupabase(`/rest/v1/categorias_agenda?id=eq.${id}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: { nome, cor },
+      });
+      setFeedback("Categoria atualizada.", "success");
+    } else {
+      await fetchSupabase("/rest/v1/categorias_agenda", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: payload,
+      });
+      setFeedback("Categoria criada com sucesso.", "success");
+    }
+    document.getElementById("categoriaId").value = "";
+    document.getElementById("categoriaForm").reset();
+    document.getElementById("categoriaFormMode").textContent = "Nova categoria";
+    await loadCategorias();
+    renderCategoriasTable();
+    refreshCalendar();
+  } catch (err) {
+    setFeedback(`Não foi possível salvar a categoria: ${err.message}`, "error");
+  }
+}
+
+// ============================================================
+// NOVO EVENTO GENÉRICO
+// ============================================================
+
+function populateNewEventSelects() {
+  const catSelect = document.getElementById("newEventCategoria");
+  const buyerSelect = document.getElementById("newEventComprador");
+  if (catSelect) {
+    catSelect.innerHTML = state.categorias
+      .map((cat) => `<option value="${cat.id}" style="background:${cat.cor}">${cat.nome}</option>`)
+      .join("");
+  }
+  if (buyerSelect) {
+    buyerSelect.innerHTML = [
+      `<option value="">Sem responsável</option>`,
+      ...state.buyers.map((b) => `<option value="${b.id}">${b.nome_comprador}</option>`),
+    ].join("");
+  }
+}
+
+function openNewEventModal(dateStr = "") {
+  populateNewEventSelects();
+  document.getElementById("newEventTitulo").value = "";
+  document.getElementById("newEventData").value = dateStr ? isoToBr(dateStr) : isoToBr(todayIso());
+  document.getElementById("newEventHoraInicio").value = "08:00";
+  document.getElementById("newEventHoraFim").value = "09:00";
+  document.getElementById("newEventRecorrencia").value = "";
+  document.getElementById("newEventObservacao").value = "";
+  document.getElementById("newEventRecorrenciaFimWrap").classList.add("hidden");
+  clearFeedback(document.getElementById("newEventConflictWarning"));
+  setupDatePickerField("newEventData", "newEventDataNative", "newEventDataPickerButton");
+  setupDatePickerField("newEventRecorrenciaFim", "newEventRecorrenciaFimNative", "newEventRecorrenciaFimPickerButton");
+  document.getElementById("newEventModal").showModal();
+}
+
+function openGenericEventDetail(occ) {
+  if (!occ) return;
+  const cat = categoriaById(occ.categoria_id);
+  populateNewEventSelects();
+  document.getElementById("newEventTitulo").value = occ.titulo ?? "";
+  document.getElementById("newEventData").value = isoToBr(occ.data_prevista);
+  document.getElementById("newEventHoraInicio").value = occ.hora_inicio ?? "08:00";
+  document.getElementById("newEventHoraFim").value = occ.hora_fim ?? "09:00";
+  document.getElementById("newEventCategoria").value = occ.categoria_id ?? "";
+  document.getElementById("newEventComprador").value = occ.comprador_id ?? "";
+  document.getElementById("newEventObservacao").value = occ.observacao ?? "";
+  setupDatePickerField("newEventData", "newEventDataNative", "newEventDataPickerButton");
+  setupDatePickerField("newEventRecorrenciaFim", "newEventRecorrenciaFimNative", "newEventRecorrenciaFimPickerButton");
+  document.getElementById("newEventModal").showModal();
+}
+
+async function checkEventConflict(tenantId, data, horaInicio, horaFim, excludeId = null) {
+  if (!horaInicio || !horaFim) return false;
+  try {
+    let query = `/rest/v1/agenda_ocorrencias?select=id,titulo,hora_inicio,hora_fim&tenant_id=eq.${tenantId}&data_prevista=eq.${data}&status=eq.PENDENTE&hora_inicio=not.is.null`;
+    if (excludeId) query += `&id=neq.${excludeId}`;
+    const rows = await fetchSupabase(query);
+    return (rows ?? []).some((row) => {
+      if (!row.hora_inicio || !row.hora_fim) return false;
+      return horaInicio < row.hora_fim && horaFim > row.hora_inicio;
+    });
+  } catch {
+    return false;
+  }
+}
+
+function buildRecorrenciaDates(baseDate, tipo, fimStr) {
+  const dates = [];
+  const limit = fimStr ? fimStr : addDaysLocalIso(baseDate, 365);
+  let current = baseDate;
+  const step = { diaria: 1, semanal: 7, quinzenal: 14, mensal: 30 }[tipo] ?? 7;
+  while (true) {
+    current = addDaysLocalIso(current, step);
+    if (current > limit) break;
+    dates.push(current);
+    if (dates.length > 500) break;
+  }
+  return dates;
+}
+
+async function saveNewEvent() {
+  const titulo       = document.getElementById("newEventTitulo").value.trim();
+  const data         = brToIso(document.getElementById("newEventData").value);
+  const horaInicio   = document.getElementById("newEventHoraInicio").value || null;
+  const horaFim      = document.getElementById("newEventHoraFim").value || null;
+  const categoriaId  = document.getElementById("newEventCategoria").value || null;
+  const compradorId  = document.getElementById("newEventComprador").value || null;
+  const recorrencia  = document.getElementById("newEventRecorrencia").value;
+  const recFim       = brToIso(document.getElementById("newEventRecorrenciaFim").value);
+  const observacao   = document.getElementById("newEventObservacao").value.trim() || null;
+  const settings     = getSettings();
+  const feedbackEl   = document.getElementById("newEventConflictWarning");
+
+  if (!titulo || !data) {
+    setFeedback("Informe o título e a data do evento.", "error", feedbackEl);
+    feedbackEl.classList.remove("hidden");
+    return;
+  }
+
+  const hasConflict = await checkEventConflict(settings.tenantId, data, horaInicio, horaFim);
+  if (hasConflict) {
+    setFeedback("Atenção: existe outro evento no mesmo horário nesta data.", "warning", feedbackEl);
+    feedbackEl.classList.remove("hidden");
+  } else {
+    feedbackEl.classList.add("hidden");
+  }
+
+  const base = {
+    tenant_id:    settings.tenantId,
+    titulo,
+    data_prevista: data,
+    hora_inicio:   horaInicio,
+    hora_fim:      horaFim,
+    categoria_id:  categoriaId,
+    comprador_id:  compradorId,
+    observacao,
+    status: "PENDENTE",
+    recorrencia: recorrencia ? JSON.stringify({ tipo: recorrencia, fim: recFim || null }) : null,
+  };
+
+  try {
+    const dates = recorrencia ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)] : [data];
+    for (const d of dates) {
+      await fetchSupabase("/rest/v1/agenda_ocorrencias", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: { ...base, data_prevista: d },
+      });
+    }
+    setFeedback(
+      dates.length > 1
+        ? `Evento criado com ${dates.length} ocorrências (recorrência ${recorrencia}).`
+        : "Evento criado com sucesso.",
+      "success"
+    );
+    closeModal("newEventModal");
+    await loadPortalData({ silent: true });
+    refreshCalendar();
+  } catch (err) {
+    setFeedback(`Não foi possível salvar o evento: ${err.message}`, "error", feedbackEl);
+    feedbackEl.classList.remove("hidden");
+  }
+}
+
+// ============================================================
+// BOOTSTRAP
+// ============================================================
+
 async function bootstrap() {
   applyTheme();
   renderSupplierDayCheckboxes([]);
@@ -3524,10 +3053,13 @@ async function bootstrap() {
   bindStaticEvents();
   resetBuyerForm();
   resetSupplierForm();
-  showSection("agenda-dia");
+  showSection("calendario");
+  await loadCategorias();
   await loadPortalData({ silent: true });
   ensureBuyerSelection();
   renderTables();
+  renderCategoriasTable();
+  initCalendar();
   ensureBuyerLoginSession();
 }
 

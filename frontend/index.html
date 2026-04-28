@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
   </head>
   <body>
     <div class="app">
@@ -34,12 +35,14 @@
         </div>
 
         <nav class="nav">
-          <button class="nav-link active" data-section="agenda-dia">Agenda do Dia</button>
+          <button class="nav-link active" data-section="calendario">Calend&aacute;rio</button>
+          <button class="nav-link" data-section="agenda-dia">Agenda do Dia</button>
           <button class="nav-link" data-section="proximas-agendas">Pr&oacute;ximas Agendas</button>
           <button class="nav-link" data-section="atrasadas">Atrasadas</button>
           <button class="nav-link" data-section="sem-comprador">Sem Comprador</button>
           <button class="nav-link" data-section="fornecedores">Cadastro de Fornecedores</button>
           <button class="nav-link" data-section="compradores">Cadastro de Compradores</button>
+          <button class="nav-link" data-section="categorias">Categorias</button>
         </nav>
 
       </aside>
@@ -69,7 +72,59 @@
 
           <div id="feedbackBox" class="msg hidden"></div>
 
-          <section id="agenda-dia" class="section-view">
+          <section id="calendario" class="section-view">
+            <div class="section-title">
+              <div>
+                <h2>Calend&aacute;rio</h2>
+                <p class="muted">Vis&atilde;o integrada de todas as agendas por categoria.</p>
+              </div>
+              <div class="actions">
+                <button id="newEventButton" class="btn btn-sm" type="button">+ Novo Evento</button>
+              </div>
+            </div>
+            <div id="fullCalendar"></div>
+          </section>
+
+          <section id="categorias" class="section-view hidden">
+            <div class="section-title">
+              <div>
+                <h2>Categorias de Agenda</h2>
+                <p class="muted">Defina as categorias e as cores que aparecer&atilde;o no calend&aacute;rio.</p>
+              </div>
+              <div class="actions">
+                <span id="categoriaFormMode" class="kpi-emphasis">Nova categoria</span>
+              </div>
+            </div>
+            <form id="categoriaForm" class="grid-form">
+              <input id="categoriaId" type="hidden">
+              <label>Nome<br><input id="categoriaNome" name="nome" required placeholder="Ex.: Reuni&otilde;es"></label>
+              <label>Cor<br>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input id="categoriaCor" name="cor" type="color" value="#3B82F6" style="width:48px;height:36px;border:none;padding:0;cursor:pointer;">
+                  <span id="categoriaCorPreview" class="kpi-emphasis" style="padding:4px 12px;border-radius:6px;background:#3B82F6;color:#fff;">Azul</span>
+                </div>
+              </label>
+              <div class="actions">
+                <button type="submit" class="btn">Salvar Categoria</button>
+                <button id="resetCategoriaFormButton" type="button" class="btn btn-outline">Limpar</button>
+              </div>
+            </form>
+            <h3>Categorias Cadastradas</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cor</th>
+                    <th>Nome</th>
+                    <th>A&ccedil;&otilde;es</th>
+                  </tr>
+                </thead>
+                <tbody id="categoriasTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="agenda-dia" class="section-view hidden">
             <div class="section-title">
               <div>
                 <h2>Agenda do Dia</h2>
@@ -547,6 +602,62 @@
         <div class="actions">
           <button id="saveSupplierNotesButton" class="btn" type="button">Salvar notas</button>
           <button class="btn btn-outline" type="button" data-close-modal="supplierNotesModal">Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="newEventModal" class="details-modal">
+      <form id="newEventForm" method="dialog" class="modal-card">
+        <button class="close-button" type="button" data-close-modal="newEventModal" aria-label="Fechar novo evento">
+          <span class="close-glyph">&#10005;</span>
+        </button>
+        <div class="section-title">
+          <div>
+            <h2>Novo Evento</h2>
+            <p class="muted">Preencha os dados do evento. Hor&aacute;rio padr&atilde;o: 1 hora a partir do in&iacute;cio.</p>
+          </div>
+        </div>
+        <div class="grid detail-grid">
+          <label>T&iacute;tulo<br><input id="newEventTitulo" type="text" placeholder="Descri&ccedil;&atilde;o do evento" required></label>
+          <label>Categoria<br>
+            <select id="newEventCategoria"></select>
+          </label>
+          <label>Data<br>
+            <div class="date-input-group">
+              <input id="newEventData" type="text" inputmode="numeric" placeholder="DD/MM/AAAA" required>
+              <button id="newEventDataPickerButton" class="date-picker-button" type="button" aria-label="Abrir calend&aacute;rio">&#128197;</button>
+              <input id="newEventDataNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+            </div>
+          </label>
+          <label>Comprador respons&aacute;vel<br>
+            <select id="newEventComprador"></select>
+          </label>
+          <label>Hor&aacute;rio de in&iacute;cio<br><input id="newEventHoraInicio" type="time" value="08:00"></label>
+          <label>Hor&aacute;rio de fim<br><input id="newEventHoraFim" type="time" value="09:00"></label>
+          <label style="grid-column:1/-1">Recorr&ecirc;ncia<br>
+            <select id="newEventRecorrencia">
+              <option value="">Sem recorr&ecirc;ncia</option>
+              <option value="diaria">Di&aacute;ria</option>
+              <option value="semanal">Semanal</option>
+              <option value="quinzenal">Quinzenal</option>
+              <option value="mensal">Mensal</option>
+            </select>
+          </label>
+          <label id="newEventRecorrenciaFimWrap" class="hidden" style="grid-column:1/-1">Data de fim da recorr&ecirc;ncia<br>
+            <div class="date-input-group">
+              <input id="newEventRecorrenciaFim" type="text" inputmode="numeric" placeholder="DD/MM/AAAA (opcional)">
+              <button id="newEventRecorrenciaFimPickerButton" class="date-picker-button" type="button" aria-label="Abrir calend&aacute;rio">&#128197;</button>
+              <input id="newEventRecorrenciaFimNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+            </div>
+          </label>
+          <label style="grid-column:1/-1">Observa&ccedil;&atilde;o<br>
+            <textarea id="newEventObservacao" rows="2" placeholder="Detalhes adicionais..."></textarea>
+          </label>
+        </div>
+        <div id="newEventConflictWarning" class="msg hidden"></div>
+        <div class="actions">
+          <button id="saveNewEventButton" class="btn" type="button">Salvar Evento</button>
+          <button class="btn btn-outline" type="button" data-close-modal="newEventModal">Cancelar</button>
         </div>
       </form>
     </dialog>
