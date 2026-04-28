@@ -80,8 +80,8 @@ textarea {
   top: 0;
   height: 100vh;
   overflow: hidden;
-  width: 264px;
-  min-width: 264px;
+  width: 284px;
+  min-width: 284px;
   transition: width 0.22s ease, min-width 0.22s ease, padding 0.22s ease;
   flex-shrink: 0;
 }
@@ -326,6 +326,9 @@ body[data-theme="light"] .theme-chip.active {
 .nav-label {
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 
 .nav-link {
@@ -1496,4 +1499,115 @@ body[data-theme="light"] .postit-note-shell textarea {
 [data-theme="light"] .postit-card {
   background: #fffbe6;
   box-shadow: 2px 3px 10px rgba(0,0,0,0.12);
+}
+
+/* ============================================================
+   Seção de Ajuda — acordeão de tópicos
+   ============================================================ */
+
+.ajuda-acordeao {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 24px;
+}
+
+.ajuda-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ajuda-item summary {
+  padding: 14px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  background: var(--panel-strong);
+  transition: background 0.15s;
+}
+
+.ajuda-item summary::-webkit-details-marker { display: none; }
+
+.ajuda-item summary::after {
+  content: "▸";
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+
+.ajuda-item[open] summary::after {
+  transform: rotate(90deg);
+}
+
+.ajuda-item summary:hover {
+  background: var(--line);
+}
+
+.ajuda-corpo {
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.ajuda-corpo h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 8px;
+}
+
+.ajuda-corpo ul, .ajuda-corpo ol {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ajuda-corpo p { margin: 0; }
+
+.ajuda-corpo code {
+  background: var(--line);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.ajuda-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.ajuda-tabela th, .ajuda-tabela td {
+  border: 1px solid var(--line);
+  padding: 7px 12px;
+  text-align: left;
+}
+
+.ajuda-tabela th {
+  background: var(--panel-strong);
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.ajuda-dica {
+  background: rgba(37, 99, 235, 0.1);
+  border-left: 3px solid #2563eb;
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
 }

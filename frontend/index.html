@@ -48,6 +48,7 @@
           <button class="nav-link" data-section="compradores" title="Cadastro de Compradores"><span class="nav-icon">👥</span><span class="nav-label">Cadastro de Compradores</span></button>
           <button class="nav-link" data-section="painel" title="Painel de Notas"><span class="nav-icon">📌</span><span class="nav-label">Painel de Notas</span></button>
           <button class="nav-link" data-section="categorias" title="Categorias"><span class="nav-icon">🎨</span><span class="nav-label">Categorias</span></button>
+          <button class="nav-link" data-section="ajuda" title="Ajuda"><span class="nav-icon">❓</span><span class="nav-label">Ajuda</span></button>
         </nav>
 
       </aside>
@@ -357,6 +358,227 @@
                 </thead>
                 <tbody id="compradoresTable"></tbody>
               </table>
+            </div>
+          </section>
+
+          <section id="ajuda" class="section-view hidden">
+            <div class="section-title">
+              <div>
+                <h2>❓ Ajuda</h2>
+                <p class="muted">Guia completo de configura&ccedil;&atilde;o, regras de neg&oacute;cio e uso do sistema.</p>
+              </div>
+            </div>
+
+            <div class="ajuda-acordeao">
+
+              <details class="ajuda-item" open>
+                <summary>🚀 Primeiros Passos — Configurando o Portal</summary>
+                <div class="ajuda-corpo">
+                  <p>Ao abrir o portal pela primeira vez, clique em <strong>Personalizar Portal</strong> (bot&atilde;o no topo) e preencha:</p>
+                  <ul>
+                    <li><strong>URL do Supabase</strong> — endere&ccedil;o do seu projeto (ex.: <code>https://xxxx.supabase.co</code>)</li>
+                    <li><strong>Chave publishable</strong> — chave anon do Supabase (encontrada em Project Settings &rsaquo; API)</li>
+                    <li><strong>Tenant operacional</strong> — UUID do tenant cadastrado pelo administrador do sistema</li>
+                    <li><strong>Dias exibidos no calend&aacute;rio</strong> — escolha entre Segunda a Domingo, Segunda a S&aacute;bado ou Segunda a Sexta</li>
+                    <li><strong>Logomarca</strong> — fa&ccedil;a upload da logo do cliente (ser&aacute; exibida na sidebar e salva no perfil)</li>
+                  </ul>
+                  <p>Ap&oacute;s salvar, clique em <strong>Sincronizar Agora</strong> para carregar os dados reais do Supabase.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
+                <summary>👥 Compradores — Cadastro e Acesso</summary>
+                <div class="ajuda-corpo">
+                  <p>Compradores s&atilde;o os usu&aacute;rios operacionais que gerenciam a carteira de fornecedores.</p>
+                  <h4>Como cadastrar</h4>
+                  <ol>
+                    <li>Acesse <strong>Cadastro de Compradores</strong> no menu</li>
+                    <li>Preencha nome, e-mail e defina uma senha de acesso</li>
+                    <li>Opcionalmente adicione telefone e foto</li>
+                    <li>Clique em <strong>Salvar Comprador</strong></li>
+                  </ol>
+                  <h4>Primeiro acesso</h4>
+                  <p>No primeiro login, o sistema detecta que n&atilde;o h&aacute; senha cadastrada e solicita que o pr&oacute;prio comprador defina e confirme a senha.</p>
+                  <h4>Comprador ativo vs. logado</h4>
+                  <ul>
+                    <li><strong>Logado</strong>: quem entrou no sistema (rastreado na auditoria)</li>
+                    <li><strong>Ativo</strong>: filtro de visualiza&ccedil;&atilde;o — define quais fornecedores e agendas aparecem nas listas e no calend&aacute;rio</li>
+                  </ul>
+                  <h4>Administrador do Cliente</h4>
+                  <p>O e-mail cadastrado como <em>respons&aacute;vel</em> no perfil do tenant tem acesso de administrador: pode ver todos os compradores, tratar agendas de qualquer carteira e acessar a auditoria.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
+                <summary>🏪 Fornecedores — Cadastro e Configura&ccedil;&atilde;o</summary>
+                <div class="ajuda-corpo">
+                  <p>Cada fornecedor tem configura&ccedil;&otilde;es que determinam <strong>quando</strong> e <strong>como</strong> a agenda &eacute; gerada.</p>
+                  <h4>Campos obrigat&oacute;rios</h4>
+                  <ul>
+                    <li><strong>C&oacute;digo</strong> — identificador &uacute;nico do fornecedor (n&uacute;mero ou texto)</li>
+                    <li><strong>Nome</strong> — nome do fornecedor</li>
+                    <li><strong>Frequ&ecirc;ncia de revis&atilde;o</strong> — define o ritmo de compra (ver tabela abaixo)</li>
+                    <li><strong>Dias da semana</strong> — dias permitidos para pedido (devem bater com a frequ&ecirc;ncia)</li>
+                    <li><strong>Data do Primeiro Pedido</strong> — base de c&aacute;lculo para a agenda inicial</li>
+                    <li><strong>Par&acirc;metro de Estoque</strong> — cobertura m&iacute;nima em dias (n&atilde;o pode ser menor que a frequ&ecirc;ncia)</li>
+                    <li><strong>Lead Time de Entrega</strong> — dias entre o pedido e o recebimento</li>
+                  </ul>
+                  <h4>Frequ&ecirc;ncias v&aacute;lidas</h4>
+                  <table class="ajuda-tabela">
+                    <thead><tr><th>Valor</th><th>Dias de compra</th><th>Intervalo entre pedidos</th></tr></thead>
+                    <tbody>
+                      <tr><td>1</td><td>1 dia</td><td>28 dias (mensal)</td></tr>
+                      <tr><td>2</td><td>1 dia</td><td>14 dias (quinzenal)</td></tr>
+                      <tr><td>4</td><td>1 dia</td><td>7 dias (semanal)</td></tr>
+                      <tr><td>8</td><td>2 dias</td><td>pr&oacute;ximo dia permitido</td></tr>
+                      <tr><td>12</td><td>3 dias</td><td>pr&oacute;ximo dia permitido</td></tr>
+                    </tbody>
+                  </table>
+                  <h4>Importa&ccedil;&atilde;o CSV</h4>
+                  <p>Use <strong>Baixar Modelo CSV</strong> para obter o template, preencha e importe via <strong>Importar Fornecedores</strong>. Colunas obrigat&oacute;rias: <code>Codigo</code> e <code>Nome</code>. O sistema faz upsert — atualiza se j&aacute; existe, cria se n&atilde;o existe.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
+                <summary>📊 Din&acirc;mica de Par&acirc;metros de Compra</summary>
+                <div class="ajuda-corpo">
+                  <p>O <strong>Par&acirc;metro de Compra</strong> &eacute; a cobertura de estoque calculada para cada fornecedor. Ele &eacute; composto por:</p>
+                  <ul>
+                    <li><strong>Par&acirc;metro de Estoque</strong> — base configurada no cadastro (cobertura desejada em dias)</li>
+                    <li><strong>Lead Time de Entrega</strong> — dias at&eacute; o produto chegar</li>
+                    <li><strong>Incremento por Tratamento</strong> — ajuste acumulado ao longo do tempo</li>
+                  </ul>
+                  <p><strong>F&oacute;rmula: Par&acirc;metro de Compra = Par&acirc;metro de Estoque + Lead Time + Incremento Acumulado</strong></p>
+                  <h4>O que acontece ao tratar uma agenda</h4>
+                  <ol>
+                    <li><strong>Incremento por Tratamento</strong>: diferen&ccedil;a em dias entre a data prevista e a data atual (positivo = atrasado, negativo = antecipado)</li>
+                    <li><strong>Ajuste da Pr&oacute;xima Data</strong>: diferen&ccedil;a entre a data escolhida e a data sugerida pelo sistema</li>
+                    <li><strong>Incremento Total</strong> = Incremento por Tratamento + Ajuste da Pr&oacute;xima Data</li>
+                    <li><strong>Novo Par&acirc;metro</strong> = Par&acirc;metro de Compra atual + Incremento Total</li>
+                  </ol>
+                  <p class="ajuda-dica">💡 <strong>Dica</strong>: se o comprador sempre trata a agenda no dia previsto e escolhe a data sugerida, o par&acirc;metro n&atilde;o se altera. O incremento reflete desvios operacionais reais.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
+                <summary>📋 Agenda de Compras — Como Tratar</summary>
+                <div class="ajuda-corpo">
+                  <h4>Fluxo de tratamento</h4>
+                  <ol>
+                    <li>Acesse <strong>Agenda do Dia</strong> ou clique em um evento no <strong>Calend&aacute;rio</strong></li>
+                    <li>Clique em <strong>Ver Detalhe</strong> para abrir a ficha do fornecedor</li>
+                    <li>Revise a <strong>Pr&oacute;xima Data Sugerida</strong> — calculada automaticamente com base na frequ&ecirc;ncia e nos dias permitidos</li>
+                    <li>Ajuste a data se necess&aacute;rio (o sistema avisa se cair fora dos dias configurados)</li>
+                    <li>Preencha a <strong>Observa&ccedil;&atilde;o</strong> e, opcionalmente, uma <strong>Nota</strong> para o Painel</li>
+                    <li>Clique em <strong>Tratar Agenda</strong></li>
+                  </ol>
+                  <p>O sistema marca a ocorr&ecirc;ncia atual como <strong>REALIZADA</strong> e cria automaticamente a pr&oacute;xima pend&ecirc;ncia.</p>
+                  <h4>Sugest&atilde;o de pr&oacute;xima data</h4>
+                  <ul>
+                    <li><strong>Frequ&ecirc;ncia 1/2/4</strong>: data atual + intervalo fixo → ajusta para o pr&oacute;ximo dia permitido</li>
+                    <li><strong>Frequ&ecirc;ncia 8/12</strong>: varre os dias futuros at&eacute; encontrar um dia permitido</li>
+                  </ul>
+                  <h4>Idempot&ecirc;ncia</h4>
+                  <p>O sistema nunca cria duplicatas. Se j&aacute; existe uma pend&ecirc;ncia do mesmo fornecedor na pr&oacute;xima data calculada, nenhuma nova ocorr&ecirc;ncia &eacute; criada.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
+                <summary>🗓️ Calend&aacute;rio — Vistas e Eventos</summary>
+                <div class="ajuda-corpo">
+                  <h4>Vistas dispon&iacute;veis</h4>
+                  <ul>
+                    <li><strong>M&ecirc;s</strong>: vis&atilde;o geral do m&ecirc;s com todos os eventos coloridos por categoria</li>
+                    <li><strong>Semana</strong>: distribui&ccedil;&atilde;o por hora dos eventos da semana</li>
+                    <li><strong>Dia</strong>: detalhamento hora a hora do dia selecionado</li>
+                  </ul>
+                  <h4>Navega&ccedil;&atilde;o</h4>
+                  <ul>
+                    <li>Use <strong>&lsaquo;</strong> e <strong>&rsaquo;</strong> para avan&ccedil;ar/voltar no tempo</li>
+                    <li>Clique no <strong>n&uacute;mero do dia</strong> na vista mensal para ir direto &agrave; vista di&aacute;ria</li>
+                    <li>Clique em <strong>Hoje</strong> para voltar ao dia atual</li>
+                  </ul>
+                  <h4>Criar evento</h4>
+                  <ul>
+                    <li>Clique em <strong>+ Novo Evento</strong> (bot&atilde;o no topo da se&ccedil;&atilde;o)</li>
+                    <li>Ou <strong>arraste um intervalo de tempo</strong> na vista Semana ou Dia para criar j&aacute; com hor&aacute;rio</li>
+                  </ul>
+                  <h4>Cores no calend&aacute;rio</h4>
+                  <p>Cada categoria tem uma cor definida em <strong>Categorias</strong>. Eventos de fornecedores usam a cor da categoria <em>Agenda de Compras</em> por padr&atilde;o.</p>
+                  <h4>Recorr&ecirc;ncia</h4>
+                  <p>Ao criar um evento gen&eacute;rico, escolha a recorr&ecirc;ncia (Di&aacute;ria, Semanal, Quinzenal, Mensal) e defina uma data de fim opcional. O sistema cria uma ocorr&ecirc;ncia para cada data at&eacute; o limite.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
+                <summary>🎨 Categorias — Organizando por Tipo</summary>
+                <div class="ajuda-corpo">
+                  <p>Categorias permitem classificar eventos por tipo e dar uma cor visual a cada um.</p>
+                  <h4>Categorias padr&atilde;o</h4>
+                  <ul>
+                    <li>🟡 <strong>Agenda de Compras</strong> — vinculada aos fornecedores (amarelo)</li>
+                    <li>🔵 <strong>Pessoal</strong> — compromissos pessoais (azul)</li>
+                    <li>🟢 <strong>Operacional</strong> — tarefas operacionais (verde)</li>
+                  </ul>
+                  <h4>Como gerenciar</h4>
+                  <ol>
+                    <li>Acesse <strong>Categorias</strong> no menu</li>
+                    <li>Informe o nome e escolha a cor usando o seletor</li>
+                    <li>Clique em <strong>Salvar Categoria</strong></li>
+                  </ol>
+                  <p>As cores aparecem imediatamente no calend&aacute;rio. Voc&ecirc; pode editar ou excluir qualquer categoria.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
+                <summary>📌 Painel de Notas — Post-its por Comprador</summary>
+                <div class="ajuda-corpo">
+                  <p>O Painel de Notas re&uacute;ne em um s&oacute; lugar todas as notas fixadas nos compromissos, organizadas por comprador.</p>
+                  <h4>Como adicionar uma nota</h4>
+                  <ul>
+                    <li>Ao <strong>tratar uma agenda</strong>: preencha o campo <em>Nota</em> no modal de detalhe antes de confirmar</li>
+                    <li>Ao <strong>criar um novo evento</strong>: preencha o campo <em>Nota</em> no modal de novo evento</li>
+                  </ul>
+                  <p>A nota aparece como um post-it colorido (cor da categoria) no <strong>Painel de Notas</strong>, com data, hor&aacute;rio e o nome do fornecedor ou t&iacute;tulo do evento.</p>
+                  <h4>Remover uma nota</h4>
+                  <p>Clique no <strong>✕</strong> no canto do post-it. A nota &eacute; removida do painel mas o compromisso continua existindo.</p>
+                  <p class="ajuda-dica">💡 <strong>Aten&ccedil;&atilde;o</strong>: a nota do compromisso &eacute; diferente da nota do fornecedor. A nota do fornecedor fica no cadastro de fornecedores e persiste independentemente das ocorr&ecirc;ncias.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
+                <summary>🔍 Auditoria da Opera&ccedil;&atilde;o</summary>
+                <div class="ajuda-corpo">
+                  <p>A auditoria oferece uma vis&atilde;o gerencial do hist&oacute;rico de eventos, agrupada por comprador.</p>
+                  <h4>Como acessar</h4>
+                  <ol>
+                    <li>Clique em <strong>Auditoria</strong> no topo da p&aacute;gina</li>
+                    <li>Informe a senha de auditoria (definida pelo administrador do cliente no primeiro acesso)</li>
+                  </ol>
+                  <h4>O que a auditoria mostra</h4>
+                  <ul>
+                    <li><strong>KPIs</strong>: total de eventos, cumpridas, postergadas, antecipadas, aumentos e redu&ccedil;&otilde;es de par&acirc;metro</li>
+                    <li><strong>Leitura Sint&eacute;tica</strong>: resumo do per&iacute;odo</li>
+                    <li><strong>Intelig&ecirc;ncia</strong>: recomenda&ccedil;&otilde;es baseadas nos padr&otilde;es detectados</li>
+                    <li><strong>Auditoria por Comprador</strong>: detalhamento de cada evento com impacto no par&acirc;metro</li>
+                  </ul>
+                  <h4>Filtros de per&iacute;odo</h4>
+                  <p>Escolha entre &Uacute;ltimos 30 dias, &Uacute;ltima semana, &Uacute;ltimo m&ecirc;s ou defina um per&iacute;odo personalizado.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
+                <summary>⚙️ Configura&ccedil;&otilde;es Avan&ccedil;adas</summary>
+                <div class="ajuda-corpo">
+                  <h4>Sidebar recolh&iacute;vel</h4>
+                  <p>Clique no bot&atilde;o <strong>⋮</strong> (recolhida) ou <strong>✕</strong> (expandida) no topo da sidebar para alternar. O estado &eacute; memorizado entre sess&otilde;es.</p>
+                  <h4>Tema visual</h4>
+                  <p>Use os bot&otilde;es <strong>Claro</strong> e <strong>Escuro</strong> no topo da p&aacute;gina para alternar o tema. A prefer&ecirc;ncia &eacute; salva automaticamente.</p>
+                  <h4>Sincroniza&ccedil;&atilde;o manual</h4>
+                  <p>Se os dados parecerem desatualizados, acesse <strong>Personalizar Portal &rsaquo; Sincronizar Agora</strong> para for&ccedil;ar o recarregamento completo dos dados do Supabase.</p>
+                </div>
+              </details>
+
             </div>
           </section>
 
