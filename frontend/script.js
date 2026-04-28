@@ -2109,7 +2109,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
       fetchSupabase(`/rest/v1/clientes?select=id,nome_fantasia,razao_social,email_responsavel,observacoes&tenant_id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/compradores?select=id,nome_comprador,telefone,email,foto_path,senha_hash&tenant_id=eq.${settings.tenantId}&order=nome_comprador.asc`),
       fetchSupabase(`/rest/v1/fornecedores?select=id,codigo_fornecedor,nome_fornecedor,data_primeiro_pedido,frequencia_revisao,parametro_estoque,lead_time_entrega,parametro_compra,comprador_id,compradores(nome_comprador),fornecedor_dias_compra(dia_semana)&tenant_id=eq.${settings.tenantId}&order=nome_fornecedor.asc`),
-      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`),
+      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`),
       fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,observacao,data_realizacao,created_at,updated_at&tenant_id=eq.${settings.tenantId}&order=updated_at.desc`),
     ]);
 
@@ -2117,7 +2117,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
     let agendaRows = agendaRowsRaw;
     const createdSeeds = await backfillMissingPendingOccurrences(supplierRows, agendaRowsRaw);
     if (createdSeeds > 0) {
-      agendaRows = await fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`);
+      agendaRows = await fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`);
       if (!silent && !preserveFeedback) {
         setFeedback(`Portal do cliente carregado com sucesso. ${createdSeeds} agenda(s) pendente(s) foram geradas automaticamente.`, "success");
       }
@@ -2775,6 +2775,10 @@ function initCalendar() {
       day: "Dia",
     },
     height: "auto",
+    slotMinTime: "08:00:00",
+    slotMaxTime: "18:00:00",
+    scrollTime: "08:00:00",
+    slotDuration: "00:30:00",
     events: buildCalendarEvents(),
     eventClick(info) {
       const { occ } = info.event.extendedProps;
