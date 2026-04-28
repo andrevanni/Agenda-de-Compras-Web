@@ -809,6 +809,7 @@ function renderTables() {
   renderAgendaTables();
   renderSemComprador();
   renderSuppliers();
+  renderPainel();
   renderBuyers();
 }
 
@@ -1027,6 +1028,7 @@ function openAgendaDetail(occurrenceId) {
 
   document.getElementById("proximaDataInput").value = isoToBr(suggestedDate);
   document.getElementById("agendaObservacao").value = "Tratado pela tela";
+  document.getElementById("agendaNota").value = row.nota ?? "";
   document.getElementById("incrementoTratamento").textContent = formatIncrement(incrementoTratamentoBase);
   document.getElementById("incrementoAjusteProxima").textContent = "+0 dia(s)";
   document.getElementById("incrementoParametroTotal").textContent = formatIncrement(incrementoTratamentoBase);
@@ -1138,6 +1140,7 @@ async function tratarAgendaAtual() {
         status: "REALIZADA",
         data_realizacao: todayIso(),
         observacao: observacaoAuditoria,
+        nota: document.getElementById("agendaNota").value.trim() || null,
       },
     });
 
@@ -2109,7 +2112,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
       fetchSupabase(`/rest/v1/clientes?select=id,nome_fantasia,razao_social,email_responsavel,observacoes&tenant_id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/compradores?select=id,nome_comprador,telefone,email,foto_path,senha_hash&tenant_id=eq.${settings.tenantId}&order=nome_comprador.asc`),
       fetchSupabase(`/rest/v1/fornecedores?select=id,codigo_fornecedor,nome_fornecedor,data_primeiro_pedido,frequencia_revisao,parametro_estoque,lead_time_entrega,parametro_compra,comprador_id,compradores(nome_comprador),fornecedor_dias_compra(dia_semana)&tenant_id=eq.${settings.tenantId}&order=nome_fornecedor.asc`),
-      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`),
+      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`),
       fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,observacao,data_realizacao,created_at,updated_at&tenant_id=eq.${settings.tenantId}&order=updated_at.desc`),
     ]);
 
@@ -2117,7 +2120,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
     let agendaRows = agendaRowsRaw;
     const createdSeeds = await backfillMissingPendingOccurrences(supplierRows, agendaRowsRaw);
     if (createdSeeds > 0) {
-      agendaRows = await fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`);
+      agendaRows = await fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`);
       if (!silent && !preserveFeedback) {
         setFeedback(`Portal do cliente carregado com sucesso. ${createdSeeds} agenda(s) pendente(s) foram geradas automaticamente.`, "success");
       }
@@ -2462,7 +2465,10 @@ function bindStaticEvents() {
   document.getElementById("categoriaCor")?.addEventListener("input", () => {
     const cor = document.getElementById("categoriaCor").value;
     const preview = document.getElementById("categoriaCorPreview");
-    if (preview) { preview.style.background = cor; }
+    if (preview) {
+      preview.style.background = cor;
+      preview.textContent = cor.toUpperCase();
+    }
   });
 
   document.querySelectorAll("[data-close-modal]").forEach((button) => {
@@ -2705,6 +2711,95 @@ function renderKpis() {
 }
 
 // ============================================================
+// PAINEL DE NOTAS
+// ============================================================
+
+function renderPainel() {
+  const container = document.getElementById("painelNotas");
+  if (!container) return;
+
+  const { activeBuyerId } = getSettings();
+
+  // Junta pendentes + realizadas que tenham nota preenchida
+  const allOccs = [...state.agenda, ...state.auditOccurrences];
+  const seen = new Set();
+  const withNota = allOccs.filter((occ) => {
+    if (!occ.nota?.trim()) return false;
+    if (seen.has(occ.id)) return false;
+    seen.add(occ.id);
+    if (activeBuyerId && activeBuyerId !== UNASSIGNED_BUYER_VALUE) {
+      const supplier = supplierById(occ.fornecedor_id);
+      const buyerMatch = supplier?.comprador_id === activeBuyerId || occ.comprador_id === activeBuyerId;
+      if (!buyerMatch) return false;
+    }
+    return true;
+  });
+
+  if (!withNota.length) {
+    container.innerHTML = `<p class="muted" style="padding:24px 0">Nenhuma nota fixada nos compromissos ainda. Abra um compromisso e adicione uma nota.</p>`;
+    return;
+  }
+
+  // Agrupa por comprador
+  const groups = new Map();
+  for (const occ of withNota) {
+    const supplier = supplierById(occ.fornecedor_id);
+    const buyer = buyerById(occ.comprador_id ?? supplier?.comprador_id);
+    const key = buyer?.id ?? "sem-comprador";
+    if (!groups.has(key)) groups.set(key, { buyer, items: [] });
+    groups.get(key).items.push(occ);
+  }
+
+  container.innerHTML = Array.from(groups.values()).map(({ buyer, items }) => `
+    <div class="painel-grupo">
+      <div class="painel-grupo-header">
+        ${buyer ? `<div class="avatar avatar-sm avatar-placeholder">${buyerInitials(buyer.nome_comprador)}</div>` : ""}
+        <strong>${buyer?.nome_comprador ?? "Sem comprador"}</strong>
+        <span class="muted">${items.length} nota(s)</span>
+      </div>
+      <div class="painel-cards">
+        ${items.map((occ) => {
+          const supplier = supplierById(occ.fornecedor_id);
+          const cat = categoriaById(occ.categoria_id);
+          const titulo = occ.titulo || supplier?.nome_fornecedor || "Compromisso";
+          const cor = cat?.cor ?? "#F59E0B";
+          const hora = occ.hora_inicio ? ` · ${occ.hora_inicio.slice(0, 5)}` : "";
+          return `
+            <div class="postit-card" style="border-top: 4px solid ${cor}">
+              <div class="postit-card-header">
+                <span class="postit-card-titulo">${titulo}</span>
+                <span class="postit-card-data muted">${formatDate(occ.data_prevista)}${hora}</span>
+              </div>
+              <p class="postit-card-nota">${occ.nota}</p>
+              <button class="postit-card-remove muted" data-remove-nota="${occ.id}" title="Remover nota">&#10005;</button>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  container.querySelectorAll("[data-remove-nota]").forEach((btn) => {
+    btn.addEventListener("click", () => removeNota(btn.dataset.removeNota));
+  });
+}
+
+async function removeNota(occId) {
+  try {
+    await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${occId}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: { nota: null },
+    });
+    const occ = state.agenda.find((o) => o.id === occId) ?? state.auditOccurrences.find((o) => o.id === occId);
+    if (occ) occ.nota = null;
+    renderPainel();
+  } catch (err) {
+    setFeedback(`Não foi possível remover a nota: ${err.message}`, "error");
+  }
+}
+
+// ============================================================
 // CALENDÁRIO — FullCalendar
 // ============================================================
 
@@ -2822,9 +2917,9 @@ async function loadCategorias() {
     state.categorias = rows ?? [];
   } catch {
     state.categorias = [
-      { id: "cat-fornecedores", nome: "Fornecedores", cor: "#3B82F6" },
-      { id: "cat-pessoal",      nome: "Pessoal",      cor: "#F59E0B" },
-      { id: "cat-operacional",  nome: "Operacional",  cor: "#10B981" },
+      { id: "cat-compras",     nome: "Agenda de Compras", cor: "#F59E0B" },
+      { id: "cat-pessoal",     nome: "Pessoal",           cor: "#3B82F6" },
+      { id: "cat-operacional", nome: "Operacional",       cor: "#10B981" },
     ];
   }
 }
@@ -2898,9 +2993,9 @@ async function saveCategoria(event) {
       });
       setFeedback("Categoria atualizada.", "success");
     } else {
-      await fetchSupabase("/rest/v1/categorias_agenda", {
+      await fetchSupabase("/rest/v1/categorias_agenda?on_conflict=tenant_id,nome", {
         method: "POST",
-        headers: { Prefer: "return=minimal" },
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
         body: payload,
       });
       setFeedback("Categoria criada com sucesso.", "success");
@@ -3006,6 +3101,7 @@ async function saveNewEvent() {
   const recorrencia  = document.getElementById("newEventRecorrencia").value;
   const recFim       = brToIso(document.getElementById("newEventRecorrenciaFim").value);
   const observacao   = document.getElementById("newEventObservacao").value.trim() || null;
+  const nota         = document.getElementById("newEventNota").value.trim() || null;
   const settings     = getSettings();
   const feedbackEl   = document.getElementById("newEventConflictWarning");
 
@@ -3032,6 +3128,7 @@ async function saveNewEvent() {
     categoria_id:  categoriaId,
     comprador_id:  compradorId,
     observacao,
+    nota,
     status: "PENDENTE",
     recorrencia: recorrencia ? JSON.stringify({ tipo: recorrencia, fim: recFim || null }) : null,
   };

@@ -42,6 +42,7 @@
           <button class="nav-link" data-section="sem-comprador">Sem Comprador</button>
           <button class="nav-link" data-section="fornecedores">Cadastro de Fornecedores</button>
           <button class="nav-link" data-section="compradores">Cadastro de Compradores</button>
+          <button class="nav-link" data-section="painel">Painel de Notas</button>
           <button class="nav-link" data-section="categorias">Categorias</button>
         </nav>
 
@@ -85,6 +86,16 @@
             <div id="fullCalendar"></div>
           </section>
 
+          <section id="painel" class="section-view hidden">
+            <div class="section-title">
+              <div>
+                <h2>Painel de Notas</h2>
+                <p class="muted">Notas fixadas nos compromissos, organizadas por comprador.</p>
+              </div>
+            </div>
+            <div id="painelNotas" class="painel-notas"></div>
+          </section>
+
           <section id="categorias" class="section-view hidden">
             <div class="section-title">
               <div>
@@ -100,8 +111,8 @@
               <label>Nome<br><input id="categoriaNome" name="nome" required placeholder="Ex.: Reuni&otilde;es"></label>
               <label>Cor<br>
                 <div style="display:flex;gap:8px;align-items:center;">
-                  <input id="categoriaCor" name="cor" type="color" value="#3B82F6" style="width:48px;height:36px;border:none;padding:0;cursor:pointer;">
-                  <span id="categoriaCorPreview" class="kpi-emphasis" style="padding:4px 12px;border-radius:6px;background:#3B82F6;color:#fff;">Azul</span>
+                  <input id="categoriaCor" name="cor" type="color" value="#F59E0B" style="width:48px;height:36px;border:none;padding:0;cursor:pointer;">
+                  <span id="categoriaCorPreview" class="kpi-emphasis" style="padding:4px 12px;border-radius:6px;background:#F59E0B;color:#fff;">Amarelo</span>
                 </div>
               </label>
               <div class="actions">
@@ -401,6 +412,10 @@
                 Observa&ccedil;&atilde;o<br>
                 <textarea id="agendaObservacao" rows="2" placeholder="Tratado pela tela"></textarea>
               </label>
+              <label class="detail-observation-field">
+                Nota (fixada no Painel)<br>
+                <textarea id="agendaNota" rows="2" placeholder="Registre algo importante sobre este compromisso..."></textarea>
+              </label>
             </section>
 
             <aside class="detail-treatment-side">
@@ -652,6 +667,9 @@
           </label>
           <label style="grid-column:1/-1">Observa&ccedil;&atilde;o<br>
             <textarea id="newEventObservacao" rows="2" placeholder="Detalhes adicionais..."></textarea>
+          </label>
+          <label style="grid-column:1/-1">Nota (fixada no Painel)<br>
+            <textarea id="newEventNota" rows="2" placeholder="Registre algo importante sobre este compromisso..."></textarea>
           </label>
         </div>
         <div id="newEventConflictWarning" class="msg hidden"></div>

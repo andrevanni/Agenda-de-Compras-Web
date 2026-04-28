@@ -1267,3 +1267,90 @@ body[data-theme="light"] .postit-note-shell textarea {
 .fc .fc-daygrid-event-dot {
   display: none;
 }
+
+/* ============================================================
+   Painel de Notas — post-its por comprador
+   ============================================================ */
+
+.painel-notas {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 8px 0 24px;
+}
+
+.painel-grupo-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.painel-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.postit-card {
+  position: relative;
+  background: var(--card-bg, #1e293b);
+  border-radius: 8px;
+  padding: 14px 16px 36px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: box-shadow 0.15s;
+}
+
+.postit-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+}
+
+.postit-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.postit-card-titulo {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.postit-card-data {
+  font-size: 12px;
+}
+
+.postit-card-nota {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.postit-card-remove {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  padding: 2px 6px;
+}
+
+.postit-card-remove:hover {
+  opacity: 1;
+}
+
+[data-theme="light"] .postit-card {
+  background: #fffbe6;
+  box-shadow: 2px 3px 10px rgba(0,0,0,0.12);
+}

@@ -41,7 +41,7 @@ ALTER TABLE agenda_ocorrencias
 -- ============================================================
 
 INSERT INTO categorias_agenda (tenant_id, nome, cor, icone)
-SELECT id, 'Fornecedores', '#3B82F6', 'truck'
+SELECT id, 'Agenda de Compras', '#F59E0B', 'truck'
 FROM tenants
 ON CONFLICT (tenant_id, nome) DO NOTHING;
 
