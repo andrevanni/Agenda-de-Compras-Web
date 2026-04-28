@@ -31,6 +31,8 @@ const storageKeys = {
   loggedPortalRole: "agenda_cliente_logged_portal_role",
   sidebarCollapsed: "agenda_sidebar_collapsed",
   calendarWeekdays: "agenda_calendar_weekdays",
+  apiBaseUrl: "agenda_api_base_url",
+  jwt: "agenda_jwt",
   loggedPortalEmail: "agenda_cliente_logged_portal_email",
   logoUrl: "agenda_cliente_logo_url",
   theme: "agenda_ui_theme",
@@ -148,7 +150,25 @@ function getSettings() {
     loggedBuyerId: localStorage.getItem(storageKeys.loggedBuyerId) ?? "",
     logoUrl: localStorage.getItem(storageKeys.logoUrl) ?? defaultSettings.logoUrl,
     theme: localStorage.getItem(storageKeys.theme) ?? "dark",
+    apiBaseUrl: localStorage.getItem(storageKeys.apiBaseUrl) ?? "",
   };
+}
+
+function getJWT() {
+  return localStorage.getItem(storageKeys.jwt) ?? "";
+}
+
+async function fetchApi(path, options = {}) {
+  const { apiBaseUrl } = getSettings();
+  if (!apiBaseUrl) throw new Error("API não configurada.");
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: options.method ?? "POST",
+    headers: { "Content-Type": "application/json", ...(options.headers ?? {}) },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail ?? data.message ?? `HTTP ${response.status}`);
+  return data;
 }
 
 function applyTheme(themeName = getSettings().theme) {
@@ -1468,6 +1488,8 @@ function populateSettings() {
   document.getElementById("tenantId").value = settings.tenantId;
   const weekdaysSel = document.getElementById("calendarWeekdays");
   if (weekdaysSel) weekdaysSel.value = localStorage.getItem(storageKeys.calendarWeekdays) ?? "seg-dom";
+  const apiBaseUrlEl = document.getElementById("apiBaseUrl");
+  if (apiBaseUrlEl) apiBaseUrlEl.value = localStorage.getItem(storageKeys.apiBaseUrl) ?? "";
   applyLogo();
 }
 
@@ -1485,6 +1507,8 @@ async function saveSettings() {
   localStorage.setItem(storageKeys.supabaseUrl, supabaseUrl);
   localStorage.setItem(storageKeys.supabaseKey, supabaseKey);
   localStorage.setItem(storageKeys.tenantId, tenantId);
+  const apiBaseUrlVal = document.getElementById("apiBaseUrl")?.value.trim() ?? "";
+  localStorage.setItem(storageKeys.apiBaseUrl, apiBaseUrlVal);
   const weekdays = document.getElementById("calendarWeekdays")?.value ?? "seg-dom";
   localStorage.setItem(storageKeys.calendarWeekdays, weekdays);
   applyCalendarWeekdays();
@@ -2641,6 +2665,33 @@ async function loginBuyer() {
     return;
   }
 
+  // Tenta autenticação real via JWT (backend FastAPI)
+  const { apiBaseUrl } = getSettings();
+  if (apiBaseUrl) {
+    try {
+      const data = await fetchApi("/api/v1/auth/login", { body: { email, password } });
+      localStorage.setItem(storageKeys.jwt, data.access_token);
+      clearPortalSession();
+      // Localiza o comprador pelo id retornado pela API
+      const buyerFromApi = state.buyers.find((b) => b.id === data.comprador_id) ??
+        state.buyers.find((b) => (b.email ?? "").toLowerCase() === email);
+      if (buyerFromApi) {
+        localStorage.setItem(storageKeys.loggedBuyerId, buyerFromApi.id);
+        localStorage.setItem(storageKeys.activeBuyerId, buyerFromApi.id);
+      }
+      localStorage.setItem(storageKeys.loggedPortalRole, "buyer");
+      localStorage.setItem(storageKeys.loggedPortalEmail, email);
+      closeModal("buyerLoginModal");
+      updateBuyerCard();
+      renderTables();
+      setFeedback("Comprador autenticado com sucesso.", "success");
+      return;
+    } catch {
+      // Se a API falhar, cai no modo legado abaixo
+    }
+  }
+
+  // Modo legado: compara senha em texto plano (sem JWT)
   if (!buyer) {
     setFeedback("Acesso não localizado para este cliente.", "error", feedbackTarget);
     return;
@@ -2655,7 +2706,6 @@ async function loginBuyer() {
       setFeedback("A confirmação da senha do comprador não confere.", "error", feedbackTarget);
       return;
     }
-
     try {
       await fetchSupabase(`/rest/v1/compradores?id=eq.${buyer.id}`, {
         method: "PATCH",

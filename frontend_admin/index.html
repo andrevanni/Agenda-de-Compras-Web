@@ -78,8 +78,16 @@
             <input id="supabaseUrl" type="url" placeholder="https://seu-projeto.supabase.co">
           </label>
           <label class="field">
-            <span>Chave da API</span>
+            <span>Chave da API (anon key)</span>
             <input id="supabaseKey" type="password" placeholder="sb_publishable_...">
+          </label>
+          <label class="field">
+            <span>URL do Backend (FastAPI)</span>
+            <input id="apiBaseUrl" type="url" placeholder="https://seu-backend.vercel.app">
+          </label>
+          <label class="field">
+            <span>Token Administrativo (X-Admin-Token)</span>
+            <input id="adminToken" type="password" placeholder="Mesmo valor de ADMIN_API_TOKEN no .env">
           </label>
           <div class="hero-actions">
             <button type="submit" class="primary-button">Salvar configuração</button>

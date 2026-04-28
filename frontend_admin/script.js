@@ -1,12 +1,15 @@
 const storageKeys = {
   supabaseUrl: "agenda_admin_supabase_url",
   supabaseKey: "agenda_admin_supabase_key",
+  adminToken: "agenda_admin_token",
+  apiBaseUrl: "agenda_admin_api_base_url",
   theme: "agenda_ui_theme",
 };
 
 const defaults = {
   supabaseUrl: "https://fnwsorhflueunqzkwsxu.supabase.co",
   supabaseKey: "sb_publishable_ZvbYTFdj6maOJiJACFR5Zw_9xJrBuUB",
+  apiBaseUrl: "",
 };
 
 const fallbackTenants = [
@@ -75,8 +78,34 @@ function getSettings() {
   return {
     supabaseUrl: localStorage.getItem(storageKeys.supabaseUrl) ?? defaults.supabaseUrl,
     supabaseKey: localStorage.getItem(storageKeys.supabaseKey) ?? defaults.supabaseKey,
+    adminToken: localStorage.getItem(storageKeys.adminToken) ?? "",
+    apiBaseUrl: localStorage.getItem(storageKeys.apiBaseUrl) ?? defaults.apiBaseUrl,
     theme: localStorage.getItem(storageKeys.theme) ?? "dark",
   };
+}
+
+async function fetchAdmin(path, options = {}) {
+  const { apiBaseUrl, adminToken } = getSettings();
+  if (!apiBaseUrl) throw new Error("URL do backend não configurada. Preencha em Conexão avançada.");
+  if (!adminToken) throw new Error("Token admin não configurado. Preencha em Conexão avançada.");
+
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: options.method ?? "GET",
+    headers: {
+      "X-Admin-Token": adminToken,
+      "Content-Type": "application/json",
+      ...(options.headers ?? {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail ?? data.message ?? `HTTP ${response.status}`);
+  }
+  if (response.status === 204) return null;
+  const text = await response.text();
+  return text.trim() ? JSON.parse(text) : null;
 }
 
 function applyTheme(themeName = getSettings().theme) {
@@ -90,6 +119,10 @@ function populateSettings() {
   const settings = getSettings();
   supabaseUrlInput.value = settings.supabaseUrl;
   supabaseKeyInput.value = settings.supabaseKey;
+  const adminTokenInput = document.getElementById("adminToken");
+  const apiBaseUrlInput = document.getElementById("apiBaseUrl");
+  if (adminTokenInput) adminTokenInput.value = settings.adminToken;
+  if (apiBaseUrlInput) apiBaseUrlInput.value = settings.apiBaseUrl;
   try {
     projectUrlLabel.textContent = new URL(settings.supabaseUrl).host;
   } catch {
@@ -386,10 +419,57 @@ function renderTenants() {
         </div>
         <h4>${tenant.nome ?? "Base sem nome"}</h4>
         <p class="meta">Criado em ${tenant.created_at ? formatDateTime(tenant.created_at) : "Não informado"}</p>
+        <p class="submeta">${clientePorTenant(tenant.id)}</p>
       </div>
-      <div class="submeta">${clientePorTenant(tenant.id)}</div>
+      <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <button class="secondary-button" type="button" data-abrir-portal="${tenant.id}">🚀 Abrir Portal</button>
+        <button class="secondary-button" type="button" data-enviar-convites="${tenant.id}">📧 Enviar Convites</button>
+      </div>
     </article>
   `).join("");
+
+  document.querySelectorAll("[data-abrir-portal]").forEach((btn) => {
+    btn.addEventListener("click", () => abrirPortal(btn.dataset.abrirPortal));
+  });
+  document.querySelectorAll("[data-enviar-convites]").forEach((btn) => {
+    btn.addEventListener("click", () => listarCompradores(btn.dataset.enviarConvites));
+  });
+}
+
+async function abrirPortal(tenantId) {
+  try {
+    setFeedback("Gerando acesso ao portal...", "info");
+    const data = await fetchAdmin(`/api/v1/admin/abrir-portal/${tenantId}`, { method: "POST" });
+    const url = `${window.location.origin}/?jwt=${encodeURIComponent(data.access_token)}&tenant_id=${encodeURIComponent(data.tenant_id)}`;
+    window.open(url, "_blank");
+    setFeedback("Portal aberto em nova aba.", "success", true);
+  } catch (err) {
+    setFeedback(`Não foi possível abrir o portal: ${err.message}`, "error");
+  }
+}
+
+async function listarCompradores(tenantId) {
+  try {
+    const rows = await fetchSupabase(
+      `/rest/v1/compradores?select=id,nome_comprador,email,user_id&tenant_id=eq.${tenantId}&order=nome_comprador.asc`
+    );
+    if (!rows?.length) { setFeedback("Nenhum comprador cadastrado nesta base.", "warning"); return; }
+
+    const lista = rows.map((c) => `${c.nome_comprador} — ${c.email || "sem e-mail"} ${c.user_id ? "✅" : "⚠️ sem acesso"}`).join("\n");
+    const escolha = window.prompt(
+      `Compradores da base:\n${lista}\n\nDigite o e-mail do comprador para enviar convite (ou deixe vazio para cancelar):`
+    );
+    if (!escolha?.trim()) return;
+
+    const comprador = rows.find((c) => (c.email ?? "").toLowerCase() === escolha.trim().toLowerCase());
+    if (!comprador) { setFeedback("Comprador não encontrado.", "error"); return; }
+
+    setFeedback(`Enviando convite para ${comprador.email}...`, "info");
+    await fetchAdmin(`/api/v1/admin/compradores/${comprador.id}/enviar-convite`, { method: "POST" });
+    setFeedback(`Convite enviado para ${comprador.email}.`, "success", true);
+  } catch (err) {
+    setFeedback(`Erro: ${err.message}`, "error");
+  }
 }
 
 async function garantirSenhaAuditoriaInicial() {
@@ -578,6 +658,10 @@ document.getElementById("settingsForm").addEventListener("submit", (event) => {
   event.preventDefault();
   localStorage.setItem(storageKeys.supabaseUrl, supabaseUrlInput.value.trim());
   localStorage.setItem(storageKeys.supabaseKey, supabaseKeyInput.value.trim());
+  const adminTokenInput = document.getElementById("adminToken");
+  const apiBaseUrlInput = document.getElementById("apiBaseUrl");
+  if (adminTokenInput) localStorage.setItem(storageKeys.adminToken, adminTokenInput.value.trim());
+  if (apiBaseUrlInput) localStorage.setItem(storageKeys.apiBaseUrl, apiBaseUrlInput.value.trim());
   populateSettings();
   setFeedback("Configuração administrativa salva.", "success", true);
 });
