@@ -1146,53 +1146,124 @@ body[data-theme="light"] .postit-note-shell textarea {
   font-weight: 600;
 }
 
-.fc .fc-button {
-  background: var(--btn-bg, #2563eb);
+/* Botões da toolbar */
+.fc .fc-button,
+.fc .fc-button-primary {
+  background: #2563eb;
   border-color: transparent;
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
   border-radius: 6px;
+  box-shadow: none;
 }
 
-.fc .fc-button:hover {
-  opacity: 0.85;
-}
-
-.fc .fc-button-primary:not(:disabled).fc-button-active {
-  background: var(--accent, #1d4ed8);
+.fc .fc-button:hover,
+.fc .fc-button-primary:hover {
+  background: #1d4ed8;
   border-color: transparent;
 }
 
-[data-theme="dark"] .fc .fc-col-header-cell,
-[data-theme="dark"] .fc .fc-daygrid-day,
-[data-theme="dark"] .fc .fc-timegrid-col,
-[data-theme="dark"] .fc-theme-standard td,
-[data-theme="dark"] .fc-theme-standard th {
-  border-color: rgba(255, 255, 255, 0.08);
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background: #1e40af;
+  border-color: transparent;
+  box-shadow: none;
 }
 
-[data-theme="dark"] .fc .fc-toolbar-title,
-[data-theme="dark"] .fc .fc-col-header-cell-cushion,
+.fc .fc-button:focus,
+.fc .fc-button-primary:focus {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4);
+}
+
+/* Bordas gerais */
+.fc-theme-standard td,
+.fc-theme-standard th,
+.fc-theme-standard .fc-scrollgrid {
+  border-color: rgba(128, 128, 128, 0.2);
+}
+
+/* Header dos dias da semana — corrige fundo branco no tema escuro */
+[data-theme="dark"] .fc .fc-col-header-cell {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .fc .fc-col-header-cell-cushion {
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+[data-theme="dark"] .fc .fc-daygrid-day {
+  background: transparent;
+}
+
 [data-theme="dark"] .fc .fc-daygrid-day-number {
-  color: var(--text, #f1f5f9);
+  color: #cbd5e1;
+  text-decoration: none;
+}
+
+[data-theme="dark"] .fc .fc-day-other .fc-daygrid-day-number {
+  color: #475569;
+}
+
+[data-theme="dark"] .fc .fc-toolbar-title {
+  color: #f1f5f9;
 }
 
 [data-theme="dark"] .fc .fc-daygrid-day.fc-day-today {
   background: rgba(37, 99, 235, 0.15);
 }
 
-[data-theme="light"] .fc .fc-daygrid-day.fc-day-today {
-  background: rgba(37, 99, 235, 0.08);
+[data-theme="dark"] .fc-theme-standard td,
+[data-theme="dark"] .fc-theme-standard th,
+[data-theme="dark"] .fc-theme-standard .fc-scrollgrid {
+  border-color: rgba(255, 255, 255, 0.07);
 }
 
+[data-theme="dark"] .fc .fc-timegrid-slot-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .fc .fc-timegrid-now-indicator-line {
+  border-color: #f87171;
+}
+
+/* Tema claro */
+[data-theme="light"] .fc .fc-daygrid-day.fc-day-today {
+  background: rgba(37, 99, 235, 0.06);
+}
+
+[data-theme="light"] .fc .fc-col-header-cell-cushion {
+  color: #475569;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+[data-theme="light"] .fc .fc-daygrid-day-number {
+  text-decoration: none;
+  color: #334155;
+}
+
+/* Eventos */
 .fc .fc-event {
   border-radius: 4px;
   font-size: 12px;
-  padding: 1px 4px;
+  padding: 1px 5px;
   cursor: pointer;
+  border: none;
 }
 
 .fc .fc-event:hover {
-  opacity: 0.88;
+  opacity: 0.85;
+}
+
+.fc .fc-daygrid-event-dot {
+  display: none;
 }

@@ -2340,6 +2340,7 @@ function bindStaticEvents() {
   activeBuyerSelect.addEventListener("change", () => {
     localStorage.setItem(storageKeys.activeBuyerId, activeBuyerSelect.value);
     renderTables();
+    refreshCalendar();
   });
 
   document.getElementById("fornecedorFrequencia").addEventListener("change", refreshSupplierSuggestion);
@@ -2716,30 +2717,39 @@ function categoriaCorById(id) {
 }
 
 function buildCalendarEvents() {
-  return state.agenda
-    .map((occ) => {
-      const supplier = supplierById(occ.fornecedor_id);
-      const cat = categoriaById(occ.categoria_id);
-      const titulo = occ.titulo || supplier?.nome_fornecedor || "Sem título";
-      const cor = cat?.cor ?? "#3B82F6";
-      const start = occ.hora_inicio
-        ? `${occ.data_prevista}T${occ.hora_inicio}`
-        : occ.data_prevista;
-      const end = occ.hora_fim
-        ? `${occ.data_prevista}T${occ.hora_fim}`
-        : null;
-      return {
-        id: occ.id,
-        title: titulo,
-        start,
-        end: end ?? undefined,
-        allDay: !occ.hora_inicio,
-        backgroundColor: cor,
-        borderColor: cor,
-        textColor: "#ffffff",
-        extendedProps: { occ, supplier, cat },
-      };
-    });
+  const { activeBuyerId } = getSettings();
+
+  const filtered = state.agenda.filter((occ) => {
+    if (!activeBuyerId || activeBuyerId === UNASSIGNED_BUYER_VALUE) return true;
+    const supplier = supplierById(occ.fornecedor_id);
+    const buyerOnSupplier = supplier?.comprador_id;
+    const buyerOnOcc = occ.comprador_id;
+    return buyerOnSupplier === activeBuyerId || buyerOnOcc === activeBuyerId;
+  });
+
+  return filtered.map((occ) => {
+    const supplier = supplierById(occ.fornecedor_id);
+    const cat = categoriaById(occ.categoria_id);
+    const titulo = occ.titulo || supplier?.nome_fornecedor || "Sem título";
+    const cor = cat?.cor ?? "#3B82F6";
+    const start = occ.hora_inicio
+      ? `${occ.data_prevista}T${occ.hora_inicio}`
+      : occ.data_prevista;
+    const end = occ.hora_fim
+      ? `${occ.data_prevista}T${occ.hora_fim}`
+      : null;
+    return {
+      id: occ.id,
+      title: titulo,
+      start,
+      end: end ?? undefined,
+      allDay: !occ.hora_inicio,
+      backgroundColor: cor,
+      borderColor: cor,
+      textColor: "#ffffff",
+      extendedProps: { occ, supplier, cat },
+    };
+  });
 }
 
 function initCalendar() {
