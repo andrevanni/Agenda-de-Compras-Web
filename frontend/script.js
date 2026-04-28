@@ -30,6 +30,7 @@ const storageKeys = {
   loggedBuyerId: "agenda_cliente_logged_buyer_id",
   loggedPortalRole: "agenda_cliente_logged_portal_role",
   sidebarCollapsed: "agenda_sidebar_collapsed",
+  calendarWeekdays: "agenda_calendar_weekdays",
   loggedPortalEmail: "agenda_cliente_logged_portal_email",
   logoUrl: "agenda_cliente_logo_url",
   theme: "agenda_ui_theme",
@@ -1458,6 +1459,8 @@ function populateSettings() {
   document.getElementById("supabaseUrl").value = settings.supabaseUrl;
   document.getElementById("supabaseKey").value = settings.supabaseKey;
   document.getElementById("tenantId").value = settings.tenantId;
+  const weekdaysSel = document.getElementById("calendarWeekdays");
+  if (weekdaysSel) weekdaysSel.value = localStorage.getItem(storageKeys.calendarWeekdays) ?? "seg-dom";
   applyLogo();
 }
 
@@ -1475,6 +1478,9 @@ async function saveSettings() {
   localStorage.setItem(storageKeys.supabaseUrl, supabaseUrl);
   localStorage.setItem(storageKeys.supabaseKey, supabaseKey);
   localStorage.setItem(storageKeys.tenantId, tenantId);
+  const weekdays = document.getElementById("calendarWeekdays")?.value ?? "seg-dom";
+  localStorage.setItem(storageKeys.calendarWeekdays, weekdays);
+  applyCalendarWeekdays();
 
   let logoDataUrl = localStorage.getItem(storageKeys.logoUrl) ?? defaultSettings.logoUrl;
   if (logoFile) {
@@ -2836,6 +2842,18 @@ async function removeNota(occId) {
 // CALENDÁRIO — FullCalendar
 // ============================================================
 
+function getCalendarHiddenDays() {
+  const preset = localStorage.getItem(storageKeys.calendarWeekdays) ?? "seg-dom";
+  if (preset === "seg-sex") return [0, 6]; // oculta dom e sáb
+  if (preset === "seg-sab") return [0];    // oculta só dom
+  return [];
+}
+
+function applyCalendarWeekdays() {
+  if (!state.calendarInstance) return;
+  state.calendarInstance.setOption("hiddenDays", getCalendarHiddenDays());
+}
+
 function categoriaById(id) {
   return state.categorias.find((cat) => cat.id === id) ?? null;
 }
@@ -2907,6 +2925,7 @@ function initCalendar() {
     slotMaxTime: "18:00:00",
     scrollTime: "08:00:00",
     slotDuration: "00:30:00",
+    hiddenDays: getCalendarHiddenDays(),
     navLinks: true,
     navLinkDayClick: "timeGridDay",
     selectable: true,
