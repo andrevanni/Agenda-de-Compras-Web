@@ -14,9 +14,11 @@
     <div class="app">
       <aside class="sidebar">
         <div class="brand">
-          <img id="sidebarLogo" class="brand-logo" src="assets/logo_alta.jpg" alt="Service Farma">
+          <div class="brand-logo-shell">
+            <img id="sidebarLogo" class="brand-logo" src="assets/logo_alta.jpg" alt="Logo do cliente">
+          </div>
           <div class="brand-text">
-            <span class="brand-title">Agenda de Compras</span>
+            <span class="brand-title" id="tenantNameLabel">Agenda de Compras</span>
             <span class="brand-sub">Painel Corporativo</span>
           </div>
         </div>
@@ -34,6 +36,8 @@
           <select id="activeBuyerSelect"></select>
         </div>
 
+        <button id="sidebarToggle" class="sidebar-toggle" title="Expandir/Recolher menu" aria-label="Alternar menu"><span class="sidebar-toggle-icon">&#8942;</span></button>
+
         <nav class="nav">
           <button class="nav-link active" data-section="calendario" title="Calendário"><span class="nav-icon">🗓️</span><span class="nav-label">Calend&aacute;rio</span></button>
           <button class="nav-link" data-section="agenda-dia" title="Agenda do Dia"><span class="nav-icon">📋</span><span class="nav-label">Agenda do Dia</span></button>
@@ -45,7 +49,6 @@
           <button class="nav-link" data-section="painel" title="Painel de Notas"><span class="nav-icon">📌</span><span class="nav-label">Painel de Notas</span></button>
           <button class="nav-link" data-section="categorias" title="Categorias"><span class="nav-icon">🎨</span><span class="nav-label">Categorias</span></button>
         </nav>
-        <button id="sidebarToggle" class="sidebar-toggle" title="Expandir/Recolher menu" aria-label="Alternar menu">&#9776;</button>
 
       </aside>
 

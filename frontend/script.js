@@ -2716,15 +2716,20 @@ function renderKpis() {
 // SIDEBAR RECOLHÍVEL
 // ============================================================
 
+function updateToggleIcon() {
+  const btn = document.getElementById("sidebarToggle");
+  const icon = btn?.querySelector(".sidebar-toggle-icon");
+  if (!icon) return;
+  const isCollapsed = document.querySelector(".sidebar")?.classList.contains("collapsed");
+  icon.textContent = isCollapsed ? "⋮" : "✕";
+}
+
 function initSidebarState() {
   const collapsed = localStorage.getItem(storageKeys.sidebarCollapsed) !== "false";
   const sidebar = document.querySelector(".sidebar");
   if (!sidebar) return;
-  if (collapsed) {
-    sidebar.classList.add("collapsed");
-  } else {
-    sidebar.classList.remove("collapsed");
-  }
+  sidebar.classList.toggle("collapsed", collapsed);
+  updateToggleIcon();
 }
 
 function toggleSidebar() {
@@ -2732,6 +2737,7 @@ function toggleSidebar() {
   if (!sidebar) return;
   const isCollapsed = sidebar.classList.toggle("collapsed");
   localStorage.setItem(storageKeys.sidebarCollapsed, isCollapsed ? "true" : "false");
+  updateToggleIcon();
   if (state.calendarInstance) {
     setTimeout(() => state.calendarInstance.updateSize(), 230);
   }
