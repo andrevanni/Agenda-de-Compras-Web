@@ -3047,6 +3047,8 @@ function buildCalendarEvents() {
 
   const filtered = state.agenda.filter((occ) => {
     if (!activeBuyerId || activeBuyerId === UNASSIGNED_BUYER_VALUE) return true;
+    // Tarefas gerais (sem fornecedor e sem comprador) aparecem para todos os compradores
+    if (!occ.fornecedor_id && !occ.comprador_id) return true;
     const supplier = supplierById(occ.fornecedor_id);
     const buyerOnSupplier = supplier?.comprador_id;
     const buyerOnOcc = occ.comprador_id;
