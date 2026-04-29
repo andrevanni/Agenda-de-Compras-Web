@@ -345,24 +345,29 @@
           <div class="ajuda-lista">
 
             <details class="ajuda-item">
-              <summary>Como cadastrar um novo cliente?</summary>
+              <summary>Passo a passo: onboarding de um novo cliente</summary>
               <div class="ajuda-corpo">
-                <p>O fluxo correto de onboarding segue esta ordem:</p>
                 <ol class="ajuda-steps">
-                  <li><strong>Base Operacional</strong> — A base já é criada automaticamente quando o cliente começa a usar o sistema. Ela aparece na seção "Base Operacional" após o primeiro acesso.</li>
-                  <li><strong>Clientes</strong> — Cadastre os dados comerciais do cliente (razão social, CNPJ, e-mail) e vincule à base operacional correspondente.</li>
-                  <li><strong>Vigências</strong> — Defina o período de uso e o status da licença.</li>
-                  <li><strong>Convites</strong> — Na seção "Base Operacional", clique em "Enviar Convites" para enviar o link de acesso por e-mail ao comprador.</li>
+                  <li><strong>Base Operacional</strong> — Crie a base do cliente pelo formulário "Criar base operacional". É aqui que os dados da agenda ficam.</li>
+                  <li><strong>Clientes</strong> — Cadastre os dados comerciais (razão social, CNPJ, e-mail, logomarca) e vincule à base criada no passo anterior.</li>
+                  <li><strong>Vigências</strong> — Defina o plano e o período de uso da licença.</li>
+                  <li><strong>Compradores</strong> — Cadastre os usuários do cliente diretamente no Supabase (tabela <code>compradores</code>) ou via importação, informando nome, e-mail e <code>tenant_id</code> da base.</li>
+                  <li><strong>Enviar Convites</strong> — Na seção Base Operacional, clique em "Enviar Convites" para o cliente receber o link de acesso por e-mail.</li>
+                  <li><strong>Abrir Portal</strong> — Use "Abrir Portal" para verificar o ambiente antes de entregar ao cliente.</li>
                 </ol>
               </div>
             </details>
 
             <details class="ajuda-item">
-              <summary>O que é a Base Operacional?</summary>
+              <summary>O que é a Base Operacional e o que é Cliente?</summary>
               <div class="ajuda-corpo">
-                <p>A <strong>Base Operacional</strong> (tenant) é o isolamento de dados de cada cliente no banco. Todos os dados — compradores, fornecedores, agenda — ficam separados por base operacional.</p>
-                <p>O <strong>Cliente</strong> (na aba Clientes) são os dados comerciais: CNPJ, razão social, contato. Um cliente deve estar sempre vinculado a uma base operacional.</p>
-                <p class="ajuda-dica">💡 Se um cliente não aparece vinculado, edite o cadastro dele e selecione a base no campo "Base operacional vinculada".</p>
+                <p>São dois registros separados com finalidades distintas:</p>
+                <ul class="ajuda-lista-ul">
+                  <li><strong>Base Operacional (tenant)</strong> — onde os dados da agenda ficam: fornecedores, compradores, ocorrências. É o ambiente ativo do cliente.</li>
+                  <li><strong>Cliente</strong> — os dados comerciais: razão social, CNPJ, contato, vigência. É quem você fatura.</li>
+                </ul>
+                <p>Um cliente deve sempre estar vinculado a uma base operacional para funcionar corretamente.</p>
+                <p class="ajuda-dica">💡 Crie sempre a Base Operacional antes de cadastrar o Cliente.</p>
               </div>
             </details>
 
@@ -372,24 +377,36 @@
                 <ol class="ajuda-steps">
                   <li>Vá em <strong>Base Operacional</strong> e localize o tenant do cliente.</li>
                   <li>Clique em <strong>Enviar Convites</strong>.</li>
-                  <li>O sistema lista os compradores cadastrados na base. Digite o e-mail do comprador que deseja convidar.</li>
-                  <li>O comprador receberá um e-mail com um link para definir a própria senha.</li>
+                  <li>O sistema lista os compradores cadastrados. Digite o e-mail do comprador desejado.</li>
+                  <li>O comprador recebe um e-mail com link para definir a senha e instalar o app.</li>
                 </ol>
-                <p class="ajuda-dica">⚠️ O comprador precisa ter um e-mail cadastrado no sistema para receber o convite.</p>
+                <p class="ajuda-dica">⚠️ O comprador precisa ter e-mail cadastrado na tabela <code>compradores</code> para receber o convite.</p>
+              </div>
+            </details>
+
+            <details class="ajuda-item">
+              <summary>Como gerenciar administradores do painel?</summary>
+              <div class="ajuda-corpo">
+                <p>Apenas o <strong>administrador master</strong> pode convidar, revogar ou excluir outros admins.</p>
+                <ol class="ajuda-steps">
+                  <li>Acesse a seção <strong>Admins</strong>.</li>
+                  <li>Para convidar: preencha o e-mail e nome → "Enviar convite". O novo admin recebe e-mail com link para definir senha e instalar o app.</li>
+                  <li>Para revogar: clique em "Revogar acesso" — o usuário perde o acesso ao painel mas a conta permanece.</li>
+                  <li>Para excluir: clique em "Excluir" — remove o usuário permanentemente do Supabase.</li>
+                </ol>
+                <p class="ajuda-dica">⚠️ O administrador master não pode ser revogado ou excluído.</p>
               </div>
             </details>
 
             <details class="ajuda-item">
               <summary>O que faz o botão "Abrir Portal"?</summary>
               <div class="ajuda-corpo">
-                <p>O botão <strong>Abrir Portal</strong> abre o portal do cliente em uma nova aba, já autenticado como administrador. Você pode navegar pelo sistema como se fosse o próprio cliente.</p>
-                <p>Isso é útil para:</p>
+                <p>Abre o portal do cliente em uma nova aba já autenticado como administrador. Útil para:</p>
                 <ul class="ajuda-lista-ul">
                   <li>Verificar se a agenda está carregando corretamente</li>
                   <li>Ajudar o cliente com dúvidas de uso</li>
                   <li>Validar o onboarding antes de entregar o acesso</li>
                 </ul>
-                <p class="ajuda-dica">⚠️ Requer que o backend esteja configurado e o Token Administrativo esteja correto em "Conexão avançada".</p>
               </div>
             </details>
 
@@ -411,8 +428,8 @@
             <details class="ajuda-item">
               <summary>Senha da auditoria — como funciona?</summary>
               <div class="ajuda-corpo">
-                <p>A <strong>senha da auditoria</strong> protege o acesso ao modo de auditoria dentro do portal do cliente. Quando o comprador clica em "Auditoria", precisa digitar essa senha.</p>
-                <p>Você pode definir ou alterar a senha pelo botão <strong>Senha da auditoria</strong> em cada cliente na seção Clientes.</p>
+                <p>A <strong>senha da auditoria</strong> protege o modo de auditoria no portal do cliente. Quando o comprador clica em "Auditoria", precisa digitar essa senha.</p>
+                <p>Defina ou altere pelo botão <strong>Senha da auditoria</strong> em cada cliente na seção Clientes.</p>
                 <p class="ajuda-dica">💡 A senha padrão é <code>service</code>. Recomendamos trocar após o onboarding.</p>
               </div>
             </details>
@@ -420,13 +437,11 @@
             <details class="ajuda-item">
               <summary>Conexão avançada — quando preciso mexer?</summary>
               <div class="ajuda-corpo">
-                <p>A <strong>Conexão avançada</strong> guarda as credenciais de acesso ao banco e ao backend. Você só precisa alterar se:</p>
+                <p>Guarda as credenciais do banco e do backend. Altere apenas se:</p>
                 <ul class="ajuda-lista-ul">
                   <li>Trocar de projeto Supabase</li>
-                  <li>Trocar a URL do backend (Railway, Vercel, etc.)</li>
-                  <li>Resetar o Token Administrativo</li>
+                  <li>Trocar a URL do backend</li>
                 </ul>
-                <p class="ajuda-dica">⚠️ O Token Administrativo deve ser o mesmo valor de <code>ADMIN_API_TOKEN</code> configurado no backend.</p>
               </div>
             </details>
 
