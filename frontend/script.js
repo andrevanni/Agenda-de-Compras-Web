@@ -1215,6 +1215,7 @@ async function tratarAgendaAtual() {
           comprador_id: supplier.comprador_id,
           data_prevista: chosenDate,
           status: "PENDENTE",
+          categoria_id: row.categoria_id ?? categoriaAgendaComprasId(),
         },
       });
     }
@@ -3422,7 +3423,7 @@ async function bootstrap() {
   ensureBuyerSelection();
   renderTables();
   renderCategoriasTable();
-  initCalendar();
+  refreshCalendar();
   ensureBuyerLoginSession();
 }
 
