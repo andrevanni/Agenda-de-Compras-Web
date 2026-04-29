@@ -9,7 +9,7 @@ const storageKeys = {
 const defaults = {
   supabaseUrl: "https://fnwsorhflueunqzkwsxu.supabase.co",
   supabaseKey: "sb_publishable_ZvbYTFdj6maOJiJACFR5Zw_9xJrBuUB",
-  apiBaseUrl: "",
+  apiBaseUrl: "https://agenda-de-compras-api.vercel.app",
 };
 
 const fallbackTenants = [

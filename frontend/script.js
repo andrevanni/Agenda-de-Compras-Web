@@ -43,6 +43,7 @@ const defaultSettings = {
   supabaseKey: "sb_publishable_ZvbYTFdj6maOJiJACFR5Zw_9xJrBuUB",
   tenantId: "c2f65634-b7e0-47f0-8937-94446540701a",
   logoUrl: "assets/logo_alta.jpg",
+  apiBaseUrl: "https://agenda-de-compras-api.vercel.app",
 };
 
 const UNASSIGNED_BUYER_VALUE = "__sem_comprador__";
@@ -150,7 +151,7 @@ function getSettings() {
     loggedBuyerId: localStorage.getItem(storageKeys.loggedBuyerId) ?? "",
     logoUrl: localStorage.getItem(storageKeys.logoUrl) ?? defaultSettings.logoUrl,
     theme: localStorage.getItem(storageKeys.theme) ?? "dark",
-    apiBaseUrl: localStorage.getItem(storageKeys.apiBaseUrl) ?? "",
+    apiBaseUrl: localStorage.getItem(storageKeys.apiBaseUrl) ?? defaultSettings.apiBaseUrl,
   };
 }
 
