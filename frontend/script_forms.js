@@ -754,3 +754,111 @@ async function synchronizePendingAgendaSeeds() {
   }
 }
 
+// ============================================================
+// FERIADOS
+// ============================================================
+
+function populateFeriadoAnoSelect() {
+  const sel = document.getElementById("feriadoAnoSelect");
+  if (!sel) return;
+  const anoAtual = new Date().getFullYear();
+  sel.innerHTML = [anoAtual - 1, anoAtual, anoAtual + 1]
+    .map((a) => `<option value="${a}"${a === anoAtual ? " selected" : ""}>${a}</option>`)
+    .join("");
+}
+
+async function saveFeriado(event) {
+  event.preventDefault();
+  const settings = getSettings();
+  const id = document.getElementById("feriadoId").value;
+  const data = brToIso(document.getElementById("feriadoData").value);
+  const nome = document.getElementById("feriadoNome").value.trim();
+  const feedbackEl = document.getElementById("feriadosFeedback");
+
+  if (!data || !nome) {
+    setFeedback("Informe a data e o nome do feriado.", "error", feedbackEl);
+    feedbackEl.classList.remove("hidden");
+    return;
+  }
+
+  try {
+    if (id) {
+      await fetchSupabase(`/rest/v1/feriados?id=eq.${id}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: { data, nome },
+      });
+    } else {
+      await fetchSupabase("/rest/v1/feriados", {
+        method: "POST",
+        headers: { Prefer: "return=minimal,resolution=merge-duplicates", "on_conflict": "tenant_id,data" },
+        body: { tenant_id: settings.tenantId, data, nome, tipo: "personalizado" },
+      });
+    }
+    document.getElementById("feriadoForm").reset();
+    document.getElementById("feriadoId").value = "";
+    feedbackEl.classList.add("hidden");
+    await loadPortalData({ silent: true });
+    refreshCalendar();
+  } catch (error) {
+    setFeedback(`Não foi possível salvar o feriado: ${error.message}`, "error", feedbackEl);
+    feedbackEl.classList.remove("hidden");
+  }
+}
+
+async function deleteFeriado(id) {
+  const feedbackEl = document.getElementById("feriadosFeedback");
+  try {
+    await fetchSupabase(`/rest/v1/feriados?id=eq.${id}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+    await loadPortalData({ silent: true });
+    refreshCalendar();
+  } catch (error) {
+    setFeedback(`Não foi possível excluir o feriado: ${error.message}`, "error", feedbackEl);
+    feedbackEl.classList.remove("hidden");
+  }
+}
+
+async function baixarFeriadosNacionais() {
+  const settings = getSettings();
+  const ano = document.getElementById("feriadoAnoSelect")?.value ?? new Date().getFullYear();
+  const feedbackEl = document.getElementById("feriadosFeedback");
+  const btn = document.getElementById("baixarFeriadosButton");
+
+  if (btn) btn.disabled = true;
+  setFeedback(`Buscando feriados nacionais de ${ano}...`, "info", feedbackEl);
+  feedbackEl.classList.remove("hidden");
+
+  try {
+    const resp = await fetch(`https://brasilapi.com.br/api/feriados/v1/${ano}`);
+    if (!resp.ok) throw new Error(`BrasilAPI retornou ${resp.status}`);
+    const lista = await resp.json();
+
+    let inseridos = 0;
+    let ignorados = 0;
+    for (const item of lista) {
+      const jaExiste = state.feriados.some((f) => f.data === item.date);
+      if (jaExiste) { ignorados++; continue; }
+      await fetchSupabase("/rest/v1/feriados", {
+        method: "POST",
+        headers: { Prefer: "return=minimal,resolution=merge-duplicates", "on_conflict": "tenant_id,data" },
+        body: { tenant_id: settings.tenantId, data: item.date, nome: item.name, tipo: "nacional" },
+      });
+      inseridos++;
+    }
+
+    await loadPortalData({ silent: true });
+    refreshCalendar();
+    setFeedback(
+      `Feriados nacionais de ${ano} importados: ${inseridos} novo(s), ${ignorados} já existia(m).`,
+      "success",
+      feedbackEl
+    );
+    feedbackEl.classList.remove("hidden");
+  } catch (error) {
+    setFeedback(`Não foi possível baixar os feriados: ${error.message}`, "error", feedbackEl);
+    feedbackEl.classList.remove("hidden");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+

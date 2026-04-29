@@ -5,13 +5,14 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
   const settings = getSettings();
   try {
     await detectSupplierNotesColumn();
-    const [tenantRows, clientRows, buyersRows, supplierRowsRaw, agendaRowsRaw, auditRows] = await Promise.all([
+    const [tenantRows, clientRows, buyersRows, supplierRowsRaw, agendaRowsRaw, auditRows, feriadosRows] = await Promise.all([
       fetchSupabase(`/rest/v1/tenants?select=id,nome&id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/clientes?select=id,nome_fantasia,razao_social,email_responsavel,observacoes&tenant_id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/compradores?select=id,nome_comprador,telefone,email,foto_path,senha_hash&tenant_id=eq.${settings.tenantId}&order=nome_comprador.asc`),
       fetchSupabase(`/rest/v1/fornecedores?select=id,codigo_fornecedor,nome_fornecedor,data_primeiro_pedido,frequencia_revisao,parametro_estoque,lead_time_entrega,parametro_compra,comprador_id,compradores(nome_comprador),fornecedor_dias_compra(dia_semana)&tenant_id=eq.${settings.tenantId}&order=nome_fornecedor.asc`),
       fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`),
       fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,observacao,data_realizacao,created_at,updated_at&tenant_id=eq.${settings.tenantId}&order=updated_at.desc`),
+      fetchSupabase(`/rest/v1/feriados?select=id,data,nome,tipo&tenant_id=eq.${settings.tenantId}&order=data.asc`),
     ]);
 
     const supplierRows = supplierRowsRaw.map(mapSupplier);
@@ -56,6 +57,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
     state.suppliers = supplierRows;
     state.agenda = agendaRows;
     state.auditOccurrences = auditRows;
+    state.feriados = feriadosRows ?? [];
 
     if (clientMeta.logo_url) {
       localStorage.setItem(storageKeys.logoUrl, clientMeta.logo_url);
@@ -382,6 +384,16 @@ function bindStaticEvents() {
   document.querySelectorAll("[data-close-modal]").forEach((button) => {
     button.addEventListener("click", () => closeModal(button.dataset.closeModal));
   });
+
+  // Feriados
+  document.getElementById("feriadoForm")?.addEventListener("submit", saveFeriado);
+  document.getElementById("resetFeriadoFormButton")?.addEventListener("click", () => {
+    document.getElementById("feriadoForm").reset();
+    document.getElementById("feriadoId").value = "";
+  });
+  document.getElementById("baixarFeriadosButton")?.addEventListener("click", baixarFeriadosNacionais);
+  setupDatePickerField("feriadoData", "feriadoDataNative", "feriadoDataPickerButton");
+  populateFeriadoAnoSelect();
 }
 
 function getClientAdminEmail() {

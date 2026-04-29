@@ -126,6 +126,7 @@ const state = {
   agenda: [],
   auditOccurrences: [],
   categorias: [],
+  feriados: [],
   calendarInstance: null,
 };
 

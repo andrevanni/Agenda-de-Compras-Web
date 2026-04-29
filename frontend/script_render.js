@@ -6,6 +6,7 @@ function renderTables() {
   renderSuppliers();
   renderPainel();
   renderBuyers();
+  renderFeriadosTable();
 }
 
 function classifyAuditEvent(entry) {
@@ -287,6 +288,15 @@ async function tratarAgendaAtual() {
   }
 
   try {
+    const feriadoWarningEl = document.getElementById("agendaDetailFeriadoWarning");
+    const feriadoNaProxData = getFeriado(chosenDate);
+    if (feriadoNaProxData && feriadoWarningEl) {
+      setFeedback(`\u26a0\ufe0f ${formatDate(chosenDate)} \u00e9 feriado: "${feriadoNaProxData.nome}". Revise a pr\u00f3xima data antes de tratar.`, "warning", feriadoWarningEl);
+      feriadoWarningEl.classList.remove("hidden");
+    } else if (feriadoWarningEl) {
+      feriadoWarningEl.classList.add("hidden");
+    }
+
     const weekdayName = parseIsoToWeekdayName(chosenDate);
     if (chosenDate && supplier.dias_compra.length && !supplier.dias_compra.includes(weekdayName)) {
       setFeedback(
@@ -632,5 +642,30 @@ async function saveSupplier(event) {
   } catch (error) {
     setFeedback(`Não foi possível salvar o fornecedor: ${error.message}`, "error");
   }
+}
+
+// ============================================================
+// FERIADOS
+// ============================================================
+
+function renderFeriadosTable() {
+  const tbody = document.getElementById("feriadosTable");
+  if (!tbody) return;
+
+  if (!state.feriados.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="muted" style="text-align:center">Nenhum feriado cadastrado.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = state.feriados.map((f) => `
+    <tr>
+      <td>${formatDate(f.data)}</td>
+      <td>${f.nome}</td>
+      <td><span class="kpi-chip" style="background:${f.tipo === "nacional" ? "#FEF3C7;color:#92400E" : "#EDE9FE;color:#5B21B6"}">${f.tipo === "nacional" ? "Nacional" : "Personalizado"}</span></td>
+      <td>
+        <button class="btn btn-outline btn-sm" type="button" onclick="deleteFeriado('${f.id}')">Excluir</button>
+      </td>
+    </tr>
+  `).join("");
 }
 

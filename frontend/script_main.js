@@ -185,6 +185,14 @@ function categoriaById(id) {
   return state.categorias.find((cat) => cat.id === id) ?? null;
 }
 
+function getFeriado(dateIso) {
+  return state.feriados.find((f) => f.data === dateIso) ?? null;
+}
+
+function isFeriado(dateIso) {
+  return state.feriados.some((f) => f.data === dateIso);
+}
+
 function categoriaCorById(id) {
   return categoriaById(id)?.cor ?? "#6B7280";
 }
@@ -202,7 +210,7 @@ function buildCalendarEvents() {
     return buyerOnSupplier === activeBuyerId || buyerOnOcc === activeBuyerId;
   });
 
-  return filtered.map((occ) => {
+  const occEvents = filtered.map((occ) => {
     const supplier = supplierById(occ.fornecedor_id);
     const cat = categoriaById(occ.categoria_id);
     const titulo = occ.titulo || supplier?.nome_fornecedor || "Sem título";
@@ -225,6 +233,30 @@ function buildCalendarEvents() {
       extendedProps: { occ, supplier, cat },
     };
   });
+
+  const feriadoEvents = state.feriados.flatMap((f) => [
+    {
+      id: `feriado-bg-${f.id}`,
+      start: f.data,
+      allDay: true,
+      display: "background",
+      backgroundColor: "#FEF3C7",
+    },
+    {
+      id: `feriado-label-${f.id}`,
+      title: `🏖️ ${f.nome}`,
+      start: f.data,
+      allDay: true,
+      display: "block",
+      backgroundColor: "#F59E0B",
+      borderColor: "#D97706",
+      textColor: "#ffffff",
+      classNames: ["feriado-event"],
+      extendedProps: { feriado: f },
+    },
+  ]);
+
+  return [...occEvents, ...feriadoEvents];
 }
 
 function initCalendar() {
@@ -491,6 +523,15 @@ async function saveNewEvent() {
     setFeedback("Informe o título e a data do evento.", "error", feedbackEl);
     feedbackEl.classList.remove("hidden");
     return;
+  }
+
+  const feriadoWarningEl = document.getElementById("newEventFeriadoWarning");
+  const feriadoNoDia = getFeriado(data);
+  if (feriadoNoDia) {
+    setFeedback(`⚠️ ${formatDate(data)} é feriado: "${feriadoNoDia.nome}". Revise a data antes de salvar.`, "warning", feriadoWarningEl);
+    feriadoWarningEl.classList.remove("hidden");
+  } else {
+    feriadoWarningEl.classList.add("hidden");
   }
 
   const hasConflict = await checkEventConflict(settings.tenantId, data, horaInicio, horaFim);

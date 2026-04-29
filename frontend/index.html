@@ -56,6 +56,7 @@
           <button class="nav-link" data-section="compradores" title="Compradores"><span class="nav-icon">👥</span><span class="nav-label">Compradores</span></button>
           <button class="nav-link" data-section="painel" title="Painel de Notas"><span class="nav-icon">📌</span><span class="nav-label">Painel de Notas</span></button>
           <button class="nav-link" data-section="categorias" title="Categorias"><span class="nav-icon">🎨</span><span class="nav-label">Categorias</span></button>
+          <button class="nav-link" data-section="feriados" title="Feriados"><span class="nav-icon">🏖️</span><span class="nav-label">Feriados</span></button>
           <button class="nav-link" data-section="ajuda" title="Ajuda"><span class="nav-icon">❓</span><span class="nav-label">Ajuda</span></button>
         </nav>
 
@@ -588,6 +589,49 @@
             </div>
           </section>
 
+          <section id="feriados" class="section-view hidden">
+            <div class="section-title">
+              <div>
+                <h2>🏖️ Feriados</h2>
+                <p class="muted">Gerencie feriados nacionais e personalizados. Datas marcadas aparecem no calend&aacute;rio e geram alerta ao agendar compromissos.</p>
+              </div>
+              <div class="actions">
+                <select id="feriadoAnoSelect" class="btn btn-outline btn-sm" style="padding:0.3rem 0.6rem"></select>
+                <button id="baixarFeriadosButton" class="btn btn-outline btn-sm" type="button">&#11015;&#65039; Baixar Feriados Nacionais</button>
+              </div>
+            </div>
+            <div id="feriadosFeedback" class="msg hidden"></div>
+            <form id="feriadoForm" class="grid-form">
+              <input id="feriadoId" type="hidden">
+              <label>Data<br>
+                <div class="date-input-group">
+                  <input id="feriadoData" type="text" inputmode="numeric" placeholder="DD/MM/AAAA" required>
+                  <button id="feriadoDataPickerButton" class="date-picker-button" type="button" aria-label="Abrir calend&aacute;rio">&#128197;</button>
+                  <input id="feriadoDataNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+                </div>
+              </label>
+              <label>Nome do Feriado<br><input id="feriadoNome" type="text" placeholder="Ex: Aniversário da Cidade" required></label>
+              <div class="actions">
+                <button type="submit" class="btn">Salvar Feriado</button>
+                <button id="resetFeriadoFormButton" type="button" class="btn btn-outline">Limpar</button>
+              </div>
+            </form>
+            <h3>Feriados Cadastrados</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Feriado</th>
+                    <th>Tipo</th>
+                    <th>A&ccedil;&otilde;es</th>
+                  </tr>
+                </thead>
+                <tbody id="feriadosTable"></tbody>
+              </table>
+            </div>
+          </section>
+
           <div class="page-footer-brand">
             <div class="footer-logo-shell">
               <img id="footerLogo" src="assets/logo_alta.jpg" alt="Service Farma">
@@ -664,6 +708,7 @@
           </div>
         </div>
 
+        <div id="agendaDetailFeriadoWarning" class="msg hidden"></div>
         <div id="agendaDetailFeedback" class="msg hidden"></div>
       </form>
     </dialog>
@@ -913,6 +958,7 @@
           </label>
         </div>
         <div id="newEventConflictWarning" class="msg hidden"></div>
+    <div id="newEventFeriadoWarning" class="msg hidden"></div>
         <div class="actions">
           <button id="saveNewEventButton" class="btn" type="button">Salvar Evento</button>
           <button class="btn btn-outline" type="button" data-close-modal="newEventModal">Cancelar</button>
