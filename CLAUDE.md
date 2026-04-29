@@ -198,7 +198,23 @@ FRONTEND_URL=https://agenda-compras-cliente.vercel.app
 Usa `fetchSupabase()` para CRUD (Supabase REST direto) e `fetchAdmin()` para operações exclusivas do FastAPI:
 
 ```javascript
-fetchAdmin(path, options)  // X-Admin-Token no header
+fetchAdmin(path, options)  // Authorization: Bearer <jwt> no header (fallback: X-Admin-Token)
+```
+
+### Autenticação do admin
+- Tela de login (e-mail + senha) ao abrir o painel
+- `POST /api/v1/admin/auth/login` → valida via Supabase Auth (anon_key) + checa `app_metadata.role == "admin"`
+- JWT salvo em `localStorage["agenda_admin_jwt"]`
+- Todos os endpoints admin aceitam JWT (`Authorization: Bearer`) OU `X-Admin-Token` (legado/fallback)
+- 401/403 limpa sessão e exibe tela de login
+
+### Adicionar novo admin
+1. Criar usuário no Supabase Auth (Authentication → Users → Add user)
+2. Rodar no SQL Editor:
+```sql
+UPDATE auth.users 
+SET raw_app_meta_data = raw_app_meta_data || '{"role": "admin"}'::jsonb
+WHERE email = 'novo@email.com';
 ```
 
 Seções (ordem lógica): Base Operacional → Clientes → Vigências → Ajuda → Conexão avançada.
@@ -207,8 +223,7 @@ Botões por tenant:
 - **Abrir Portal** → `POST /api/v1/admin/abrir-portal/{tenant_id}` → abre `agenda-compras-cliente.vercel.app` em nova aba
 - **Enviar Convites** → lista compradores → `POST /api/v1/admin/compradores/{id}/enviar-convite`
 
-Configuração em "Conexão avançada": URL Supabase, anon key, URL Backend, Token Admin.
-O Token Admin precisa ser configurado manualmente no localStorage (não é hardcoded por segurança).
+Configuração em "Conexão avançada": URL Supabase, anon key, URL Backend.
 
 ## Página de Instalação
 
@@ -223,9 +238,11 @@ Fluxo:
 
 ## PWA — Instalação no Desktop/Celular
 
-- `frontend/manifest.json` — metadados do app
-- `frontend/sw.js` — service worker com cache offline
+- `frontend/manifest.json` e `frontend_admin/manifest.json` — metadados do app
+- `frontend/sw.js` e `frontend_admin/sw.js` — service worker com cache offline
 - Meta tags no `index.html` para iOS/Android
+- Ícone: `agenda_compras.ico` em ambos os frontends
+- Modal PWA aparece 2s após abrir (apenas fora do modo standalone) com botão "Instalar com 1 clique" via `beforeinstallprompt`
 - Após instalar: ícone na área de trabalho, abre como app standalone
 
 ## Categorias de Agenda
@@ -283,10 +300,8 @@ Lógica duplicada: `backend/app/services/agenda_service.py` e `frontend/script.j
 
 ## Pendências conhecidas
 
-1. **Auth do painel admin** — atualmente usa `X-Admin-Token` fixo configurado no localStorage. Pendência: migrar para Supabase Auth com `role: "admin"` no `app_metadata`, com tela de login no admin e fluxo de convite igual ao dos compradores. Somente o master (andre@servicefarma.far.br) pode criar/revogar admins via Supabase Auth.
+1. **Convite de novos admins pelo painel** — hoje para criar um admin é preciso ir manualmente ao Supabase dashboard + SQL Editor. Futuramente: botão "Convidar admin" no painel master.
 
-2. **PWA do painel admin** — painel admin ainda não tem manifest.json + sw.js. Adicionar para permitir instalação no desktop.
+2. **Senha dos compradores ainda em texto plano como fallback** — migração completa depende do backend estar acessível e do comprador ter feito o fluxo de convite.
 
-3. **Senha dos compradores ainda em texto plano como fallback** — migração completa depende do backend estar acessível e do comprador ter feito o fluxo de convite.
-
-4. **`PORTAL_ADMIN_PASSWORD`** — precisa ser exatamente a senha do usuário `andre@servicefarma.far.br` no Supabase Auth para o "Abrir Portal" funcionar.
+3. **`PORTAL_ADMIN_PASSWORD`** — precisa ser exatamente a senha do usuário `andre@servicefarma.far.br` no Supabase Auth para o "Abrir Portal" funcionar.
