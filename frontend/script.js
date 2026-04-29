@@ -1746,7 +1746,7 @@ function gerarExcelFornecedores() {
     linhaEx2[c] = exemplo2[c] ?? "";
   });
 
-  const ws = XLSX.utils.json_to_sheet([linhaDescricao, linhaEx1, linhaEx2], { header: campos });
+  const ws = XLSX.utils.json_to_sheet([linhaDescricao, linhaEx1], { header: campos });
 
   // Estilo do cabeçalho
   const range = XLSX.utils.decode_range(ws["!ref"]);
