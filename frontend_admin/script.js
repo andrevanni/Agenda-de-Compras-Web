@@ -749,7 +749,10 @@ function showSection(section) {
 }
 
 document.querySelectorAll("[data-section]").forEach((button) => {
-  button.addEventListener("click", () => showSection(button.dataset.section));
+  button.addEventListener("click", () => {
+    showSection(button.dataset.section);
+    if (button.dataset.section === "admins") loadAdmins();
+  });
 });
 
 document.querySelectorAll("[data-theme-choice]").forEach((button) => {
@@ -776,6 +779,76 @@ document.getElementById("toggleConnectionButton").addEventListener("click", () =
   conexaoSection.classList.toggle("hidden");
   clearFeedback();
 });
+const MASTER_EMAIL = "andre@servicefarma.far.br";
+
+function isMaster() {
+  return getSettings().adminEmail === MASTER_EMAIL;
+}
+
+async function loadAdmins() {
+  const list = document.getElementById("adminsList");
+  const count = document.getElementById("adminsCount");
+  const panel = document.getElementById("adminConvitePanel");
+  if (!list) return;
+
+  // Painel de convite só aparece para o master
+  if (panel) panel.style.display = isMaster() ? "" : "none";
+
+  list.innerHTML = "<p style='color:#64748b;font-size:13px;'>Carregando...</p>";
+  try {
+    const admins = await fetchAdmin("/api/v1/admin/auth/admins");
+    if (count) count.textContent = `${admins.length} admin(s) ativo(s)`;
+
+    if (!admins.length) {
+      list.innerHTML = "<p style='color:#64748b;font-size:13px;'>Nenhum administrador encontrado.</p>";
+      return;
+    }
+
+    list.innerHTML = admins.map((a) => {
+      const isSelf = a.email === getSettings().adminEmail;
+      const isMasterUser = a.email === MASTER_EMAIL;
+      const tag = isMasterUser ? "<span style='font-size:11px;background:#1e3a5f;color:#93c5fd;padding:2px 8px;border-radius:4px;margin-left:6px;'>master</span>" : "";
+      const actions = isMaster() && !isMasterUser ? `
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="secondary-button" style="font-size:12px;padding:5px 12px;" onclick="revogarAdmin('${a.id}','${a.email}')">Revogar acesso</button>
+          <button class="secondary-button" style="font-size:12px;padding:5px 12px;color:#f87171;border-color:#7f1d1d;" onclick="excluirAdmin('${a.id}','${a.email}')">Excluir</button>
+        </div>` : "";
+      const lastLogin = a.last_sign_in_at && a.last_sign_in_at !== "None"
+        ? `Último login: ${new Date(a.last_sign_in_at).toLocaleDateString("pt-BR")}`
+        : "Nunca acessou";
+      return `<div class="card-item">
+        <strong>${a.email}${tag}${isSelf ? " <span style='font-size:11px;color:#64748b;'>(você)</span>" : ""}</strong>
+        <p class="small-copy">${lastLogin}</p>
+        ${actions}
+      </div>`;
+    }).join("");
+  } catch (err) {
+    list.innerHTML = `<p style='color:#f87171;font-size:13px;'>${err.message}</p>`;
+  }
+}
+
+async function revogarAdmin(userId, email) {
+  if (!confirm(`Revogar acesso de ${email}?\nO usuário perderá o acesso ao painel, mas a conta permanece no Supabase.`)) return;
+  try {
+    await fetchAdmin(`/api/v1/admin/auth/admins/${userId}/revogar`, { method: "PATCH" });
+    setFeedback(`Acesso de ${email} revogado.`, "success", true);
+    loadAdmins();
+  } catch (err) {
+    setFeedback(`Erro: ${err.message}`, "error");
+  }
+}
+
+async function excluirAdmin(userId, email) {
+  if (!confirm(`Excluir permanentemente o admin ${email}?\nEsta ação não pode ser desfeita.`)) return;
+  try {
+    await fetchAdmin(`/api/v1/admin/auth/admins/${userId}`, { method: "DELETE" });
+    setFeedback(`Admin ${email} excluído.`, "success", true);
+    loadAdmins();
+  } catch (err) {
+    setFeedback(`Erro: ${err.message}`, "error");
+  }
+}
+
 document.getElementById("convidarAdminForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = document.getElementById("adminConviteEmail").value.trim();
@@ -790,6 +863,7 @@ document.getElementById("convidarAdminForm").addEventListener("submit", async (e
     });
     setFeedback(`Convite enviado para ${email}.`, "success", true);
     e.target.reset();
+    loadAdmins();
   } catch (err) {
     setFeedback(`Erro: ${err.message}`, "error");
   } finally {

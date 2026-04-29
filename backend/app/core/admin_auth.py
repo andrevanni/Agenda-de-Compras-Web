@@ -64,3 +64,31 @@ def require_admin(
         detail="Autenticação necessária.",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+def require_master_admin(
+    authorization: str | None = Header(default=None),
+) -> None:
+    """Restringe ao admin master (portal_admin_email). Apenas ele pode gerenciar outros admins."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Autenticação necessária.")
+
+    token = authorization.split(" ", 1)[1]
+    from app.db.supabase_client import get_supabase
+    sb = get_supabase()
+    try:
+        user_resp = sb.auth.get_user(token)
+        user = user_resp.user
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido ou expirado.")
+
+    role = (getattr(user, "app_metadata", None) or {}).get("role")
+    if role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso restrito a administradores.")
+
+    master_email = settings.portal_admin_email
+    if not master_email or user.email != master_email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas o administrador master pode realizar esta ação.",
+        )

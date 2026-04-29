@@ -5,7 +5,7 @@ from urllib.error import HTTPError
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.core.admin_auth import require_admin
+from app.core.admin_auth import require_admin, require_master_admin
 from app.core.config import settings
 from app.db.supabase_client import get_supabase
 from app.services.email_service import send_html
@@ -56,7 +56,75 @@ def admin_login(payload: AdminLoginRequest) -> dict:
     }
 
 
-@router.post("/convidar", dependencies=[Depends(require_admin)])
+@router.get("/admins", dependencies=[Depends(require_admin)])
+def listar_admins() -> list:
+    """Lista todos os usuários com role=admin no app_metadata."""
+    sb = get_supabase()
+    try:
+        resp = sb.auth.admin.list_users()
+        users = resp if isinstance(resp, list) else getattr(resp, "users", [])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Erro ao listar usuários: {e}")
+
+    admins = []
+    for user in users:
+        app_meta = getattr(user, "app_metadata", None) or {}
+        if app_meta.get("role") == "admin":
+            admins.append({
+                "id": str(user.id),
+                "email": user.email or "",
+                "created_at": str(getattr(user, "created_at", "") or ""),
+                "last_sign_in_at": str(getattr(user, "last_sign_in_at", "") or ""),
+            })
+
+    return admins
+
+
+@router.patch("/admins/{user_id}/revogar", dependencies=[Depends(require_master_admin)])
+def revogar_admin(user_id: str) -> dict:
+    """Remove role=admin do app_metadata. Usuário continua existindo mas perde acesso ao painel."""
+    sb = get_supabase()
+    try:
+        user_resp = sb.auth.admin.get_user_by_id(user_id)
+        user = user_resp.user
+    except Exception:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    if user.email == settings.portal_admin_email:
+        raise HTTPException(status_code=403, detail="Não é possível revogar o administrador master.")
+
+    try:
+        current_meta = dict(getattr(user, "app_metadata", None) or {})
+        current_meta.pop("role", None)
+        sb.auth.admin.update_user_by_id(user_id, {"app_metadata": current_meta})
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Erro ao revogar acesso: {e}")
+
+    return {"ok": True, "email": user.email}
+
+
+@router.delete("/admins/{user_id}", dependencies=[Depends(require_master_admin)])
+def excluir_admin(user_id: str) -> dict:
+    """Exclui o usuário do Supabase Auth permanentemente."""
+    sb = get_supabase()
+    try:
+        user_resp = sb.auth.admin.get_user_by_id(user_id)
+        user = user_resp.user
+    except Exception:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    if user.email == settings.portal_admin_email:
+        raise HTTPException(status_code=403, detail="Não é possível excluir o administrador master.")
+
+    try:
+        sb.auth.admin.delete_user(user_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Erro ao excluir usuário: {e}")
+
+    return {"ok": True, "email": user.email}
+
+
+@router.post("/convidar", dependencies=[Depends(require_master_admin)])
 def convidar_admin(payload: ConvidarAdminRequest) -> dict:
     """Convida um novo administrador: cria conta no Supabase, define role=admin e envia e-mail."""
     sb = get_supabase()

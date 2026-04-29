@@ -276,16 +276,21 @@
 
       <section id="adminsSection" class="admin-section hidden">
         <div class="board two-column">
+
+          <!-- Lista de admins -->
           <div>
             <div class="board-header">
               <div>
                 <p class="eyebrow">Controle de acesso</p>
                 <h3>Administradores</h3>
               </div>
-              <p class="board-copy">Gerencie quem pode acessar este painel.</p>
+              <p id="adminsCount" class="board-copy"></p>
             </div>
+            <div id="adminsList" class="card-list"></div>
           </div>
-          <div class="form-panel">
+
+          <!-- Formulário de convite (apenas master) -->
+          <div class="form-panel" id="adminConvitePanel">
             <p class="eyebrow">Novo administrador</p>
             <h3>Convidar admin</h3>
             <form id="convidarAdminForm" class="stack-form">
@@ -302,6 +307,7 @@
               </div>
             </form>
           </div>
+
         </div>
       </section>
 
