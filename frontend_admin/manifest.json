@@ -8,15 +8,15 @@
   "theme_color": "#0b0f14",
   "icons": [
     {
-      "src": "logo_alta.jpg",
+      "src": "financeiro.ico",
       "sizes": "192x192",
-      "type": "image/jpeg",
+      "type": "image/x-icon",
       "purpose": "any"
     },
     {
-      "src": "logo_alta.jpg",
+      "src": "financeiro.ico",
       "sizes": "512x512",
-      "type": "image/jpeg",
+      "type": "image/x-icon",
       "purpose": "any maskable"
     }
   ]
