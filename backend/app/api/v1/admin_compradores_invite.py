@@ -14,7 +14,7 @@ from app.services.email_service import send_html
 router = APIRouter(
     prefix="/admin/compradores",
     tags=["admin-compradores-invite"],
-    dependencies=[Depends(require_admin_token)],
+    dependencies=[Depends(require_admin)],
 )
 
 

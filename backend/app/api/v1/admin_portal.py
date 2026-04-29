@@ -10,7 +10,7 @@ from app.core.config import settings
 router = APIRouter(
     prefix="/admin",
     tags=["admin-portal"],
-    dependencies=[Depends(require_admin_token)],
+    dependencies=[Depends(require_admin)],
 )
 
 
