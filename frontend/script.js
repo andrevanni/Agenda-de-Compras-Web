@@ -2740,6 +2740,11 @@ function ensureBuyerLoginSession() {
   const adminEmail = getClientAdminEmail();
   const buyer = loggedBuyer();
 
+  // Acesso via "Abrir Portal" do painel admin — bypass total do login
+  if (role === "admin_portal") {
+    return true;
+  }
+
   if (role === "admin_client" && loggedEmail && (!adminEmail || loggedEmail === adminEmail)) {
     return true;
   }
@@ -3279,6 +3284,9 @@ async function bootstrap() {
   if (urlJwt && urlTenantId) {
     localStorage.setItem(storageKeys.jwt, urlJwt);
     localStorage.setItem(storageKeys.tenantId, urlTenantId);
+    localStorage.removeItem(storageKeys.loggedBuyerId);
+    localStorage.removeItem(storageKeys.activeBuyerId);
+    localStorage.setItem(storageKeys.loggedPortalRole, "admin_portal");
     history.replaceState(null, "", window.location.pathname);
   }
 
