@@ -436,13 +436,19 @@ function renderTenants() {
   });
 }
 
+const PORTAL_CLIENT_URL = "https://agenda-compras-cliente.vercel.app";
+
 async function abrirPortal(tenantId) {
   try {
     setFeedback("Gerando acesso ao portal...", "info");
     const data = await fetchAdmin(`/api/v1/admin/abrir-portal/${tenantId}`, { method: "POST" });
-    const url = `${window.location.origin}/?jwt=${encodeURIComponent(data.access_token)}&tenant_id=${encodeURIComponent(data.tenant_id)}`;
-    window.open(url, "_blank");
-    setFeedback("Portal aberto em nova aba.", "success", true);
+    const url = `${PORTAL_CLIENT_URL}/?jwt=${encodeURIComponent(data.access_token)}&tenant_id=${encodeURIComponent(data.tenant_id)}`;
+    const nova = window.open(url, "_blank");
+    if (!nova) {
+      setFeedback(`Portal gerado. Acesse: ${url}`, "success");
+    } else {
+      setFeedback("Portal aberto em nova aba.", "success", true);
+    }
   } catch (err) {
     setFeedback(`Não foi possível abrir o portal: ${err.message}`, "error");
   }
