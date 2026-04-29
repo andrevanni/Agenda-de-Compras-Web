@@ -134,10 +134,12 @@ GRANT USAGE ON SCHEMA app TO anon, authenticated, service_role;
 - `POST /api/v1/auth/login` — email + senha → JWT + tenant_id + comprador_id
 - `POST /api/v1/auth/definir-senha` — access_token + nova_senha → JWT (primeiro acesso)
 
-### Admin (requer `X-Admin-Token`)
+### Admin (requer JWT `Authorization: Bearer` ou fallback `X-Admin-Token`)
+- `POST /api/v1/admin/auth/login` — e-mail + senha → JWT (requer `app_metadata.role == "admin"`)
+- `POST /api/v1/admin/auth/convidar` — convida novo admin: gera link Supabase + define role + envia e-mail
 - `GET/POST/PATCH /api/v1/admin/clientes` — CRUD de clientes comerciais
 - `GET/POST/PATCH/DELETE /api/v1/admin/licencas` — validade por tenant
-- `POST /api/v1/admin/compradores/{id}/enviar-convite` — envia e-mail com link Supabase Auth
+- `POST /api/v1/admin/compradores/{id}/enviar-convite` — envia e-mail com link Supabase Auth ao comprador
 - `POST /api/v1/admin/abrir-portal/{tenant_id}` — gera JWT para simular acesso como cliente
 
 ## Variáveis de Ambiente (Vercel — projeto agenda-de-compras-api)
@@ -208,8 +210,13 @@ fetchAdmin(path, options)  // Authorization: Bearer <jwt> no header (fallback: X
 - Todos os endpoints admin aceitam JWT (`Authorization: Bearer`) OU `X-Admin-Token` (legado/fallback)
 - 401/403 limpa sessão e exibe tela de login
 
-### Adicionar novo admin
-1. Criar usuário no Supabase Auth (Authentication → Users → Add user)
+### Convidar novo admin (pelo painel)
+Menu **Admins** → preenche e-mail + nome → "Enviar convite"
+- Backend gera link Supabase Auth, define `app_metadata.role = "admin"` e envia e-mail HTML
+- Convidado clica no link → `frontend_admin/setup.html` → define senha → instala PWA → faz login
+
+### Convidar novo admin (manual via Supabase)
+1. Criar usuário em Authentication → Users → Add user
 2. Rodar no SQL Editor:
 ```sql
 UPDATE auth.users 
@@ -217,7 +224,10 @@ SET raw_app_meta_data = raw_app_meta_data || '{"role": "admin"}'::jsonb
 WHERE email = 'novo@email.com';
 ```
 
-Seções (ordem lógica): Base Operacional → Clientes → Vigências → Ajuda → Conexão avançada.
+### Revogar admin
+- Banir usuário no Supabase (Authentication → Users → Ban user) ou remover `role` do app_metadata via SQL
+
+Seções (ordem lógica): Base Operacional → Clientes → Vigências → **Admins** → Ajuda → Conexão avançada.
 
 Botões por tenant:
 - **Abrir Portal** → `POST /api/v1/admin/abrir-portal/{tenant_id}` → abre `agenda-compras-cliente.vercel.app` em nova aba
@@ -225,8 +235,9 @@ Botões por tenant:
 
 Configuração em "Conexão avançada": URL Supabase, anon key, URL Backend.
 
-## Página de Instalação
+## Páginas de Instalação / Setup
 
+### Portal cliente — `instalar.html`
 Disponível em: `https://agenda-compras-cliente.vercel.app/instalar.html`
 
 Fluxo:
@@ -235,6 +246,16 @@ Fluxo:
 3. `POST /api/v1/auth/definir-senha` → JWT retornado
 4. JWT + tenant_id salvos no localStorage
 5. Redireciona para o portal em 5s
+
+### Painel admin — `setup.html`
+Disponível em: `https://agenda-compras-admin.vercel.app/setup.html`
+
+Fluxo (usado pelo convite de novos admins):
+1. Captura `access_token` do hash da URL
+2. Admin define nova senha
+3. Chama Supabase Auth diretamente (`PUT /auth/v1/user`) com o access_token
+4. Tela de sucesso exibe instruções de instalação PWA + botão "1 clique"
+5. Redireciona para o painel admin para fazer login
 
 ## PWA — Instalação no Desktop/Celular
 
@@ -300,8 +321,6 @@ Lógica duplicada: `backend/app/services/agenda_service.py` e `frontend/script.j
 
 ## Pendências conhecidas
 
-1. **Convite de novos admins pelo painel** — hoje para criar um admin é preciso ir manualmente ao Supabase dashboard + SQL Editor. Futuramente: botão "Convidar admin" no painel master.
+1. **Senha dos compradores ainda em texto plano como fallback** — migração completa depende do backend estar acessível e do comprador ter feito o fluxo de convite.
 
-2. **Senha dos compradores ainda em texto plano como fallback** — migração completa depende do backend estar acessível e do comprador ter feito o fluxo de convite.
-
-3. **`PORTAL_ADMIN_PASSWORD`** — precisa ser exatamente a senha do usuário `andre@servicefarma.far.br` no Supabase Auth para o "Abrir Portal" funcionar.
+2. **`PORTAL_ADMIN_PASSWORD`** — precisa ser exatamente a senha do usuário `andre@servicefarma.far.br` no Supabase Auth para o "Abrir Portal" funcionar.
