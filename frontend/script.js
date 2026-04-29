@@ -3116,6 +3116,7 @@ function initCalendar() {
     navLinkDayClick: "timeGridDay",
     selectable: true,
     selectMirror: true,
+    eventDisplay: "block",
     events: buildCalendarEvents(),
     eventClick(info) {
       const { occ } = info.event.extendedProps;
