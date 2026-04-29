@@ -622,11 +622,12 @@ async function criarTenant(event) {
   event.preventDefault();
   const nome = document.getElementById("tenantNome").value.trim();
   if (!nome) return;
+  const slug = nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
   try {
     await fetchSupabase("/rest/v1/tenants", {
       method: "POST",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ nome }),
+      body: JSON.stringify({ nome, slug }),
     });
     setFeedback(`Base operacional "${nome}" criada com sucesso.`, "success", true);
     document.getElementById("tenantForm").reset();
