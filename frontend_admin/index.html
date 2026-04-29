@@ -75,6 +75,7 @@
         <button class="nav-link active" data-section="tenants">Base operacional</button>
         <button class="nav-link" data-section="clientes">Clientes</button>
         <button class="nav-link" data-section="vigencias">Vigências</button>
+        <button class="nav-link" data-section="admins">Admins</button>
         <button class="nav-link" data-section="ajuda">Ajuda</button>
         <button class="nav-link" data-section="conexao">Conexão avançada</button>
       </nav>
@@ -260,6 +261,37 @@
             <p id="tenantsCount" class="board-copy"></p>
           </div>
           <div id="tenantsList" class="card-list"></div>
+        </div>
+      </section>
+
+      <section id="adminsSection" class="admin-section hidden">
+        <div class="board two-column">
+          <div>
+            <div class="board-header">
+              <div>
+                <p class="eyebrow">Controle de acesso</p>
+                <h3>Administradores</h3>
+              </div>
+              <p class="board-copy">Gerencie quem pode acessar este painel.</p>
+            </div>
+          </div>
+          <div class="form-panel">
+            <p class="eyebrow">Novo administrador</p>
+            <h3>Convidar admin</h3>
+            <form id="convidarAdminForm" class="stack-form">
+              <label class="field">
+                <span>E-mail</span>
+                <input id="adminConviteEmail" type="email" placeholder="email@exemplo.com" required>
+              </label>
+              <label class="field">
+                <span>Nome (opcional)</span>
+                <input id="adminConviteNome" type="text" placeholder="Nome do administrador">
+              </label>
+              <div class="hero-actions">
+                <button type="submit" class="primary-button">Enviar convite</button>
+              </div>
+            </form>
+          </div>
         </div>
       </section>
 

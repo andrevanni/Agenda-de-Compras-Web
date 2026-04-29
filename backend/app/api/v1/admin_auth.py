@@ -2,17 +2,27 @@ import json
 import urllib.request as urlreq
 from urllib.error import HTTPError
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.admin_auth import require_admin
 from app.core.config import settings
+from app.db.supabase_client import get_supabase
+from app.services.email_service import send_html
 
 router = APIRouter(prefix="/admin/auth", tags=["admin-auth"])
+
+ADMIN_PANEL_URL = "https://agenda-compras-admin.vercel.app"
 
 
 class AdminLoginRequest(BaseModel):
     email: str
     password: str
+
+
+class ConvidarAdminRequest(BaseModel):
+    email: str
+    nome: str = ""
 
 
 @router.post("/login")
@@ -31,7 +41,7 @@ def admin_login(payload: AdminLoginRequest) -> dict:
     try:
         with urlreq.urlopen(req, timeout=15) as r:
             session = json.loads(r.read())
-    except HTTPError as e:
+    except HTTPError:
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
     except Exception:
         raise HTTPException(status_code=502, detail="Erro ao conectar ao Supabase.")
@@ -44,3 +54,101 @@ def admin_login(payload: AdminLoginRequest) -> dict:
         "access_token": session["access_token"],
         "email": session["user"]["email"],
     }
+
+
+@router.post("/convidar", dependencies=[Depends(require_admin)])
+def convidar_admin(payload: ConvidarAdminRequest) -> dict:
+    """Convida um novo administrador: cria conta no Supabase, define role=admin e envia e-mail."""
+    sb = get_supabase()
+    setup_url = f"{ADMIN_PANEL_URL}/setup.html"
+    setup_link = None
+    user_id = None
+    last_error = None
+
+    for link_type in ("invite", "recovery"):
+        try:
+            link_resp = sb.auth.admin.generate_link({
+                "type": link_type,
+                "email": payload.email,
+                "redirect_to": setup_url,
+            })
+            props = getattr(link_resp, "properties", None)
+            action = getattr(props, "action_link", None) if props else None
+            if action:
+                setup_link = action
+                auth_user = getattr(link_resp, "user", None)
+                if auth_user and getattr(auth_user, "id", None):
+                    user_id = str(auth_user.id)
+                break
+        except Exception as e:
+            last_error = str(e)
+            continue
+
+    if not setup_link:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Não foi possível gerar o link de convite. Erro: {last_error}",
+        )
+
+    if user_id:
+        try:
+            sb.auth.admin.update_user_by_id(user_id, {
+                "app_metadata": {"role": "admin"}
+            })
+        except Exception:
+            pass
+
+    nome_display = payload.nome or payload.email
+    html = f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>Convite — Painel Admin</title></head>
+<body style="margin:0;padding:20px;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:600px;margin:0 auto;">
+
+  <div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#2563eb 100%);border-radius:12px 12px 0 0;padding:28px 32px;">
+    <p style="margin:0 0 4px;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#93c5fd;">Agenda de Compras</p>
+    <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#ffffff;">Você foi convidado como administrador!</h1>
+    <p style="margin:0;font-size:14px;color:#bfdbfe;">Painel Administrativo — Service Farma</p>
+  </div>
+
+  <div style="background:#ffffff;padding:28px 32px;border-radius:0 0 12px 12px;box-shadow:0 4px 6px rgba(0,0,0,0.07);">
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;">Olá, <strong>{nome_display}</strong>!</p>
+
+    <p style="margin:0 0 20px;font-size:14px;color:#374151;line-height:1.6;">
+      Você foi convidado para acessar o <strong>Painel Administrativo</strong> da Agenda de Compras.
+      Clique no botão abaixo para criar sua senha e ativar o acesso.
+    </p>
+
+    <div style="text-align:center;margin:0 0 28px;">
+      <a href="{setup_link}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:16px 36px;border-radius:10px;font-size:16px;font-weight:700;">
+        🔑 Criar minha senha →
+      </a>
+      <p style="margin:10px 0 0;font-size:12px;color:#94a3b8;">Este link expira em 24 horas.</p>
+    </div>
+
+    <div style="background:#f8fafc;border-radius:8px;padding:16px 20px;margin:0 0 24px;border:1px solid #e2e8f0;">
+      <p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;">Seus dados de acesso</p>
+      <p style="margin:0;font-size:14px;color:#374151;">📧 <strong>E-mail:</strong> {payload.email}</p>
+      <p style="margin:6px 0 0;font-size:14px;color:#374151;">🌐 <strong>Painel:</strong> {ADMIN_PANEL_URL}</p>
+    </div>
+
+    <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:16px;">
+      Em caso de dúvidas, entre em contato com o administrador master.<br>
+      Não responda a este e-mail.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>"""
+
+    try:
+        send_html(
+            to=[payload.email],
+            subject="Convite — Painel Admin Agenda de Compras",
+            html=html,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao enviar e-mail: {e}")
+
+    return {"ok": True, "enviado_para": payload.email}

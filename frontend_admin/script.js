@@ -775,6 +775,28 @@ document.getElementById("toggleConnectionButton").addEventListener("click", () =
   conexaoSection.classList.toggle("hidden");
   clearFeedback();
 });
+document.getElementById("convidarAdminForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("adminConviteEmail").value.trim();
+  const nome = document.getElementById("adminConviteNome").value.trim();
+  const btn = e.target.querySelector("button[type=submit]");
+  btn.textContent = "Enviando...";
+  btn.disabled = true;
+  try {
+    await fetchAdmin("/api/v1/admin/auth/convidar", {
+      method: "POST",
+      body: { email, nome },
+    });
+    setFeedback(`Convite enviado para ${email}.`, "success", true);
+    e.target.reset();
+  } catch (err) {
+    setFeedback(`Erro: ${err.message}`, "error");
+  } finally {
+    btn.textContent = "Enviar convite";
+    btn.disabled = false;
+  }
+});
+
 document.getElementById("clienteForm").addEventListener("submit", salvarCliente);
 document.getElementById("vigenciaForm").addEventListener("submit", salvarVigencia);
 document.getElementById("resetClienteFormButton").addEventListener("click", () => document.getElementById("clienteForm").reset());

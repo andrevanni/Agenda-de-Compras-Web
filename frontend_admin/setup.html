@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurar acesso — Agenda de Compras Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="agenda_compras.ico">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Manrope', sans-serif;
+      background: #0b0f14;
+      color: #f1f5f9;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .card {
+      width: 100%;
+      max-width: 400px;
+    }
+    .logo-wrap {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .logo-wrap img {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      object-fit: cover;
+      margin-bottom: 16px;
+    }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .subtitle { font-size: 14px; color: #64748b; }
+    .steps {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+    .step {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: #1e293b;
+      transition: background .3s;
+    }
+    .step.active { background: #2563eb; }
+    .step.done { background: #10b981; }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .field label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #94a3b8;
+    }
+    .field input {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: #f1f5f9;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .field input:focus { border-color: #2563eb; }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity .2s;
+    }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-secondary {
+      background: transparent;
+      color: #64748b;
+      border: 1px solid #334155;
+      margin-top: 8px;
+    }
+    .error-box {
+      background: #450a0a;
+      border: 1px solid #7f1d1d;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #fca5a5;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .success-box {
+      text-align: center;
+      padding: 8px 0;
+    }
+    .success-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    .success-box h2 { font-size: 20px; margin-bottom: 10px; }
+    .success-box p { font-size: 14px; color: #94a3b8; margin-bottom: 24px; line-height: 1.6; }
+    .invalid-box {
+      text-align: center;
+      padding: 8px 0;
+    }
+    .invalid-box .icon { font-size: 48px; margin-bottom: 16px; }
+    .invalid-box h2 { font-size: 20px; margin-bottom: 10px; color: #f87171; }
+    .invalid-box p { font-size: 14px; color: #94a3b8; line-height: 1.6; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-wrap">
+    <img src="agenda_compras.ico" alt="Agenda de Compras">
+    <h1>Configurar acesso</h1>
+    <p class="subtitle">Painel Administrativo — Service Farma</p>
+  </div>
+
+  <!-- Link inválido -->
+  <div id="invalidBlock" class="invalid-box" style="display:none;">
+    <div class="icon">⚠️</div>
+    <h2>Link inválido ou expirado</h2>
+    <p>Este link de convite não é válido ou já foi utilizado.<br>
+    Solicite um novo convite ao administrador master.</p>
+  </div>
+
+  <!-- Formulário de senha -->
+  <div id="formBlock">
+    <div class="steps">
+      <div class="step active" id="step1"></div>
+      <div class="step" id="step2"></div>
+      <div class="step" id="step3"></div>
+    </div>
+    <div class="error-box" id="errorBox"></div>
+    <form id="passwordForm">
+      <div class="field">
+        <label>Nova senha</label>
+        <input id="password" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" required minlength="6">
+      </div>
+      <div class="field">
+        <label>Confirmar senha</label>
+        <input id="passwordConfirm" type="password" placeholder="Repita a senha" autocomplete="new-password" required minlength="6">
+      </div>
+      <button type="submit" class="btn btn-primary" id="submitBtn">Criar senha e ativar acesso →</button>
+    </form>
+  </div>
+
+  <!-- Sucesso -->
+  <div id="successBlock" class="success-box" style="display:none;">
+    <div class="success-icon">✅</div>
+    <h2>Acesso ativado!</h2>
+    <p>Sua senha foi criada com sucesso.<br>Acesse o painel admin e faça login com seu e-mail e senha.</p>
+    <a href="/" class="btn btn-primary" style="display:inline-block;text-decoration:none;padding:14px 32px;">
+      Ir para o painel admin →
+    </a>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://fnwsorhflueunqzkwsxu.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_ZvbYTFdj6maOJiJACFR5Zw_9xJrBuUB";
+
+  function parseHash() {
+    const hash = window.location.hash.substring(1);
+    return Object.fromEntries(new URLSearchParams(hash));
+  }
+
+  const params = parseHash();
+  const accessToken = params["access_token"];
+
+  if (!accessToken) {
+    document.getElementById("formBlock").style.display = "none";
+    document.getElementById("invalidBlock").style.display = "block";
+  }
+
+  document.getElementById("passwordForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorBox = document.getElementById("errorBox");
+    const btn = document.getElementById("submitBtn");
+    errorBox.style.display = "none";
+
+    const password = document.getElementById("password").value;
+    const confirm = document.getElementById("passwordConfirm").value;
+
+    if (password !== confirm) {
+      errorBox.textContent = "As senhas não conferem.";
+      errorBox.style.display = "block";
+      return;
+    }
+
+    btn.textContent = "Salvando...";
+    btn.disabled = true;
+    document.getElementById("step2").classList.add("active");
+
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ password }),
+      });
+
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.message || data.error_description || `HTTP ${resp.status}`);
+      }
+
+      document.getElementById("step2").classList.add("done");
+      document.getElementById("step3").classList.add("active", "done");
+      document.getElementById("formBlock").style.display = "none";
+      document.getElementById("successBlock").style.display = "block";
+    } catch (err) {
+      errorBox.textContent = err.message;
+      errorBox.style.display = "block";
+      btn.textContent = "Criar senha e ativar acesso →";
+      btn.disabled = false;
+      document.getElementById("step2").classList.remove("active");
+    }
+  });
+</script>
+</body>
+</html>
