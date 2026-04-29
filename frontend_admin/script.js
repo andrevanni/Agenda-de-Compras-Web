@@ -732,3 +732,7 @@ populateSettings();
 showSection("tenants");
 renderVersionHistory();
 loadAdminData();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
