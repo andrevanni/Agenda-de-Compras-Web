@@ -743,6 +743,7 @@ function showSection(section) {
   document.getElementById("clientesSection").classList.toggle("hidden", section !== "clientes");
   document.getElementById("vigenciasSection").classList.toggle("hidden", section !== "vigencias");
   document.getElementById("tenantsSection").classList.toggle("hidden", section !== "tenants");
+  document.getElementById("adminsSection").classList.toggle("hidden", section !== "admins");
   document.getElementById("ajudaSection").classList.toggle("hidden", section !== "ajuda");
   conexaoSection.classList.toggle("hidden", section !== "conexao");
 }
