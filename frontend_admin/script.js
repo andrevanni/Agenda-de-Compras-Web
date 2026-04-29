@@ -42,6 +42,45 @@ const fallbackVigencias = [
 
 const versionHistory = [
   {
+    version: "v0.4.0",
+    date: "2026-04-28",
+    title: "Deploy completo + painel admin reorganizado",
+    notes: [
+      "Três projetos Vercel independentes: portal cliente, painel admin e backend API.",
+      "Backend FastAPI deployado no Vercel com endpoints de auth, convites e abrir-portal.",
+      "Página de instalação disponível em /instalar.html no portal do cliente.",
+      "Painel admin reorganizado: nova ordem lógica (Base Operacional → Clientes → Vigências → Ajuda → Conexão).",
+      "Seção de Ajuda com acordeão e guias de uso para administradores.",
+      "Fixes de RLS no Supabase: tenants, clientes, clientes_licencas e categorias_agenda.",
+    ],
+  },
+  {
+    version: "v0.3.0",
+    date: "2026-04-15",
+    title: "Auth JWT, convites e página de instalação",
+    notes: [
+      "Login com e-mail e senha via Supabase Auth (JWT) para compradores.",
+      "Fluxo de convite: admin envia e-mail → comprador define senha → acessa portal.",
+      "Página de instalação com guia de PWA para Chrome, Edge e Safari.",
+      "Backend: endpoints /auth/login, /auth/definir-senha, /admin/compradores/{id}/enviar-convite.",
+      "Schema v7: campo user_id em compradores + tabela tenant_licencas.",
+    ],
+  },
+  {
+    version: "v0.2.0",
+    date: "2026-04-10",
+    title: "Calendário, categorias e painel de notas",
+    notes: [
+      "Calendário FullCalendar v6 com views mensal, semanal e diária.",
+      "Categorias de agenda por tenant com cores personalizáveis.",
+      "Painel de notas: post-its por comprador com notas das ocorrências.",
+      "Sidebar recolhível com scroll e configuração de dias da semana.",
+      "Schema v5: categorias_agenda + campos hora_inicio, hora_fim, titulo, categoria_id, recorrencia.",
+      "Schema v6: campo nota em agenda_ocorrencias.",
+      "PWA: manifest.json + service worker para instalação no desktop.",
+    ],
+  },
+  {
     version: "v0.1.0",
     date: "2026-04-07",
     title: "Base web integrada",
@@ -357,7 +396,9 @@ function renderVersionHistory() {
         </div>
         <span class="pill">${formatDate(item.date)}</span>
       </div>
-      <div class="submeta">${item.notes.join(" ")}</div>
+      <ul class="version-notes">
+        ${item.notes.map((note) => `<li>${note}</li>`).join("")}
+      </ul>
     </article>
   `).join("");
 }

@@ -470,6 +470,20 @@ body[data-theme="light"] .theme-chip.active {
   background: var(--panel-soft);
 }
 
+/* Histórico de versões */
+.version-notes {
+  margin: 10px 0 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.version-notes li {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 /* Ajuda */
 .ajuda-lista { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; }
 
