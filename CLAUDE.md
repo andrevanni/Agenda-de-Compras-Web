@@ -4,11 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Contexto do Projeto
 
-Sistema web multi-tenant SaaS para gestão de agenda de compras de farmácias. Evolução de um sistema desktop legado. O frontend está deployado no **Vercel** via GitHub (push → deploy automático). O backend FastAPI roda separado (também pode ser deployado no Vercel como serverless).
+Sistema web multi-tenant SaaS para gestão de agenda de compras de farmácias. Evolução de um sistema desktop legado.
+
+## Deploy atual (produção)
+
+| Projeto Vercel | URL | Pasta no repo |
+|---|---|---|
+| agenda-compras-cliente | `https://agenda-compras-cliente.vercel.app` | `frontend/` |
+| agenda-compras-admin | `https://agenda-compras-admin.vercel.app` | `frontend_admin/` |
+| agenda-de-compras-api | `https://agenda-de-compras-api.vercel.app` | `backend/` |
+
+Push para `main` → deploy automático nos três projetos.
 
 ## Comandos
 
-### Backend
+### Backend local
 
 ```powershell
 cd backend
@@ -30,14 +40,6 @@ curl -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"senha"}'
 ```
-
-### Frontend
-
-Abrir no navegador ou acessar via Vercel:
-- `frontend/index.html` — portal do cliente
-- `frontend_admin/index.html` — painel administrativo SaaS
-- `frontend_instalar/index.html` — página de primeiro acesso (convite)
-- `versao_teste/index.html` — versão com dados mockados
 
 ## Arquitetura
 
@@ -62,7 +64,7 @@ Quando Supabase falha → fallback para dados mockados locais.
 ```
 Admin envia convite → POST /api/v1/admin/compradores/{id}/enviar-convite
   → Supabase Auth gera link → e-mail enviado via SMTP
-  → Comprador clica link → /instalar#access_token=...
+  → Comprador clica link → /instalar.html#access_token=...
   → POST /api/v1/auth/definir-senha → JWT retornado
   → Portal carregado com JWT no localStorage
 ```
@@ -77,7 +79,7 @@ loginBuyer() → tenta POST /api/v1/auth/login (JWT)
 
 Cada registro tem `tenant_id`. Isolamento duplo:
 1. **Aplicação**: todas as queries incluem `WHERE tenant_id = :tenant_id`
-2. **Banco**: RLS ativo no Supabase
+2. **Banco**: RLS ativo no Supabase (políticas com `USING (true)` — filtro pela aplicação)
 
 ### Banco de dados — schemas versionados
 
@@ -90,21 +92,41 @@ Scripts SQL em `backend/db/` — aplicar em ordem no Supabase:
 | `schema_v3_clientes_validade.sql` | `clientes` e `clientes_licencas` |
 | `schema_v4_fornecedor_notas.sql` | `notas_relacionamento` em fornecedores |
 | `schema_v5_categorias_calendario.sql` | `categorias_agenda` + campos `hora_inicio`, `hora_fim`, `titulo`, `categoria_id`, `recorrencia` em `agenda_ocorrencias` |
+| `schema_v5_fix_rls_categorias.sql` | Corrige RLS de `categorias_agenda` (troca current_setting por USING true) |
 | `schema_v6_notas_painel.sql` | Campo `nota` em `agenda_ocorrencias` |
 | `schema_v7_auth_licencas.sql` | Campo `user_id` em `compradores` + tabela `tenant_licencas` |
 
-**RLS em `categorias_agenda`:** policy `allow_tenant_filter` com `USING (true)` — isolamento via filtro URL.
+**RLS importante:** todas as policies usam `USING (true)` — isolamento feito via filtro de `tenant_id` na query. O schema `app` do Supabase requer `GRANT USAGE ON SCHEMA app TO anon, authenticated, service_role`.
+
+### Fixes de RLS aplicados em produção (SQL Editor)
+
+```sql
+-- Corrige tenants (app.user_belongs_to_tenant bloqueava acesso anon)
+DROP POLICY IF EXISTS "tenant read access" ON tenants;
+DROP POLICY IF EXISTS "tenant update access" ON tenants;
+CREATE POLICY "allow_all_tenants" ON tenants FOR ALL USING (true);
+
+-- Libera clientes e clientes_licencas
+ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_clientes" ON clientes FOR ALL USING (true);
+ALTER TABLE clientes_licencas ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_clientes_licencas" ON clientes_licencas FOR ALL USING (true);
+
+-- Libera schema app
+GRANT USAGE ON SCHEMA app TO anon, authenticated, service_role;
+```
 
 ### Tabelas principais
 
-- `tenants` — clientes da plataforma
+- `tenants` — bases operacionais (isolamento de dados por cliente)
 - `compradores` — usuários operacionais: `user_id` (Supabase Auth), `email`, `senha_hash` (legado)
 - `fornecedores` — com `frequencia_revisao`, `lead_time_entrega`, `notas_relacionamento`
 - `fornecedor_dias_compra` — dias da semana por fornecedor
 - `agenda_ocorrencias` — trilha central: `titulo`, `data_prevista`, `hora_inicio`, `hora_fim`, `categoria_id`, `nota`, `recorrencia` (JSONB), `status`
 - `categorias_agenda` — categorias com nome e cor por tenant
-- `clientes` — dados comerciais do tenant
-- `tenant_licencas` — validade/plano por tenant
+- `clientes` — dados comerciais do tenant (razão social, CNPJ, e-mail responsável)
+- `clientes_licencas` — validade/plano por cliente comercial
+- `tenant_licencas` — validade/plano por base operacional
 
 ## Endpoints da API
 
@@ -113,50 +135,33 @@ Scripts SQL em `backend/db/` — aplicar em ordem no Supabase:
 - `POST /api/v1/auth/definir-senha` — access_token + nova_senha → JWT (primeiro acesso)
 
 ### Admin (requer `X-Admin-Token`)
-- `GET/POST/PATCH /api/v1/admin/clientes` — CRUD de tenants
+- `GET/POST/PATCH /api/v1/admin/clientes` — CRUD de clientes comerciais
 - `GET/POST/PATCH/DELETE /api/v1/admin/licencas` — validade por tenant
 - `POST /api/v1/admin/compradores/{id}/enviar-convite` — envia e-mail com link Supabase Auth
 - `POST /api/v1/admin/abrir-portal/{tenant_id}` — gera JWT para simular acesso como cliente
 
-### Agenda (via Supabase REST direto no frontend)
-- `GET /api/v1/agenda/proximas` — (FastAPI, não usado pelo frontend atual)
-- `GET /api/v1/agenda/atrasadas`
-- `POST /api/v1/agenda/{id}/tratar`
-
-## Variáveis de Ambiente
+## Variáveis de Ambiente (Vercel — projeto agenda-de-compras-api)
 
 ```
-# Banco
-DATABASE_URL=postgresql+psycopg://...
-
-# Supabase
-SUPABASE_URL=https://xxx.supabase.co
+APP_ENV=production
+DATABASE_URL=postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:SENHA@...pooler.supabase.com:6543/postgres
+SUPABASE_URL=https://fnwsorhflueunqzkwsxu.supabase.co
 SUPABASE_ANON_KEY=sb_publishable_...
-SUPABASE_SERVICE_ROLE_KEY=...        # obrigatório para auth admin (generate_link)
-
-# Admin
-ADMIN_API_TOKEN=...                  # token para X-Admin-Token
-
-# SMTP (envio de convites)
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
+ADMIN_API_TOKEN=...                  # token para X-Admin-Token no painel admin
 SMTP_HOST=mail.servicefarma.far.br
 SMTP_PORT=465
 SMTP_USER=comercial@servicefarma.far.br
 SMTP_PASSWORD=...
 SMTP_FROM_NAME=Agenda de Compras – Service Farma
-
-# Portal admin (para abrir-portal)
 PORTAL_ADMIN_EMAIL=andre@servicefarma.far.br
 PORTAL_ADMIN_PASSWORD=...            # senha do usuário admin no Supabase Auth
-
-# URL do frontend (links nos e-mails)
-FRONTEND_URL=https://seu-projeto.vercel.app
-
-APP_ENV=dev                          # "dev" = auth admin opcional
+FRONTEND_URL=https://agenda-compras-cliente.vercel.app
 ```
 
 ## Frontend — Estrutura do script.js (portal cliente)
 
-~2800 linhas após limpeza de duplicatas. Principais blocos:
+~2800 linhas. Principais blocos:
 
 ### Estado global (`state`)
 - `buyers`, `suppliers`, `agenda`, `auditOccurrences`, `categorias` — dados do Supabase
@@ -176,7 +181,7 @@ APP_ENV=dev                          # "dev" = auth admin opcional
 
 ### localStorage keys (`storageKeys`)
 - `supabaseUrl`, `supabaseKey`, `tenantId` — conexão Supabase
-- `apiBaseUrl` — URL do backend FastAPI
+- `apiBaseUrl` — URL do backend FastAPI (default: `https://agenda-de-compras-api.vercel.app`)
 - `jwt` — token JWT após login real
 - `activeBuyerId`, `loggedBuyerId`, `loggedPortalRole`, `loggedPortalEmail` — sessão
 - `logoUrl`, `theme`, `sidebarCollapsed`, `calendarWeekdays` — preferências visuais
@@ -188,7 +193,7 @@ APP_ENV=dev                          # "dev" = auth admin opcional
 - `selectable: true` — arrastar slot abre modal de novo evento
 - `showSection("calendario")` chama `updateSize()` após 50ms para forçar re-render
 
-## Frontend Admin (painel_admin/)
+## Frontend Admin (frontend_admin/)
 
 Usa `fetchSupabase()` para CRUD (Supabase REST direto) e `fetchAdmin()` para operações exclusivas do FastAPI:
 
@@ -196,17 +201,18 @@ Usa `fetchSupabase()` para CRUD (Supabase REST direto) e `fetchAdmin()` para ope
 fetchAdmin(path, options)  // X-Admin-Token no header
 ```
 
-Seções: Clientes, Vigências, Base Operacional (Tenants), Conexão Avançada.
+Seções (ordem lógica): Base Operacional → Clientes → Vigências → Ajuda → Conexão avançada.
 
 Botões por tenant:
-- **Abrir Portal** → `POST /api/v1/admin/abrir-portal/{tenant_id}` → abre nova aba
+- **Abrir Portal** → `POST /api/v1/admin/abrir-portal/{tenant_id}` → abre `agenda-compras-cliente.vercel.app` em nova aba
 - **Enviar Convites** → lista compradores → `POST /api/v1/admin/compradores/{id}/enviar-convite`
 
-Configuração em "Conexão Avançada": URL Supabase, anon key, URL Backend, Token Admin.
+Configuração em "Conexão avançada": URL Supabase, anon key, URL Backend, Token Admin.
+O Token Admin precisa ser configurado manualmente no localStorage (não é hardcoded por segurança).
 
-## Página de Instalação (frontend_instalar/)
+## Página de Instalação
 
-Acessada via link de convite: `https://seu-site.vercel.app/instalar#access_token=...`
+Disponível em: `https://agenda-compras-cliente.vercel.app/instalar.html`
 
 Fluxo:
 1. Captura `access_token` do hash da URL
@@ -214,8 +220,6 @@ Fluxo:
 3. `POST /api/v1/auth/definir-senha` → JWT retornado
 4. JWT + tenant_id salvos no localStorage
 5. Redireciona para o portal em 5s
-
-API_BASE configurável via `window.AGENDA_API_URL` (padrão: origem + `/api/v1`).
 
 ## PWA — Instalação no Desktop/Celular
 
@@ -226,12 +230,10 @@ API_BASE configurável via `window.AGENDA_API_URL` (padrão: origem + `/api/v1`)
 
 ## Categorias de Agenda
 
-Padrão por tenant (inserido pelo schema_v5, renomeado pelo schema_v7):
+Padrão por tenant (inserido pelo schema_v5):
 - 🟡 **Agenda de Compras** — `#F59E0B` (fornecedores)
 - 🔵 **Pessoal** — `#3B82F6`
 - 🟢 **Operacional** — `#10B981`
-
-Fallback local com os mesmos valores quando Supabase falha.
 
 ## Regras de Negócio Críticas
 
@@ -254,13 +256,12 @@ Fallback local com os mesmos valores quando Supabase falha.
 
 Lógica duplicada: `backend/app/services/agenda_service.py` e `frontend/script.js` (`tratarAgendaAtual`).
 
-## Sidebar Recolhível
+## Sidebar Recolhível (portal cliente)
 
 - Default: colapsada (62px, só ícones emoji)
 - Expandida: 284px com labels
 - Toggle ⋮/✕ no topo da sidebar
 - Estado: `localStorage.sidebarCollapsed`
-- Scroll vertical quando muitos itens
 - `toggleSidebar()` chama `calendarInstance.updateSize()` após 230ms
 
 ## Painel de Notas
@@ -282,7 +283,10 @@ Lógica duplicada: `backend/app/services/agenda_service.py` e `frontend/script.j
 
 ## Pendências conhecidas
 
-1. **Backend não deployado no Vercel** — a URL do backend precisa ser configurada manualmente no "Personalizar portal" e no painel admin.
-2. **Rota `/instalar` não configurada no Vercel** — requer `vercel.json` com roteamento para `frontend_instalar/`.
-3. **`PORTAL_ADMIN_PASSWORD`** — precisa ser a senha do usuário admin cadastrado no Supabase Auth.
-4. **Senha dos compradores ainda em texto plano como fallback** — migração completa depende do backend estar acessível.
+1. **Auth do painel admin** — atualmente usa `X-Admin-Token` fixo configurado no localStorage. Pendência: migrar para Supabase Auth com `role: "admin"` no `app_metadata`, com tela de login no admin e fluxo de convite igual ao dos compradores. Somente o master (andre@servicefarma.far.br) pode criar/revogar admins via Supabase Auth.
+
+2. **PWA do painel admin** — painel admin ainda não tem manifest.json + sw.js. Adicionar para permitir instalação no desktop.
+
+3. **Senha dos compradores ainda em texto plano como fallback** — migração completa depende do backend estar acessível e do comprador ter feito o fluxo de convite.
+
+4. **`PORTAL_ADMIN_PASSWORD`** — precisa ser exatamente a senha do usuário `andre@servicefarma.far.br` no Supabase Auth para o "Abrir Portal" funcionar.
