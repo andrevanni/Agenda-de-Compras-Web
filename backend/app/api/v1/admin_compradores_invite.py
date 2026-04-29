@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.admin_auth import require_admin_token
+from app.core.admin_auth import require_admin
 from app.core.config import settings
 from app.db.supabase_client import get_supabase
 from app.services.email_service import send_html

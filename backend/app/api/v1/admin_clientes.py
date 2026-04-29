@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.admin_auth import require_admin_token
+from app.core.admin_auth import require_admin
 from app.db.session import get_db_session
 from app.schemas.admin_clientes import (
     ClienteAdminCreateRequest,
@@ -19,7 +19,7 @@ from app.services.admin_clientes_service import (
 router = APIRouter(
     prefix="/admin/clientes",
     tags=["admin-clientes"],
-    dependencies=[Depends(require_admin_token)],
+    dependencies=[Depends(require_admin)],
 )
 
 

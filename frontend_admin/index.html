@@ -18,6 +18,35 @@
   <link rel="apple-touch-icon" href="agenda_compras.ico">
 </head>
 <body>
+
+  <!-- Tela de login -->
+  <div id="loginScreen" style="display:none;position:fixed;inset:0;z-index:10000;background:#0b0f14;align-items:center;justify-content:center;padding:16px;">
+    <div style="width:100%;max-width:380px;">
+      <div style="text-align:center;margin-bottom:32px;">
+        <img src="agenda_compras.ico" alt="Agenda de Compras" style="width:64px;height:64px;border-radius:12px;object-fit:cover;margin-bottom:16px;">
+        <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:#f1f5f9;">Painel Administrativo</h1>
+        <p style="margin:0;font-size:14px;color:#64748b;">Agenda de Compras — Service Farma</p>
+      </div>
+      <form id="loginForm" style="display:flex;flex-direction:column;gap:14px;">
+        <label style="display:flex;flex-direction:column;gap:6px;">
+          <span style="font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">E-mail</span>
+          <input id="loginEmail" type="email" autocomplete="email" placeholder="seu@email.com"
+            style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 14px;color:#f1f5f9;font-size:14px;outline:none;">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:6px;">
+          <span style="font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Senha</span>
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••"
+            style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 14px;color:#f1f5f9;font-size:14px;outline:none;">
+        </label>
+        <div id="loginError" style="display:none;background:#450a0a;border:1px solid #7f1d1d;border-radius:8px;padding:10px 14px;font-size:13px;color:#fca5a5;"></div>
+        <button type="submit" id="loginButton"
+          style="background:#2563eb;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;">
+          Entrar
+        </button>
+      </form>
+    </div>
+  </div>
+
   <div class="page-shell">
     <aside class="sidebar">
       <div class="brand">
@@ -56,6 +85,10 @@
         <div class="theme-toggle" role="group" aria-label="Tema visual">
           <button class="theme-chip" type="button" data-theme-choice="light">Claro</button>
           <button class="theme-chip active" type="button" data-theme-choice="dark">Escuro</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="loggedAdminEmail" style="font-size:12px;color:#64748b;"></span>
+          <button id="logoutButton" class="secondary-button" type="button" style="font-size:12px;padding:6px 12px;">Sair</button>
         </div>
       </div>
 

@@ -4,13 +4,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.core.admin_auth import require_admin_token
+from app.core.admin_auth import require_admin
 from app.db.supabase_client import get_supabase
 
 router = APIRouter(
     prefix="/admin/licencas",
     tags=["admin-licencas"],
-    dependencies=[Depends(require_admin_token)],
+    dependencies=[Depends(require_admin)],
 )
 
 

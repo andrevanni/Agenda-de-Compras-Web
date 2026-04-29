@@ -2,6 +2,8 @@ const storageKeys = {
   supabaseUrl: "agenda_admin_supabase_url",
   supabaseKey: "agenda_admin_supabase_key",
   adminToken: "agenda_admin_token",
+  adminJwt: "agenda_admin_jwt",
+  adminEmail: "agenda_admin_email",
   apiBaseUrl: "agenda_admin_api_base_url",
   theme: "agenda_ui_theme",
 };
@@ -118,25 +120,79 @@ function getSettings() {
     supabaseUrl: localStorage.getItem(storageKeys.supabaseUrl) ?? defaults.supabaseUrl,
     supabaseKey: localStorage.getItem(storageKeys.supabaseKey) ?? defaults.supabaseKey,
     adminToken: localStorage.getItem(storageKeys.adminToken) ?? "",
+    adminJwt: localStorage.getItem(storageKeys.adminJwt) ?? "",
+    adminEmail: localStorage.getItem(storageKeys.adminEmail) ?? "",
     apiBaseUrl: localStorage.getItem(storageKeys.apiBaseUrl) ?? defaults.apiBaseUrl,
     theme: localStorage.getItem(storageKeys.theme) ?? "dark",
   };
 }
 
+// --- Auth ---
+
+function showLoginScreen(errorMsg = "") {
+  const screen = document.getElementById("loginScreen");
+  if (screen) screen.style.display = "flex";
+  document.querySelector(".page-shell").style.display = "none";
+  if (errorMsg) {
+    const el = document.getElementById("loginError");
+    if (el) { el.textContent = errorMsg; el.style.display = "block"; }
+  }
+}
+
+function hideLoginScreen() {
+  const screen = document.getElementById("loginScreen");
+  if (screen) screen.style.display = "none";
+  document.querySelector(".page-shell").style.display = "";
+  const emailEl = document.getElementById("loggedAdminEmail");
+  if (emailEl) emailEl.textContent = getSettings().adminEmail;
+}
+
+function logout() {
+  localStorage.removeItem(storageKeys.adminJwt);
+  localStorage.removeItem(storageKeys.adminEmail);
+  showLoginScreen();
+}
+
+async function adminLogin(email, password) {
+  const { apiBaseUrl } = getSettings();
+  const response = await fetch(`${apiBaseUrl}/api/v1/admin/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail ?? `HTTP ${response.status}`);
+  return data;
+}
+
 async function fetchAdmin(path, options = {}) {
-  const { apiBaseUrl, adminToken } = getSettings();
+  const { apiBaseUrl, adminJwt, adminToken } = getSettings();
   if (!apiBaseUrl) throw new Error("URL do backend não configurada. Preencha em Conexão avançada.");
-  if (!adminToken) throw new Error("Token admin não configurado. Preencha em Conexão avançada.");
+  if (!adminJwt && !adminToken) {
+    showLoginScreen();
+    throw new Error("Sessão expirada. Faça login novamente.");
+  }
+
+  const authHeader = adminJwt
+    ? { "Authorization": `Bearer ${adminJwt}` }
+    : { "X-Admin-Token": adminToken };
 
   const response = await fetch(`${apiBaseUrl}${path}`, {
     method: options.method ?? "GET",
     headers: {
-      "X-Admin-Token": adminToken,
       "Content-Type": "application/json",
+      ...authHeader,
       ...(options.headers ?? {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
+
+  if (response.status === 401 || response.status === 403) {
+    localStorage.removeItem(storageKeys.adminJwt);
+    showLoginScreen("Sessão expirada. Faça login novamente.");
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail ?? `HTTP ${response.status}`);
+  }
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
@@ -727,11 +783,45 @@ document.getElementById("resetVigenciaFormButton").addEventListener("click", () 
 setupDatePickerField("inicioVigencia", "inicioVigenciaNative", "inicioVigenciaPickerButton");
 setupDatePickerField("fimVigencia", "fimVigenciaNative", "fimVigenciaPickerButton");
 
+// Login form
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("loginButton");
+  const errorEl = document.getElementById("loginError");
+  errorEl.style.display = "none";
+  btn.textContent = "Entrando...";
+  btn.disabled = true;
+  try {
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    const data = await adminLogin(email, password);
+    localStorage.setItem(storageKeys.adminJwt, data.access_token);
+    localStorage.setItem(storageKeys.adminEmail, data.email);
+    hideLoginScreen();
+    loadAdminData();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.style.display = "block";
+  } finally {
+    btn.textContent = "Entrar";
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("logoutButton").addEventListener("click", logout);
+
 applyTheme();
 populateSettings();
 showSection("tenants");
 renderVersionHistory();
-loadAdminData();
+
+// Verifica autenticação antes de carregar dados
+if (getSettings().adminJwt || getSettings().adminToken) {
+  hideLoginScreen();
+  loadAdminData();
+} else {
+  showLoginScreen();
+}
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
