@@ -218,6 +218,7 @@ body[data-theme="light"] .field select {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: 12px;
 }
 
 .theme-toggle {
