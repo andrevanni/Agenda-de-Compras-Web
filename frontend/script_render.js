@@ -113,6 +113,8 @@ function mapSupplier(item) {
     comprador_nome: buyer?.nome_comprador ?? "Sem Comprador",
     dias_compra: orderedDays((item.fornecedor_dias_compra ?? []).map((row) => row.dia_semana)),
     notas_relacionamento: item.notas_relacionamento ?? fallbackNotes ?? "",
+    hora_inicio: item.hora_inicio ?? null,
+    hora_fim: item.hora_fim ?? null,
   };
 }
 
@@ -124,7 +126,7 @@ async function fetchPersistedSuppliersByCodes(codes) {
   if (!normalizedCodes.length) return [];
 
   const rows = await fetchSupabase(
-    `/rest/v1/fornecedores?select=id,codigo_fornecedor,nome_fornecedor,data_primeiro_pedido,frequencia_revisao,parametro_estoque,lead_time_entrega,parametro_compra,comprador_id,compradores(nome_comprador),fornecedor_dias_compra(dia_semana)&tenant_id=eq.${getSettings().tenantId}&codigo_fornecedor=in.(${buildPostgrestInFilter(normalizedCodes)})&order=nome_fornecedor.asc`
+    `/rest/v1/fornecedores?select=id,codigo_fornecedor,nome_fornecedor,data_primeiro_pedido,frequencia_revisao,parametro_estoque,lead_time_entrega,parametro_compra,comprador_id,hora_inicio,hora_fim,compradores(nome_comprador),fornecedor_dias_compra(dia_semana)&tenant_id=eq.${getSettings().tenantId}&codigo_fornecedor=in.(${buildPostgrestInFilter(normalizedCodes)})&order=nome_fornecedor.asc`
   );
 
   return (rows ?? []).map(mapSupplier);
@@ -297,6 +299,16 @@ async function tratarAgendaAtual() {
       feriadoWarningEl.classList.add("hidden");
     }
 
+    const horaInicioProxima = supplier.hora_inicio ?? null;
+    const horaFimProxima = supplier.hora_fim ?? null;
+    const hasConflict = horaInicioProxima
+      ? await checkEventConflict(settings.tenantId, chosenDate, horaInicioProxima, horaFimProxima, null)
+      : false;
+    if (hasConflict) {
+      setFeedback(`Aten\u00e7\u00e3o: j\u00e1 existe outro compromisso no hor\u00e1rio ${horaInicioProxima}\u2013${horaFimProxima} em ${formatDate(chosenDate)}.`, "warning", agendaDetailFeedback);
+      agendaDetailFeedback.classList.remove("hidden");
+    }
+
     const weekdayName = parseIsoToWeekdayName(chosenDate);
     if (chosenDate && supplier.dias_compra.length && !supplier.dias_compra.includes(weekdayName)) {
       setFeedback(
@@ -368,6 +380,8 @@ async function tratarAgendaAtual() {
           data_prevista: chosenDate,
           status: "PENDENTE",
           categoria_id: row.categoria_id ?? categoriaAgendaComprasId(),
+          hora_inicio: supplier.hora_inicio ?? null,
+          hora_fim: supplier.hora_fim ?? null,
         },
       });
     }
@@ -562,6 +576,8 @@ async function saveSupplier(event) {
     parametro_estoque: parametroEstoque,
     lead_time_entrega: leadTime,
     comprador_id: fornecedorCompradorSelect.value || null,
+    hora_inicio: document.getElementById("fornecedorHoraInicio").value || null,
+    hora_fim: document.getElementById("fornecedorHoraFim").value || null,
   };
 
   if (state.features.fornecedorNotasColuna) {
@@ -628,6 +644,8 @@ async function saveSupplier(event) {
       frequencia_revisao: payload.frequencia_revisao,
       dias_compra: selectedDays,
       comprador_id: payload.comprador_id,
+      hora_inicio: payload.hora_inicio,
+      hora_fim: payload.hora_fim,
     });
 
     setFeedback(

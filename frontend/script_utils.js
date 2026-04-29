@@ -455,6 +455,8 @@ async function ensurePendingOccurrenceForSupplier(supplier) {
         comprador_id: supplier.comprador_id ?? null,
       };
       if (categoriaId && !current.categoria_id) patch.categoria_id = categoriaId;
+      if (supplier.hora_inicio) patch.hora_inicio = supplier.hora_inicio;
+      if (supplier.hora_fim) patch.hora_fim = supplier.hora_fim;
       await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${current.id}`, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
@@ -476,6 +478,8 @@ async function ensurePendingOccurrenceForSupplier(supplier) {
       data_prevista: nextDate,
       status: "PENDENTE",
       categoria_id: categoriaId,
+      hora_inicio: supplier.hora_inicio ?? null,
+      hora_fim: supplier.hora_fim ?? null,
     },
   });
 
@@ -550,6 +554,8 @@ function editSupplier(supplierId) {
   document.getElementById("fornecedorParametroEstoque").value = String(supplier.parametro_estoque);
   document.getElementById("fornecedorLeadTime").value = String(supplier.lead_time_entrega);
   fornecedorCompradorSelect.value = supplier.comprador_id ?? "";
+  document.getElementById("fornecedorHoraInicio").value = supplier.hora_inicio ?? "";
+  document.getElementById("fornecedorHoraFim").value = supplier.hora_fim ?? "";
   document.getElementById("fornecedorFormMode").textContent = `Editando ${supplier.nome_fornecedor}`;
   renderSupplierDayCheckboxes(supplier.dias_compra);
   refreshSupplierSuggestion();
