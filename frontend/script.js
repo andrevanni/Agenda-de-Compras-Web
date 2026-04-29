@@ -490,6 +490,7 @@ function renderBuyers() {
           <div class="actions">
             <button class="btn btn-outline btn-sm" data-edit-buyer="${buyer.id}">Editar</button>
             <button class="btn btn-danger btn-sm" data-delete-buyer="${buyer.id}">Excluir</button>
+            ${buyer.email ? `<button class="btn btn-outline btn-sm" data-invite-buyer="${buyer.id}" title="Enviar convite de acesso">✉️ Convite</button>` : ""}
           </div>
         </td>
       </tr>
@@ -502,6 +503,24 @@ function renderBuyers() {
   document.querySelectorAll("[data-delete-buyer]").forEach((button) => {
     button.addEventListener("click", () => deleteBuyer(button.dataset.deleteBuyer));
   });
+  document.querySelectorAll("[data-invite-buyer]").forEach((button) => {
+    button.addEventListener("click", () => enviarConviteComprador(button.dataset.inviteBuyer, button));
+  });
+}
+
+async function enviarConviteComprador(buyerId, btn) {
+  const original = btn.textContent;
+  btn.textContent = "Enviando...";
+  btn.disabled = true;
+  try {
+    await fetchApi(`/api/v1/portal/compradores/${buyerId}/enviar-convite`, { method: "POST" });
+    setFeedback("Convite enviado com sucesso.", "success", true);
+  } catch (err) {
+    setFeedback(`Erro ao enviar convite: ${err.message}`, "error");
+  } finally {
+    btn.textContent = original;
+    btn.disabled = false;
+  }
 }
 
 function nextCalendarDate(baseDate, selectedDays, includeBase) {
