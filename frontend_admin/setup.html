@@ -164,8 +164,22 @@
   <div id="successBlock" class="success-box" style="display:none;">
     <div class="success-icon">✅</div>
     <h2>Acesso ativado!</h2>
-    <p>Sua senha foi criada com sucesso.<br>Acesse o painel admin e faça login com seu e-mail e senha.</p>
-    <a href="/" class="btn btn-primary" style="display:inline-block;text-decoration:none;padding:14px 32px;">
+    <p>Sua senha foi criada com sucesso. Instale o app para acessar o painel direto da área de trabalho, sem precisar do navegador.</p>
+
+    <!-- Botão 1-clique (aparece se browser suportar) -->
+    <button id="pwaInstallBtn" class="btn btn-primary" style="display:none;margin-bottom:10px;">
+      📲 Instalar com 1 clique
+    </button>
+
+    <!-- Instruções manuais -->
+    <div id="pwaInstructions" style="background:#0f172a;border-radius:10px;padding:14px;margin-bottom:16px;text-align:left;">
+      <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Como instalar o app</p>
+      <p style="margin:0 0 6px;font-size:13px;color:#cbd5e1;"><strong style="color:#f1f5f9;">Chrome / Edge:</strong> ícone <strong>⊕</strong> na barra → "Instalar"</p>
+      <p style="margin:0 0 6px;font-size:13px;color:#cbd5e1;"><strong style="color:#f1f5f9;">Menu:</strong> ⋮ → "Instalar Agenda de Compras – Admin"</p>
+      <p style="margin:0;font-size:13px;color:#cbd5e1;"><strong style="color:#f1f5f9;">iPhone/iPad:</strong> compartilhar ⎙ → "Adicionar à Tela de Início"</p>
+    </div>
+
+    <a href="/" class="btn btn-primary" style="display:inline-block;text-decoration:none;padding:14px 32px;margin-bottom:8px;">
       Ir para o painel admin →
     </a>
   </div>
@@ -174,6 +188,28 @@
 <script>
   const SUPABASE_URL = "https://fnwsorhflueunqzkwsxu.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_ZvbYTFdj6maOJiJACFR5Zw_9xJrBuUB";
+
+  // Registra SW para o PWA ser elegível
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+
+  // Captura o prompt de instalação o quanto antes
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const btn = document.getElementById('pwaInstallBtn');
+    if (btn) btn.style.display = 'block';
+  });
+
+  document.getElementById('pwaInstallBtn')?.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('pwaInstallBtn').style.display = 'none';
+  });
 
   function parseHash() {
     const hash = window.location.hash.substring(1);
