@@ -640,6 +640,7 @@ function showSection(section) {
   document.getElementById("clientesSection").classList.toggle("hidden", section !== "clientes");
   document.getElementById("vigenciasSection").classList.toggle("hidden", section !== "vigencias");
   document.getElementById("tenantsSection").classList.toggle("hidden", section !== "tenants");
+  document.getElementById("ajudaSection").classList.toggle("hidden", section !== "ajuda");
   conexaoSection.classList.toggle("hidden", section !== "conexao");
 }
 
@@ -681,6 +682,6 @@ setupDatePickerField("fimVigencia", "fimVigenciaNative", "fimVigenciaPickerButto
 
 applyTheme();
 populateSettings();
-showSection("clientes");
+showSection("tenants");
 renderVersionHistory();
 loadAdminData();

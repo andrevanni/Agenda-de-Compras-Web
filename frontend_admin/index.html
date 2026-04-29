@@ -35,9 +35,10 @@
       </div>
 
       <nav class="sidebar-nav">
-        <button class="nav-link active" data-section="clientes">Clientes</button>
+        <button class="nav-link active" data-section="tenants">Base operacional</button>
+        <button class="nav-link" data-section="clientes">Clientes</button>
         <button class="nav-link" data-section="vigencias">Vigências</button>
-        <button class="nav-link" data-section="tenants">Base operacional</button>
+        <button class="nav-link" data-section="ajuda">Ajuda</button>
         <button class="nav-link" data-section="conexao">Conexão avançada</button>
       </nav>
     </aside>
@@ -218,6 +219,108 @@
             <p id="tenantsCount" class="board-copy"></p>
           </div>
           <div id="tenantsList" class="card-list"></div>
+        </div>
+      </section>
+
+      <section id="ajudaSection" class="admin-section hidden">
+        <div class="board">
+          <div class="board-header">
+            <div>
+              <p class="eyebrow">Documentação</p>
+              <h3>Ajuda e referências</h3>
+              <p class="board-copy">Guia rápido de uso do painel administrativo.</p>
+            </div>
+          </div>
+
+          <div class="ajuda-lista">
+
+            <details class="ajuda-item">
+              <summary>Como cadastrar um novo cliente?</summary>
+              <div class="ajuda-corpo">
+                <p>O fluxo correto de onboarding segue esta ordem:</p>
+                <ol class="ajuda-steps">
+                  <li><strong>Base Operacional</strong> — A base já é criada automaticamente quando o cliente começa a usar o sistema. Ela aparece na seção "Base Operacional" após o primeiro acesso.</li>
+                  <li><strong>Clientes</strong> — Cadastre os dados comerciais do cliente (razão social, CNPJ, e-mail) e vincule à base operacional correspondente.</li>
+                  <li><strong>Vigências</strong> — Defina o período de uso e o status da licença.</li>
+                  <li><strong>Convites</strong> — Na seção "Base Operacional", clique em "Enviar Convites" para enviar o link de acesso por e-mail ao comprador.</li>
+                </ol>
+              </div>
+            </details>
+
+            <details class="ajuda-item">
+              <summary>O que é a Base Operacional?</summary>
+              <div class="ajuda-corpo">
+                <p>A <strong>Base Operacional</strong> (tenant) é o isolamento de dados de cada cliente no banco. Todos os dados — compradores, fornecedores, agenda — ficam separados por base operacional.</p>
+                <p>O <strong>Cliente</strong> (na aba Clientes) são os dados comerciais: CNPJ, razão social, contato. Um cliente deve estar sempre vinculado a uma base operacional.</p>
+                <p class="ajuda-dica">💡 Se um cliente não aparece vinculado, edite o cadastro dele e selecione a base no campo "Base operacional vinculada".</p>
+              </div>
+            </details>
+
+            <details class="ajuda-item">
+              <summary>Como enviar convite de acesso para um comprador?</summary>
+              <div class="ajuda-corpo">
+                <ol class="ajuda-steps">
+                  <li>Vá em <strong>Base Operacional</strong> e localize o tenant do cliente.</li>
+                  <li>Clique em <strong>Enviar Convites</strong>.</li>
+                  <li>O sistema lista os compradores cadastrados na base. Digite o e-mail do comprador que deseja convidar.</li>
+                  <li>O comprador receberá um e-mail com um link para definir a própria senha.</li>
+                </ol>
+                <p class="ajuda-dica">⚠️ O comprador precisa ter um e-mail cadastrado no sistema para receber o convite.</p>
+              </div>
+            </details>
+
+            <details class="ajuda-item">
+              <summary>O que faz o botão "Abrir Portal"?</summary>
+              <div class="ajuda-corpo">
+                <p>O botão <strong>Abrir Portal</strong> abre o portal do cliente em uma nova aba, já autenticado como administrador. Você pode navegar pelo sistema como se fosse o próprio cliente.</p>
+                <p>Isso é útil para:</p>
+                <ul class="ajuda-lista-ul">
+                  <li>Verificar se a agenda está carregando corretamente</li>
+                  <li>Ajudar o cliente com dúvidas de uso</li>
+                  <li>Validar o onboarding antes de entregar o acesso</li>
+                </ul>
+                <p class="ajuda-dica">⚠️ Requer que o backend esteja configurado e o Token Administrativo esteja correto em "Conexão avançada".</p>
+              </div>
+            </details>
+
+            <details class="ajuda-item">
+              <summary>Status de vigência — o que significa cada um?</summary>
+              <div class="ajuda-corpo">
+                <table class="ajuda-tabela">
+                  <thead><tr><th>Status</th><th>Significado</th></tr></thead>
+                  <tbody>
+                    <tr><td><strong>Ativo</strong></td><td>Cliente com acesso liberado normalmente.</td></tr>
+                    <tr><td><strong>Implantação</strong></td><td>Onboarding em andamento. Acesso liberado mas ainda em configuração.</td></tr>
+                    <tr><td><strong>Vencido</strong></td><td>Licença expirada. Acesso deve ser renovado.</td></tr>
+                    <tr><td><strong>Bloqueado</strong></td><td>Acesso suspenso manualmente.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </details>
+
+            <details class="ajuda-item">
+              <summary>Senha da auditoria — como funciona?</summary>
+              <div class="ajuda-corpo">
+                <p>A <strong>senha da auditoria</strong> protege o acesso ao modo de auditoria dentro do portal do cliente. Quando o comprador clica em "Auditoria", precisa digitar essa senha.</p>
+                <p>Você pode definir ou alterar a senha pelo botão <strong>Senha da auditoria</strong> em cada cliente na seção Clientes.</p>
+                <p class="ajuda-dica">💡 A senha padrão é <code>service</code>. Recomendamos trocar após o onboarding.</p>
+              </div>
+            </details>
+
+            <details class="ajuda-item">
+              <summary>Conexão avançada — quando preciso mexer?</summary>
+              <div class="ajuda-corpo">
+                <p>A <strong>Conexão avançada</strong> guarda as credenciais de acesso ao banco e ao backend. Você só precisa alterar se:</p>
+                <ul class="ajuda-lista-ul">
+                  <li>Trocar de projeto Supabase</li>
+                  <li>Trocar a URL do backend (Railway, Vercel, etc.)</li>
+                  <li>Resetar o Token Administrativo</li>
+                </ul>
+                <p class="ajuda-dica">⚠️ O Token Administrativo deve ser o mesmo valor de <code>ADMIN_API_TOKEN</code> configurado no backend.</p>
+              </div>
+            </details>
+
+          </div>
         </div>
       </section>
 

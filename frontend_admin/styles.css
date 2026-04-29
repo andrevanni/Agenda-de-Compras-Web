@@ -470,6 +470,67 @@ body[data-theme="light"] .theme-chip.active {
   background: var(--panel-soft);
 }
 
+/* Ajuda */
+.ajuda-lista { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; }
+
+.ajuda-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ajuda-item summary {
+  padding: 16px 20px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 15px;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+.ajuda-item summary::-webkit-details-marker { display: none; }
+.ajuda-item summary::after { content: "+"; font-size: 20px; color: var(--accent); }
+.ajuda-item[open] summary::after { content: "−"; }
+.ajuda-item[open] summary { background: rgba(79, 209, 197, 0.06); }
+
+.ajuda-corpo {
+  padding: 0 20px 20px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ajuda-corpo p { margin: 0; }
+.ajuda-corpo strong { color: var(--text); }
+
+.ajuda-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.ajuda-lista-ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+
+.ajuda-dica {
+  background: rgba(79, 209, 197, 0.08);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ajuda-dica code {
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.ajuda-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ajuda-tabela th, .ajuda-tabela td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+.ajuda-tabela th { color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+
 @media (max-width: 1180px) {
   .page-shell,
   .two-column,
