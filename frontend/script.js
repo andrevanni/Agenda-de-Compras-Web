@@ -3290,3 +3290,44 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+// PWA install prompt
+(function () {
+  const DISMISSED_KEY = 'agenda_pwa_dismissed';
+  let deferredPrompt = null;
+
+  function showModal() {
+    const modal = document.getElementById('pwaModal');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function hideModal() {
+    const modal = document.getElementById('pwaModal');
+    if (modal) modal.style.display = 'none';
+    localStorage.setItem(DISMISSED_KEY, '1');
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const btn = document.getElementById('pwaModalInstall');
+    if (btn) btn.style.display = 'block';
+  });
+
+  window.addEventListener('appinstalled', hideModal);
+
+  document.getElementById('pwaModalInstall')?.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if (outcome === 'accepted') hideModal();
+  });
+
+  document.getElementById('pwaModalDismiss')?.addEventListener('click', hideModal);
+
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (!isStandalone && !localStorage.getItem(DISMISSED_KEY)) {
+    setTimeout(showModal, 2000);
+  }
+})();
