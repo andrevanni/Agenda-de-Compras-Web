@@ -20,7 +20,7 @@ Routes (backend/app/api/v1/) → Services (backend/app/services/) → DB session
 
 - **Frontend cliente** chama Supabase REST direto via `fetchSupabase()`. FastAPI só para auth JWT e operações admin.
 - **Multi-tenancy**: todo registro tem `tenant_id`. Queries SEMPRE filtram por `tenant_id`. RLS no Supabase usa `USING (true)` — isolamento é via aplicação.
-- **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v7_*.sql`). Sem Alembic.
+- **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v9_*.sql`). Sem Alembic.
 
 ## Estrutura do frontend cliente (`frontend/`)
 
@@ -50,9 +50,10 @@ Compartilham escopo global (não são ES modules) — qualquer função em qualq
 
 - `tenants` — bases operacionais
 - `compradores` — usuários: `user_id` (Supabase Auth), `email`, `senha_hash` (legado)
-- `fornecedores` + `fornecedor_dias_compra`
+- `fornecedores` + `fornecedor_dias_compra` — inclui `hora_inicio`/`hora_fim` (horário padrão de visita/pedido)
 - `agenda_ocorrencias` — campos: `titulo`, `data_prevista`, `hora_inicio`, `hora_fim`, `categoria_id`, `nota`, `observacao`, `recorrencia` (JSONB), `status`, `fornecedor_id`, `comprador_id`
 - `categorias_agenda` — nome + cor por tenant
+- `feriados` — `data`, `nome`, `tipo` (nacional/personalizado) por tenant
 - `clientes` + `clientes_licencas` — comercial; `tenant_licencas` — operacional
 
 ## Endpoints chave
@@ -72,7 +73,22 @@ Todos os endpoints admin aceitam JWT (`Authorization: Bearer`) OU `X-Admin-Token
 | 8 | 2 dias | próximo dia permitido |
 | 12 | 3 dias | próximo dia permitido |
 
-Lógica de tratamento duplicada: `backend/app/services/agenda_service.py` e `frontend/script_main.js` (`tratarAgendaAtual`).
+Lógica de tratamento duplicada: `backend/app/services/agenda_service.py` e `frontend/script_render.js` (`tratarAgendaAtual`).
+
+## Feriados
+
+- Seção própria na sidebar do portal cliente
+- Importação de feriados nacionais via BrasilAPI (`brasilapi.com.br/api/feriados/v1/{ano}`)
+- Feriados aparecem no calendário: fundo amarelo (`display:background`) + chip laranja com nome
+- Alerta ao criar evento genérico ou tratar agenda em data de feriado (não bloqueia, só avisa)
+- `isFeriado(dateIso)` e `getFeriado(dateIso)` disponíveis em `script_main.js`
+
+## Horário do fornecedor
+
+- `fornecedores.hora_inicio` e `hora_fim` definem o horário padrão de visita/pedido
+- Propagados automaticamente ao criar/sincronizar ocorrências pendentes (`ensurePendingOccurrenceForSupplier`, `tratarAgendaAtual`)
+- Alerta de conflito de horário ao tratar agenda (se fornecedor tiver hora definida)
+- `checkEventConflict()` em `script_main.js` verifica conflito via Supabase REST
 
 ## Pendências
 
