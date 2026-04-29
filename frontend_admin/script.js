@@ -618,16 +618,76 @@ async function loadAdminData() {
   renderTenants();
 }
 
+async function criarTenant(event) {
+  event.preventDefault();
+  const nome = document.getElementById("tenantNome").value.trim();
+  if (!nome) return;
+  try {
+    await fetchSupabase("/rest/v1/tenants", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ nome }),
+    });
+    setFeedback(`Base operacional "${nome}" criada com sucesso.`, "success", true);
+    document.getElementById("tenantForm").reset();
+    await loadAdminData();
+  } catch (err) {
+    setFeedback(`Erro ao criar base: ${err.message}`, "error");
+  }
+}
+
+async function uploadLogo(file) {
+  const { supabaseUrl, supabaseKey } = getSettings();
+  const ext = file.name.split(".").pop();
+  const filename = `${Date.now()}.${ext}`;
+  const resp = await fetch(`${supabaseUrl}/storage/v1/object/logos/${filename}`, {
+    method: "POST",
+    headers: {
+      "apikey": supabaseKey,
+      "Authorization": `Bearer ${supabaseKey}`,
+      "Content-Type": file.type,
+      "x-upsert": "true",
+    },
+    body: file,
+  });
+  if (!resp.ok) {
+    const data = await resp.json().catch(() => ({}));
+    throw new Error(data.message || data.error || `HTTP ${resp.status}`);
+  }
+  return `${supabaseUrl}/storage/v1/object/public/logos/${filename}`;
+}
+
 async function salvarCliente(event) {
   event.preventDefault();
   const senhaAuditoria = document.getElementById("senhaAuditoria").value.trim();
+  const logoFileInput = document.getElementById("logoFile");
+  const logoStatus = document.getElementById("logoUploadStatus");
+  const logoFile = logoFileInput?.files?.[0];
+
+  let logoUrl = null;
+  if (logoFile) {
+    logoStatus.textContent = "Enviando logo...";
+    try {
+      logoUrl = await uploadLogo(logoFile);
+      logoStatus.textContent = "✓ Logo enviada";
+    } catch (err) {
+      setFeedback(`Erro no upload da logo: ${err.message}`, "error");
+      logoStatus.textContent = "";
+      return;
+    }
+  }
+
+  const meta = {};
+  if (senhaAuditoria) meta.audit_password = senhaAuditoria;
+  if (logoUrl) meta.logo_url = logoUrl;
+
   const payload = {
     razao_social: document.getElementById("razaoSocial").value.trim(),
     nome_fantasia: document.getElementById("nomeFantasia").value.trim(),
     documento: document.getElementById("documento").value.trim() || null,
     email_responsavel: document.getElementById("emailResponsavel").value.trim() || null,
     tenant_id: document.getElementById("tenantVinculado").value || null,
-    observacoes: senhaAuditoria ? buildObservacoes(null, { audit_password: senhaAuditoria }) : null,
+    observacoes: Object.keys(meta).length ? buildObservacoes(null, meta) : null,
   };
 
   if (!payload.razao_social || !payload.nome_fantasia) {
@@ -643,6 +703,7 @@ async function salvarCliente(event) {
     });
     setFeedback("Cliente salvo com sucesso.", "success", true);
     event.target.reset();
+    if (logoStatus) logoStatus.textContent = "";
     await loadAdminData();
   } catch (error) {
     setFeedback(`Não foi possível salvar o cliente: ${error.message}`, "error");
@@ -872,6 +933,7 @@ document.getElementById("convidarAdminForm").addEventListener("submit", async (e
   }
 });
 
+document.getElementById("tenantForm").addEventListener("submit", criarTenant);
 document.getElementById("clienteForm").addEventListener("submit", salvarCliente);
 document.getElementById("vigenciaForm").addEventListener("submit", salvarVigencia);
 document.getElementById("resetClienteFormButton").addEventListener("click", () => document.getElementById("clienteForm").reset());

@@ -175,6 +175,11 @@
                 <input id="emailResponsavel" name="email_responsavel" type="email">
               </label>
               <label class="field">
+                <span>Logomarca</span>
+                <input id="logoFile" type="file" accept="image/*">
+                <span id="logoUploadStatus" style="font-size:12px;color:#64748b;"></span>
+              </label>
+              <label class="field">
                 <span>Senha da auditoria</span>
                 <input id="senhaAuditoria" name="senha_auditoria" type="text" placeholder="Ex.: service">
               </label>
@@ -251,16 +256,32 @@
       </section>
 
       <section id="tenantsSection" class="admin-section hidden">
-        <div class="board">
-          <div class="board-header">
-            <div>
-              <p class="eyebrow">Base operacional</p>
-              <h3>Ambientes dos clientes</h3>
-              <p class="board-copy">Cada base operacional isola os dados da agenda de um cliente dentro do sistema.</p>
+        <div class="board two-column">
+          <div>
+            <div class="board-header">
+              <div>
+                <p class="eyebrow">Base operacional</p>
+                <h3>Ambientes dos clientes</h3>
+                <p class="board-copy">Cada base operacional isola os dados da agenda de um cliente dentro do sistema.</p>
+              </div>
+              <p id="tenantsCount" class="board-copy"></p>
             </div>
-            <p id="tenantsCount" class="board-copy"></p>
+            <div id="tenantsList" class="card-list"></div>
           </div>
-          <div id="tenantsList" class="card-list"></div>
+          <div class="form-panel">
+            <p class="eyebrow">Nova base</p>
+            <h3>Criar base operacional</h3>
+            <form id="tenantForm" class="stack-form">
+              <label class="field">
+                <span>Nome da base</span>
+                <input id="tenantNome" type="text" placeholder="Ex.: Farmácia Central" required>
+              </label>
+              <div class="hero-actions">
+                <button type="submit" class="primary-button">Criar base</button>
+                <button type="button" class="secondary-button" onclick="document.getElementById('tenantForm').reset()">Limpar</button>
+              </div>
+            </form>
+          </div>
         </div>
         <div class="board" style="margin-top:24px;">
           <div class="board-header">
