@@ -3272,6 +3272,16 @@ async function saveNewEvent() {
 // ============================================================
 
 async function bootstrap() {
+  // Processa parâmetros de URL (vindos do "Abrir Portal" no admin)
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlJwt = urlParams.get("jwt");
+  const urlTenantId = urlParams.get("tenant_id");
+  if (urlJwt && urlTenantId) {
+    localStorage.setItem(storageKeys.jwt, urlJwt);
+    localStorage.setItem(storageKeys.tenantId, urlTenantId);
+    history.replaceState(null, "", window.location.pathname);
+  }
+
   applyTheme();
   initSidebarState();
   renderSupplierDayCheckboxes([]);
