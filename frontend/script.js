@@ -566,12 +566,18 @@ function calculateInitialPendingDate(baseDate, frequency, selectedDays) {
   return pendingDate;
 }
 
+function categoriaAgendaComprasId() {
+  return state.categorias.find((c) => c.nome === "Agenda de Compras")?.id ?? null;
+}
+
 async function ensurePendingOccurrenceForSupplier(supplier) {
   if (!supplier?.id) return { created: false, date: null };
 
   const tenantId = supplier.tenant_id ?? getSettings().tenantId;
+  const categoriaId = categoriaAgendaComprasId();
+
   const existing = await fetchSupabase(
-    `/rest/v1/agenda_ocorrencias?select=id,data_prevista,comprador_id&tenant_id=eq.${tenantId}&fornecedor_id=eq.${supplier.id}&status=eq.PENDENTE&order=data_prevista.asc&limit=1`
+    `/rest/v1/agenda_ocorrencias?select=id,data_prevista,comprador_id,categoria_id&tenant_id=eq.${tenantId}&fornecedor_id=eq.${supplier.id}&status=eq.PENDENTE&order=data_prevista.asc&limit=1`
   );
 
   const nextDate = calculateInitialPendingDate(
@@ -582,16 +588,20 @@ async function ensurePendingOccurrenceForSupplier(supplier) {
 
   if (existing?.length) {
     const current = existing[0];
-    const needsSync = current.data_prevista !== nextDate || (current.comprador_id ?? null) !== (supplier.comprador_id ?? null);
+    const needsSync = current.data_prevista !== nextDate
+      || (current.comprador_id ?? null) !== (supplier.comprador_id ?? null)
+      || (categoriaId && !current.categoria_id);
 
     if (needsSync) {
+      const patch = {
+        data_prevista: nextDate,
+        comprador_id: supplier.comprador_id ?? null,
+      };
+      if (categoriaId && !current.categoria_id) patch.categoria_id = categoriaId;
       await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${current.id}`, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
-        body: {
-          data_prevista: nextDate,
-          comprador_id: supplier.comprador_id ?? null,
-        },
+        body: patch,
       });
       return { created: false, synced: true, date: nextDate };
     }
@@ -608,6 +618,7 @@ async function ensurePendingOccurrenceForSupplier(supplier) {
       comprador_id: supplier.comprador_id ?? null,
       data_prevista: nextDate,
       status: "PENDENTE",
+      categoria_id: categoriaId,
     },
   });
 
