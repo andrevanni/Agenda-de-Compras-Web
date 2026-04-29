@@ -136,7 +136,10 @@ GRANT USAGE ON SCHEMA app TO anon, authenticated, service_role;
 
 ### Admin (requer JWT `Authorization: Bearer` ou fallback `X-Admin-Token`)
 - `POST /api/v1/admin/auth/login` — e-mail + senha → JWT (requer `app_metadata.role == "admin"`)
-- `POST /api/v1/admin/auth/convidar` — convida novo admin: gera link Supabase + define role + envia e-mail
+- `GET /api/v1/admin/auth/admins` — lista todos os admins (qualquer admin autenticado)
+- `POST /api/v1/admin/auth/convidar` — convida novo admin: gera link + define role + envia e-mail (**master only**)
+- `PATCH /api/v1/admin/auth/admins/{id}/revogar` — remove role=admin, mantém conta (**master only**)
+- `DELETE /api/v1/admin/auth/admins/{id}` — exclui usuário do Supabase Auth (**master only**)
 - `GET/POST/PATCH /api/v1/admin/clientes` — CRUD de clientes comerciais
 - `GET/POST/PATCH/DELETE /api/v1/admin/licencas` — validade por tenant
 - `POST /api/v1/admin/compradores/{id}/enviar-convite` — envia e-mail com link Supabase Auth ao comprador
@@ -210,22 +213,19 @@ fetchAdmin(path, options)  // Authorization: Bearer <jwt> no header (fallback: X
 - Todos os endpoints admin aceitam JWT (`Authorization: Bearer`) OU `X-Admin-Token` (legado/fallback)
 - 401/403 limpa sessão e exibe tela de login
 
-### Convidar novo admin (pelo painel)
-Menu **Admins** → preenche e-mail + nome → "Enviar convite"
+### Gerenciamento de admins (seção "Admins" no painel)
+Somente o master (`andre@servicefarma.far.br`) pode convidar, revogar e excluir admins.
+Outros admins veem a lista mas não têm botões de ação.
+
+**Convidar:** Menu Admins → preenche e-mail + nome → "Enviar convite"
 - Backend gera link Supabase Auth, define `app_metadata.role = "admin"` e envia e-mail HTML
-- Convidado clica no link → `frontend_admin/setup.html` → define senha → instala PWA → faz login
+- Convidado clica no link → `setup.html` → define senha → instala PWA → faz login
 
-### Convidar novo admin (manual via Supabase)
-1. Criar usuário em Authentication → Users → Add user
-2. Rodar no SQL Editor:
-```sql
-UPDATE auth.users 
-SET raw_app_meta_data = raw_app_meta_data || '{"role": "admin"}'::jsonb
-WHERE email = 'novo@email.com';
-```
+**Revogar:** botão "Revogar acesso" na lista — remove role, mantém conta no Supabase
 
-### Revogar admin
-- Banir usuário no Supabase (Authentication → Users → Ban user) ou remover `role` do app_metadata via SQL
+**Excluir:** botão "Excluir" na lista — remove o usuário permanentemente do Supabase Auth
+
+**Proteção:** master nunca pode ser revogado ou excluído (bloqueio no backend e frontend)
 
 Seções (ordem lógica): Base Operacional → Clientes → Vigências → **Admins** → Ajuda → Conexão avançada.
 
@@ -324,3 +324,7 @@ Lógica duplicada: `backend/app/services/agenda_service.py` e `frontend/script.j
 1. **Senha dos compradores ainda em texto plano como fallback** — migração completa depende do backend estar acessível e do comprador ter feito o fluxo de convite.
 
 2. **`PORTAL_ADMIN_PASSWORD`** — precisa ser exatamente a senha do usuário `andre@servicefarma.far.br` no Supabase Auth para o "Abrir Portal" funcionar.
+
+## Próximos passos planejados
+
+- Efetivação do primeiro cliente real: cadastro, base operacional, importação de dados (fornecedores, compradores, agenda)
