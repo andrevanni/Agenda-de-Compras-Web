@@ -1698,18 +1698,96 @@ function parseImportDays(value, frequency) {
 }
 
 function downloadSupplierCsvTemplate() {
-  const content = [
-    "Codigo;Nome;Data Pedido;Frequencia;Dias;Parametro Estoque;Lead Time;Comprador",
-    "F001;Fornecedor Exemplo A;25/02/2026;4;TERCA;30;5;Andre Vanni",
-    "F002;Fornecedor Exemplo B;;;;;;",
-  ].join("\n");
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "modelo_fornecedores.csv";
-  link.click();
-  URL.revokeObjectURL(url);
+  gerarExcelFornecedores();
+}
+
+function camposSelecionados() {
+  const campos = ["Codigo", "Nome"];
+  if (document.getElementById("fieldDataPedido")?.checked) campos.push("Data Pedido");
+  if (document.getElementById("fieldFrequencia")?.checked) campos.push("Frequencia");
+  if (document.getElementById("fieldDias")?.checked) campos.push("Dias");
+  if (document.getElementById("fieldParametro")?.checked) campos.push("Parametro Estoque");
+  if (document.getElementById("fieldLeadTime")?.checked) campos.push("Lead Time");
+  if (document.getElementById("fieldComprador")?.checked) campos.push("Comprador");
+  return campos;
+}
+
+const CAMPO_DESCRICAO = {
+  "Codigo": "Código único do fornecedor (ex: F001)",
+  "Nome": "Nome do fornecedor",
+  "Data Pedido": "Data do primeiro pedido DD/MM/AAAA (ex: 25/02/2026)",
+  "Frequencia": "Frequência de compra: 1, 2, 4, 8 ou 12",
+  "Dias": "Dias da semana: SEGUNDA, TERCA, QUARTA, QUINTA, SEXTA, SABADO (separe com |)",
+  "Parametro Estoque": "Cobertura de estoque em dias (número)",
+  "Lead Time": "Dias entre o pedido e a entrega (número)",
+  "Comprador": "Nome exato do comprador cadastrado no sistema",
+};
+
+function gerarExcelFornecedores() {
+  if (typeof XLSX === "undefined") {
+    setFeedback("Biblioteca Excel não carregada. Tente recarregar a página.", "error");
+    return;
+  }
+  const campos = camposSelecionados();
+  const exemplo1 = {
+    "Codigo": "F001", "Nome": "Fornecedor Exemplo A",
+    "Data Pedido": "25/02/2026", "Frequencia": 4,
+    "Dias": "TERCA", "Parametro Estoque": 30,
+    "Lead Time": 5, "Comprador": state.buyers[0]?.nome_comprador ?? "Nome do Comprador",
+  };
+  const exemplo2 = { "Codigo": "F002", "Nome": "Fornecedor Exemplo B" };
+
+  const linhaDescricao = {};
+  const linhaEx1 = {};
+  const linhaEx2 = {};
+  campos.forEach((c) => {
+    linhaDescricao[c] = CAMPO_DESCRICAO[c] ?? "";
+    linhaEx1[c] = exemplo1[c] ?? "";
+    linhaEx2[c] = exemplo2[c] ?? "";
+  });
+
+  const ws = XLSX.utils.json_to_sheet([linhaDescricao, linhaEx1, linhaEx2], { header: campos });
+
+  // Estilo do cabeçalho
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  campos.forEach((_, colIdx) => {
+    const cellRef = XLSX.utils.encode_cell({ r: 0, c: colIdx });
+    if (!ws[cellRef]) return;
+    ws[cellRef].s = { font: { bold: true }, fill: { fgColor: { rgb: "1E3A5F" } } };
+  });
+
+  // Largura das colunas
+  ws["!cols"] = campos.map((c) => ({ wch: Math.max(c.length + 4, 20) }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Fornecedores");
+  XLSX.writeFile(wb, "modelo_fornecedores.xlsx");
+}
+
+async function importarArquivoFornecedores(file) {
+  if (!file) return;
+  let text;
+  const ext = file.name.split(".").pop().toLowerCase();
+  if (ext === "xlsx" || ext === "xls") {
+    if (typeof XLSX === "undefined") {
+      setFeedback("Biblioteca Excel não carregada.", "error");
+      return;
+    }
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    // Converte para CSV para reaprovitar o parser existente
+    text = XLSX.utils.sheet_to_csv(ws, { FS: ";" });
+    // Remove linha de descrição se for a segunda linha (começando por "Código único")
+    const lines = text.split("\n");
+    if (lines[1] && lines[1].includes("Código único")) {
+      lines.splice(1, 1);
+      text = lines.join("\n");
+    }
+  } else {
+    text = await file.text();
+  }
+  await importSuppliersFromFile({ text, name: file.name });
 }
 
 function ensureBuyerSelection() {
@@ -2267,10 +2345,11 @@ async function fileToDataUrl(file) {
   });
 }
 
-async function importSuppliersFromFile(file) {
-  if (!file) return;
+async function importSuppliersFromFile(fileOrObj) {
+  if (!fileOrObj) return;
+  // Aceita File nativo ou {text, name} do conversor Excel
   try {
-    const text = await file.text();
+    const text = fileOrObj.text !== undefined ? fileOrObj.text : await fileOrObj.text();
     const preview = validateSuppliersCsv(text);
     renderImportPreview(
       preview.issues.length || preview.notices.length
@@ -2477,13 +2556,21 @@ function bindStaticEvents() {
     await loadPortalData({ silent: true });
     renderAuditDashboard();
   });
-  document.getElementById("downloadModeloCsvButton").addEventListener("click", downloadSupplierCsvTemplate);
+  // Modal de importação
+  document.getElementById("abrirImportModalButton").addEventListener("click", () => {
+    document.getElementById("importModal").style.display = "flex";
+  });
+  document.getElementById("fecharImportModal").addEventListener("click", () => {
+    document.getElementById("importModal").style.display = "none";
+  });
+  document.getElementById("gerarExcelButton").addEventListener("click", gerarExcelFornecedores);
   document.getElementById("importFornecedoresButton").addEventListener("click", () => {
     document.getElementById("importFornecedorFile").click();
   });
   document.getElementById("importFornecedorFile").addEventListener("change", async (event) => {
     const [file] = event.target.files;
-    await importSuppliersFromFile(file);
+    if (!file) return;
+    await importarArquivoFornecedores(file);
     event.target.value = "";
   });
   document.getElementById("openFirstTodayButton").addEventListener("click", () => {

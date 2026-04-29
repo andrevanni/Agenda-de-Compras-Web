@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <meta name="theme-color" content="#0f1621">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -253,9 +254,7 @@
                 <p class="muted">Cadastre, edite, importe e organize os fornecedores da carteira operacional. Na importa&ccedil;&atilde;o CSV, c&oacute;digo e nome s&atilde;o obrigat&oacute;rios; os demais campos podem vir quando dispon&iacute;veis.</p>
               </div>
               <div class="actions">
-                <button id="downloadModeloCsvButton" class="btn btn-outline btn-sm" type="button">Baixar Modelo CSV</button>
-                <input id="importFornecedorFile" type="file" accept=".csv,.txt" hidden>
-                <button id="importFornecedoresButton" class="btn btn-outline btn-sm" type="button">Importar Fornecedores</button>
+                <button id="abrirImportModalButton" class="btn btn-outline btn-sm" type="button">📥 Importar Fornecedores</button>
                 <span id="fornecedorFormMode" class="kpi-emphasis">Novo fornecedor</span>
               </div>
             </div>
@@ -935,6 +934,63 @@
           <p style="margin:0;font-size:13px;color:#cbd5e1;"><strong style="color:#f1f5f9;">iPhone/iPad:</strong> compartilhar ⎙ → "Adicionar à Tela de Início"</p>
         </div>
         <button id="pwaModalDismiss" style="width:100%;padding:10px;background:transparent;color:#64748b;border:1px solid #334155;border-radius:8px;font-size:13px;cursor:pointer;">Já instalei — continuar</button>
+      </div>
+    </div>
+
+    <!-- Modal Importação de Fornecedores -->
+    <div id="importModal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.75);align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;">
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px;max-width:540px;width:100%;margin:auto;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <h3 style="margin:0;font-size:18px;font-weight:700;color:#f1f5f9;">📥 Importar Fornecedores</h3>
+          <button id="fecharImportModal" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;">✕</button>
+        </div>
+
+        <!-- Passo 1: Selecionar campos -->
+        <div id="importStep1">
+          <p style="font-size:13px;color:#94a3b8;margin:0 0 16px;">Selecione os campos que seu arquivo vai conter. Código e Nome são obrigatórios.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1;background:#0f172a;padding:10px 12px;border-radius:8px;border:1px solid #334155;">
+              <input type="checkbox" checked disabled style="accent-color:#2563eb;"> <span><strong>Codigo</strong> <span style="color:#64748b;font-size:11px;">(obrigatório)</span></span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1;background:#0f172a;padding:10px 12px;border-radius:8px;border:1px solid #334155;">
+              <input type="checkbox" checked disabled style="accent-color:#2563eb;"> <span><strong>Nome</strong> <span style="color:#64748b;font-size:11px;">(obrigatório)</span></span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1;background:#0f172a;padding:10px 12px;border-radius:8px;border:1px solid #334155;cursor:pointer;">
+              <input type="checkbox" id="fieldDataPedido" checked style="accent-color:#2563eb;"> Data do 1º Pedido
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1;background:#0f172a;padding:10px 12px;border-radius:8px;border:1px solid #334155;cursor:pointer;">
+              <input type="checkbox" id="fieldFrequencia" checked style="accent-color:#2563eb;"> Frequência
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1;background:#0f172a;padding:10px 12px;border-radius:8px;border:1px solid #334155;cursor:pointer;">
+              <input type="checkbox" id="fieldDias" checked style="accent-color:#2563eb;"> Dias de Compra
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1;background:#0f172a;padding:10px 12px;border-radius:8px;border:1px solid #334155;cursor:pointer;">
+              <input type="checkbox" id="fieldParametro" checked style="accent-color:#2563eb;"> Parâmetro Estoque
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1;background:#0f172a;padding:10px 12px;border-radius:8px;border:1px solid #334155;cursor:pointer;">
+              <input type="checkbox" id="fieldLeadTime" checked style="accent-color:#2563eb;"> Lead Time
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1;background:#0f172a;padding:10px 12px;border-radius:8px;border:1px solid #334155;cursor:pointer;">
+              <input type="checkbox" id="fieldComprador" style="accent-color:#2563eb;"> Comprador
+            </label>
+          </div>
+          <button id="gerarExcelButton" style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">
+            📊 Gerar planilha Excel
+          </button>
+          <p style="font-size:12px;color:#64748b;margin:10px 0 0;text-align:center;">Preencha a planilha e volte para importar</p>
+        </div>
+
+        <div style="border-top:1px solid #334155;margin:20px 0;"></div>
+
+        <!-- Passo 2: Upload -->
+        <div>
+          <p style="font-size:13px;color:#94a3b8;margin:0 0 12px;">Após preencher a planilha, faça o upload:</p>
+          <input id="importFornecedorFile" type="file" accept=".xlsx,.xls,.csv,.txt" hidden>
+          <button id="importFornecedoresButton" style="width:100%;padding:12px;background:#0f172a;color:#f1f5f9;border:1px solid #334155;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">
+            📂 Selecionar arquivo para importar
+          </button>
+          <div id="importPreviewBox" class="msg hidden" style="margin-top:12px;"></div>
+        </div>
       </div>
     </div>
 

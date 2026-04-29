@@ -126,45 +126,45 @@ def excluir_admin(user_id: str) -> dict:
 
 @router.post("/convidar", dependencies=[Depends(require_master_admin)])
 def convidar_admin(payload: ConvidarAdminRequest) -> dict:
-    """Convida um novo administrador: cria conta no Supabase, define role=admin e envia e-mail."""
+    """Convida um novo administrador com senha temporária (sem link mágico)."""
+    import secrets
+    import string
+
     sb = get_supabase()
-    setup_url = f"{ADMIN_PANEL_URL}/setup.html"
-    setup_link = None
+
+    # Gera senha temporária legível
+    chars = string.ascii_letters + string.digits
+    senha_temp = "".join(secrets.choice(chars) for _ in range(10))
+
+    # Cria ou atualiza o usuário no Supabase Auth
     user_id = None
-    last_error = None
-
-    for link_type in ("invite", "recovery"):
+    try:
+        resp = sb.auth.admin.create_user({
+            "email": payload.email,
+            "password": senha_temp,
+            "email_confirm": True,
+            "app_metadata": {"role": "admin"},
+        })
+        auth_user = getattr(resp, "user", None)
+        if auth_user:
+            user_id = str(auth_user.id)
+    except Exception:
+        # Usuário já existe — atualiza senha e garante role
         try:
-            link_resp = sb.auth.admin.generate_link({
-                "type": link_type,
-                "email": payload.email,
-                "redirect_to": setup_url,
-            })
-            props = getattr(link_resp, "properties", None)
-            action = getattr(props, "action_link", None) if props else None
-            if action:
-                setup_link = action
-                auth_user = getattr(link_resp, "user", None)
-                if auth_user and getattr(auth_user, "id", None):
-                    user_id = str(auth_user.id)
-                break
+            users_resp = sb.auth.admin.list_users()
+            users = users_resp if isinstance(users_resp, list) else getattr(users_resp, "users", [])
+            existing = next((u for u in users if u.email == payload.email), None)
+            if existing:
+                user_id = str(existing.id)
+                sb.auth.admin.update_user_by_id(user_id, {
+                    "password": senha_temp,
+                    "app_metadata": {"role": "admin"},
+                })
         except Exception as e:
-            last_error = str(e)
-            continue
+            raise HTTPException(status_code=500, detail=f"Erro ao configurar usuário: {e}")
 
-    if not setup_link:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Não foi possível gerar o link de convite. Erro: {last_error}",
-        )
-
-    if user_id:
-        try:
-            sb.auth.admin.update_user_by_id(user_id, {
-                "app_metadata": {"role": "admin"}
-            })
-        except Exception:
-            pass
+    if not user_id:
+        raise HTTPException(status_code=500, detail="Não foi possível criar ou localizar o usuário.")
 
     nome_display = payload.nome or payload.email
     html = f"""<!DOCTYPE html>
@@ -184,21 +184,25 @@ def convidar_admin(payload: ConvidarAdminRequest) -> dict:
 
     <p style="margin:0 0 20px;font-size:14px;color:#374151;line-height:1.6;">
       Você foi convidado para acessar o <strong>Painel Administrativo</strong> da Agenda de Compras.
-      Clique no botão abaixo para criar sua senha e ativar o acesso.
+      Use as credenciais abaixo para entrar. Recomendamos trocar a senha após o primeiro acesso.
     </p>
 
     <div style="text-align:center;margin:0 0 28px;">
-      <a href="{setup_link}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:16px 36px;border-radius:10px;font-size:16px;font-weight:700;">
-        🔑 Criar minha senha →
+      <a href="{ADMIN_PANEL_URL}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:16px 36px;border-radius:10px;font-size:16px;font-weight:700;">
+        🚀 Acessar o Painel Admin →
       </a>
-      <p style="margin:10px 0 0;font-size:12px;color:#94a3b8;">Este link expira em 24 horas.</p>
     </div>
 
     <div style="background:#f8fafc;border-radius:8px;padding:16px 20px;margin:0 0 24px;border:1px solid #e2e8f0;">
-      <p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;">Seus dados de acesso</p>
-      <p style="margin:0;font-size:14px;color:#374151;">📧 <strong>E-mail:</strong> {payload.email}</p>
-      <p style="margin:6px 0 0;font-size:14px;color:#374151;">🌐 <strong>Painel:</strong> {ADMIN_PANEL_URL}</p>
+      <p style="margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;">Seus dados de acesso</p>
+      <p style="margin:0 0 6px;font-size:14px;color:#374151;">📧 <strong>E-mail:</strong> {payload.email}</p>
+      <p style="margin:0 0 6px;font-size:14px;color:#374151;">🔑 <strong>Senha temporária:</strong> <code style="background:#e2e8f0;padding:2px 6px;border-radius:4px;font-size:14px;">{senha_temp}</code></p>
+      <p style="margin:0;font-size:14px;color:#374151;">🌐 <strong>Painel:</strong> {ADMIN_PANEL_URL}</p>
     </div>
+
+    <p style="margin:0 0 0;font-size:13px;color:#f59e0b;background:#fef3c7;padding:10px 14px;border-radius:8px;">
+      ⚠️ Troque sua senha após o primeiro acesso.
+    </p>
 
     <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:16px;">
       Em caso de dúvidas, entre em contato com o administrador master.<br>
