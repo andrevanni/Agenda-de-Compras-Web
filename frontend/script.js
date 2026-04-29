@@ -627,10 +627,13 @@ async function ensurePendingOccurrenceForSupplier(supplier) {
 
 async function backfillMissingPendingOccurrences(suppliers, agendaRows) {
   const pendingBySupplier = new Set((agendaRows ?? []).map((row) => row.fornecedor_id));
+  const missingCategoria = new Set(
+    (agendaRows ?? []).filter((row) => row.fornecedor_id && !row.categoria_id).map((row) => row.fornecedor_id)
+  );
   let createdCount = 0;
 
   for (const supplier of suppliers) {
-    if (pendingBySupplier.has(supplier.id)) continue;
+    if (pendingBySupplier.has(supplier.id) && !missingCategoria.has(supplier.id)) continue;
     const result = await ensurePendingOccurrenceForSupplier(supplier);
     if (result.created) {
       createdCount += 1;
