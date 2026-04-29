@@ -1,4 +1,4 @@
-const CACHE = 'agenda-admin-v2';
+const CACHE = 'agenda-admin-v3';
 const ASSETS = [
   '/',
   '/index.html',
