@@ -789,8 +789,8 @@ textarea::placeholder {
 }
 
 #agendaDetailModal .modal-card {
-  max-height: none;
-  overflow: visible;
+  max-height: calc(100dvh - 22px);
+  overflow: auto;
   padding-bottom: 92px;
 }
 
