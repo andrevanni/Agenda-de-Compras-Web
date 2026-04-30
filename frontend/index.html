@@ -448,8 +448,21 @@
                     <li><strong>Logado</strong>: quem entrou no sistema (rastreado na auditoria)</li>
                     <li><strong>Ativo</strong>: filtro de visualiza&ccedil;&atilde;o — define quais fornecedores e agendas aparecem nas listas e no calend&aacute;rio</li>
                   </ul>
+                  <h4>O que cada comprador pode fazer</h4>
+                  <table class="ajuda-tabela">
+                    <thead><tr><th>A&ccedil;&atilde;o</th><th>Comprador</th><th>Admin do Cliente</th></tr></thead>
+                    <tbody>
+                      <tr><td>Editar pr&oacute;prios dados (nome, telefone, foto)</td><td>✅</td><td>✅</td></tr>
+                      <tr><td>Editar dados de outro comprador</td><td>✅</td><td>✅</td></tr>
+                      <tr><td>Alterar pr&oacute;pria senha</td><td>✅</td><td>✅</td></tr>
+                      <tr><td>Alterar senha de outro comprador</td><td>❌</td><td>✅</td></tr>
+                      <tr><td>Excluir comprador</td><td>❌</td><td>✅</td></tr>
+                      <tr><td>Tratar agenda de qualquer carteira</td><td>❌</td><td>✅</td></tr>
+                      <tr><td>Acessar auditoria</td><td>❌</td><td>✅</td></tr>
+                    </tbody>
+                  </table>
                   <h4>Administrador do Cliente</h4>
-                  <p>O e-mail cadastrado como <em>respons&aacute;vel</em> no perfil do tenant tem acesso de administrador: pode ver todos os compradores, tratar agendas de qualquer carteira e acessar a auditoria.</p>
+                  <p>O e-mail cadastrado como <em>respons&aacute;vel</em> no perfil do tenant entra automaticamente como administrador: acessa todas as carteiras, auditoria e gest&atilde;o completa de compradores.</p>
                   <p class="ajuda-dica">💡 A sess&atilde;o permanece ativa o dia todo — o portal renova o JWT automaticamente a cada 50 minutos em segundo plano.</p>
                 </div>
               </details>
@@ -565,15 +578,17 @@
                     <li>Clique no <strong>n&uacute;mero do dia</strong> na vista mensal para ir direto &agrave; vista di&aacute;ria</li>
                     <li>Clique em <strong>Hoje</strong> para voltar ao dia atual</li>
                   </ul>
-                  <h4>Criar evento</h4>
+                  <h4>Criar evento gen&eacute;rico</h4>
                   <ul>
-                    <li>Clique em <strong>+ Novo Evento</strong> (bot&atilde;o no topo da se&ccedil;&atilde;o)</li>
-                    <li>Ou <strong>arraste um intervalo de tempo</strong> na vista Semana ou Dia para criar j&aacute; com hor&aacute;rio</li>
+                    <li>Clique em <strong>+ Novo Evento</strong> (bot&atilde;o no topo) ou <strong>arraste um intervalo de tempo</strong> na vista Semana ou Dia</li>
+                    <li>O comprador logado j&aacute; vem <strong>pr&eacute;-selecionado</strong> — pode marcar outros compradores ou clicar em <strong>Todos</strong></li>
+                    <li>O sistema cria <strong>uma ocorr&ecirc;ncia por comprador selecionado</strong></li>
+                    <li>A categoria <em>Agenda de Compras</em> n&atilde;o aparece — use as demais categorias (Pessoal, Operacional etc.)</li>
                   </ul>
+                  <h4>Recorr&ecirc;ncia</h4>
+                  <p>Escolha Di&aacute;ria, Semanal, Quinzenal ou Mensal. Ao selecionar, aparece o campo <strong>Data de fim</strong> (opcional). O sistema gera uma ocorr&ecirc;ncia por data × comprador selecionado.</p>
                   <h4>Cores no calend&aacute;rio</h4>
                   <p>Cada categoria tem uma cor definida em <strong>Categorias</strong>. Eventos de fornecedores usam a cor da categoria <em>Agenda de Compras</em> por padr&atilde;o.</p>
-                  <h4>Recorr&ecirc;ncia</h4>
-                  <p>Ao criar um evento gen&eacute;rico, escolha a recorr&ecirc;ncia (Di&aacute;ria, Semanal, Quinzenal, Mensal) e defina uma data de fim opcional. O sistema cria uma ocorr&ecirc;ncia para cada data at&eacute; o limite.</p>
                 </div>
               </details>
 
@@ -610,6 +625,24 @@
                   <h4>Remover uma nota</h4>
                   <p>Clique no <strong>✕</strong> no canto do post-it. A nota &eacute; removida do painel mas o compromisso continua existindo.</p>
                   <p class="ajuda-dica">💡 <strong>Aten&ccedil;&atilde;o</strong>: a nota do compromisso &eacute; diferente da nota do fornecedor. A nota do fornecedor fica no cadastro de fornecedores e persiste independentemente das ocorr&ecirc;ncias.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
+                <summary>🗒️ Compromissos — Lista e Exclus&atilde;o de Eventos</summary>
+                <div class="ajuda-corpo">
+                  <p>A se&ccedil;&atilde;o <strong>Compromissos</strong> no menu lateral lista todos os eventos gen&eacute;ricos agendados para o comprador ativo, exceto os eventos da agenda de compras (que t&ecirc;m fluxo pr&oacute;prio de tratamento).</p>
+                  <h4>O que aparece na lista</h4>
+                  <ul>
+                    <li>Eventos criados pelo bot&atilde;o <strong>+ Novo Evento</strong> com qualquer categoria exceto <em>Agenda de Compras</em></li>
+                    <li>Ordenados por data e hor&aacute;rio crescente (mais pr&oacute;ximo primeiro)</li>
+                    <li>Filtrado pelo <strong>comprador ativo</strong> selecionado na sidebar</li>
+                  </ul>
+                  <h4>Colunas exibidas</h4>
+                  <p>Data &bull; T&iacute;tulo &bull; Categoria (chip colorido) &bull; Hor&aacute;rio &bull; Comprador respons&aacute;vel &bull; Bot&atilde;o Excluir</p>
+                  <h4>Excluir um compromisso</h4>
+                  <p>Clique em <strong>Excluir</strong> na linha do evento. O compromisso &eacute; removido imediatamente do calend&aacute;rio e da lista, sem precisar recarregar a p&aacute;gina.</p>
+                  <p class="ajuda-dica">💡 Para criar um novo compromisso direto desta se&ccedil;&atilde;o, use o bot&atilde;o <strong>+ Novo Evento</strong> no topo — o comprador logado j&aacute; vem pr&eacute;-selecionado.</p>
                 </div>
               </details>
 
