@@ -19,9 +19,11 @@ function getJWT() {
 async function fetchApi(path, options = {}) {
   const { apiBaseUrl } = getSettings();
   if (!apiBaseUrl) throw new Error("API não configurada.");
+  const jwt = getJWT();
+  const authHeader = jwt ? { Authorization: `Bearer ${jwt}` } : {};
   const response = await fetch(`${apiBaseUrl}${path}`, {
     method: options.method ?? "POST",
-    headers: { "Content-Type": "application/json", ...(options.headers ?? {}) },
+    headers: { "Content-Type": "application/json", ...authHeader, ...(options.headers ?? {}) },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const data = await response.json().catch(() => ({}));
