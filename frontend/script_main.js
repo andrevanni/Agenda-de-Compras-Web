@@ -632,41 +632,53 @@ bootstrap();
 
 // PWA install prompt
 (function () {
-  const DISMISSED_KEY = 'agenda_pwa_dismissed';
   let deferredPrompt = null;
 
-  function showModal() {
-    const modal = document.getElementById('pwaModal');
-    if (modal) modal.style.display = 'flex';
-  }
-
-  function hideModal() {
+  function hidePwaModal() {
     const modal = document.getElementById('pwaModal');
     if (modal) modal.style.display = 'none';
-    localStorage.setItem(DISMISSED_KEY, '1');
   }
+
+  window.showPwaInstallModal = function () {
+    const modal = document.getElementById('pwaModal');
+    if (!modal) return;
+    const btn = document.getElementById('pwaModalInstall');
+    if (btn) btn.style.display = deferredPrompt ? 'block' : 'none';
+    modal.style.display = 'flex';
+  };
 
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
+    // Mostra o botão de 1 clique se o modal já estiver aberto
     const btn = document.getElementById('pwaModalInstall');
     if (btn) btn.style.display = 'block';
   });
 
-  window.addEventListener('appinstalled', hideModal);
+  window.addEventListener('appinstalled', () => {
+    hidePwaModal();
+    const installBtn = document.getElementById('pwaInstallNavBtn');
+    if (installBtn) installBtn.style.display = 'none';
+  });
 
   document.getElementById('pwaModalInstall')?.addEventListener('click', async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     deferredPrompt = null;
-    if (outcome === 'accepted') hideModal();
+    if (outcome === 'accepted') {
+      hidePwaModal();
+      const installBtn = document.getElementById('pwaInstallNavBtn');
+      if (installBtn) installBtn.style.display = 'none';
+    }
   });
 
-  document.getElementById('pwaModalDismiss')?.addEventListener('click', hideModal);
+  document.getElementById('pwaModalDismiss')?.addEventListener('click', hidePwaModal);
 
+  // Esconde o botão da sidebar se já estiver instalado (modo standalone)
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  if (!isStandalone && !localStorage.getItem(DISMISSED_KEY)) {
-    setTimeout(showModal, 2000);
+  if (isStandalone) {
+    const installBtn = document.getElementById('pwaInstallNavBtn');
+    if (installBtn) installBtn.style.display = 'none';
   }
 })();

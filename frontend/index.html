@@ -58,6 +58,7 @@
           <button class="nav-link" data-section="categorias" title="Categorias"><span class="nav-icon">🎨</span><span class="nav-label">Categorias</span></button>
           <button class="nav-link" data-section="feriados" title="Feriados"><span class="nav-icon">🏖️</span><span class="nav-label">Feriados</span></button>
           <button class="nav-link" data-section="ajuda" title="Ajuda"><span class="nav-icon">❓</span><span class="nav-label">Ajuda</span></button>
+          <button class="nav-link" id="pwaInstallNavBtn" type="button" title="Instalar App" onclick="showPwaInstallModal()"><span class="nav-icon">📲</span><span class="nav-label">Instalar App</span></button>
         </nav>
 
       </aside>
@@ -975,7 +976,7 @@
     <!-- Modal PWA -->
     <div id="pwaModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:16px;">
       <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px 24px;max-width:360px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);">
-        <img src="agenda_compras.ico" alt="Agenda de Compras" style="width:72px;height:72px;border-radius:14px;object-fit:cover;margin-bottom:16px;">
+        <img src="icon-192.png" alt="Agenda de Compras" style="width:72px;height:72px;border-radius:14px;object-fit:cover;margin-bottom:16px;">
         <h2 style="margin:0 0 8px;font-size:18px;font-weight:700;color:#f1f5f9;">Instale o app</h2>
         <p style="margin:0 0 20px;font-size:14px;color:#94a3b8;line-height:1.5;">Acesse a Agenda de Compras direto da área de trabalho, sem precisar do navegador.</p>
         <button id="pwaModalInstall" style="display:none;width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">📲 Instalar com 1 clique</button>

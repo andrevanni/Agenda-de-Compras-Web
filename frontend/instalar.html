@@ -150,9 +150,23 @@
       <h2>Acesso configurado!</h2>
       <p class="sub">Senha criada com sucesso. Instale o app para acessar rapidamente pelo atalho.</p>
 
-      <div id="installBlock" style="margin-top:16px;"></div>
+      <div class="install-guide" style="margin-top:16px;">
+        <h3>📲 Instalar atalho no dispositivo</h3>
+        <div class="install-step">
+          <div class="install-num">1</div>
+          <div class="install-text">Abra o portal e clique em <strong>📲 Instalar App</strong> no menu lateral</div>
+        </div>
+        <div class="install-step">
+          <div class="install-num">2</div>
+          <div class="install-text"><strong>Chrome / Edge:</strong> clique em <strong>"Instalar com 1 clique"</strong> na janela que aparecer</div>
+        </div>
+        <div class="install-step">
+          <div class="install-num">3</div>
+          <div class="install-text"><strong>iPhone / iPad:</strong> siga o passo a passo exibido para adicionar à tela de início</div>
+        </div>
+      </div>
 
-      <a href="#" class="btn btn-green" id="acessarPortalBtn" style="margin-top:12px;">
+      <a href="#" class="btn btn-green" id="acessarPortalBtn" style="margin-top:16px;">
         Abrir o Portal Agora →
       </a>
       <p id="countdown"></p>
@@ -168,68 +182,9 @@
 
   const PORTAL_URL = window.location.origin;
 
-  // Captura o evento de instalação PWA assim que o browser disparar
-  let deferredInstallPrompt = null;
-  window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault();
-    deferredInstallPrompt = e;
-    // Se o successBlock já estiver visível, atualiza o bloco de instalação
-    if (document.getElementById('successBlock').style.display !== 'none') {
-      renderInstallBlock();
-    }
-  });
-
-  function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  }
-
   let countdownInterval = null;
 
-  function renderInstallBlock() {
-    const el = document.getElementById('installBlock');
-    if (!el) return;
-
-    if (deferredInstallPrompt) {
-      el.innerHTML = `
-        <button class="btn" id="btnInstalarApp" style="background:#7c3aed;">
-          📲 Instalar atalho no dispositivo
-        </button>
-        <p style="font-size:12px;color:#64748b;margin-top:8px;text-align:center;">ou use o botão abaixo para abrir sem instalar</p>
-      `;
-      document.getElementById('btnInstalarApp').addEventListener('click', async () => {
-        deferredInstallPrompt.prompt();
-        const { outcome } = await deferredInstallPrompt.userChoice;
-        deferredInstallPrompt = null;
-        if (outcome === 'accepted') {
-          clearInterval(countdownInterval);
-          window.location.href = PORTAL_URL;
-        } else {
-          el.innerHTML = '';
-        }
-      });
-    } else if (isIOS()) {
-      el.innerHTML = `
-        <div class="install-guide">
-          <h3>📲 Instalar no iPhone / iPad</h3>
-          <div class="install-step">
-            <div class="install-num">1</div>
-            <div class="install-text">Toque no botão <strong>Compartilhar ⎙</strong> na parte inferior do Safari</div>
-          </div>
-          <div class="install-step">
-            <div class="install-num">2</div>
-            <div class="install-text">Role e toque em <strong>"Adicionar à Tela de Início"</strong></div>
-          </div>
-          <div class="install-step">
-            <div class="install-num">3</div>
-            <div class="install-text">Confirme tocando em <strong>"Adicionar"</strong> — o ícone aparecerá na tela inicial</div>
-          </div>
-        </div>
-      `;
-    }
-    // Chrome/Edge sem beforeinstallprompt = já instalado ou não elegível; não exibe nada
-  }
-
-  function parseHash() {
+function parseHash() {
     const hash = window.location.hash.slice(1);
     const params = {};
     hash.split('&').forEach(part => {
@@ -305,7 +260,7 @@
 
       renderInstallBlock();
 
-      let secs = 15;
+      let secs = 10;
       const countEl = document.getElementById('countdown');
       countEl.textContent = `Abrindo automaticamente em ${secs}s...`;
       countdownInterval = setInterval(() => {
