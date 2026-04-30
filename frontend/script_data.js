@@ -350,6 +350,7 @@ function bindStaticEvents() {
   document.getElementById("newEventButton")?.addEventListener("click", () => openNewEventModal());
   document.getElementById("newEventButtonCompromissos")?.addEventListener("click", () => openNewEventModal());
   document.getElementById("saveNewEventButton")?.addEventListener("click", saveNewEvent);
+  document.getElementById("deleteNewEventButton")?.addEventListener("click", deleteGenericEvent);
   document.getElementById("newEventRecorrencia")?.addEventListener("change", () => {
     const wrap = document.getElementById("newEventRecorrenciaFimWrap");
     const val = document.getElementById("newEventRecorrencia").value;

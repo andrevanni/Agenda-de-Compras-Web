@@ -469,6 +469,11 @@ function getNewEventCompradores() {
 
 function openNewEventModal(dateStr = "") {
   populateNewEventSelects();
+  document.getElementById("newEventEditId").value = "";
+  document.getElementById("newEventModalTitle").textContent = "Novo Evento";
+  document.getElementById("newEventModalSubtitle").textContent = "Preencha os dados do evento. Horário padrão calculado a partir das configurações.";
+  document.getElementById("deleteNewEventButton").classList.add("hidden");
+  document.getElementById("newEventRecorrenciaWrap").classList.remove("hidden");
   document.getElementById("newEventTitulo").value = "";
   document.getElementById("newEventData").value = dateStr ? isoToBr(dateStr) : isoToBr(todayIso());
   const _settings = getSettings();
@@ -477,12 +482,13 @@ function openNewEventModal(dateStr = "") {
   document.getElementById("newEventHoraFim").value = addMinutesToTime(_horaInicioDefault, _settings.duracaoPadraoCompromissos);
   document.getElementById("newEventRecorrencia").value = "";
   document.getElementById("newEventObservacao").value = "";
+  document.getElementById("newEventNota").value = "";
   document.getElementById("newEventRecorrenciaFimWrap").classList.add("hidden");
   clearFeedback(document.getElementById("newEventConflictWarning"));
+  clearFeedback(document.getElementById("newEventFeriadoWarning"));
   setupDatePickerField("newEventData", "newEventDataNative", "newEventDataPickerButton");
   setupDatePickerField("newEventRecorrenciaFim", "newEventRecorrenciaFimNative", "newEventRecorrenciaFimPickerButton");
-  // Pré-seleciona o comprador logado (ou ativo) como default
-  const s = getSettings();
+  const s = _settings;
   const defaultId = s.loggedBuyerId || s.activeBuyerId;
   setNewEventCompradores(defaultId ? [defaultId] : []);
   document.getElementById("newEventModal").showModal();
@@ -490,8 +496,13 @@ function openNewEventModal(dateStr = "") {
 
 function openGenericEventDetail(occ) {
   if (!occ) return;
-  const cat = categoriaById(occ.categoria_id);
   populateNewEventSelects();
+  document.getElementById("newEventEditId").value = occ.id;
+  document.getElementById("newEventModalTitle").textContent = "Editar Evento";
+  document.getElementById("newEventModalSubtitle").textContent = "Altere os dados e salve. Clique em Excluir para remover permanentemente.";
+  document.getElementById("deleteNewEventButton").classList.remove("hidden");
+  document.getElementById("newEventRecorrenciaWrap").classList.add("hidden");
+  document.getElementById("newEventRecorrenciaFimWrap").classList.add("hidden");
   document.getElementById("newEventTitulo").value = occ.titulo ?? "";
   document.getElementById("newEventData").value = isoToBr(occ.data_prevista);
   const _horaInicioEdit = occ.hora_inicio ?? "08:00";
@@ -500,6 +511,9 @@ function openGenericEventDetail(occ) {
   document.getElementById("newEventCategoria").value = occ.categoria_id ?? "";
   setNewEventCompradores(occ.comprador_id ? [occ.comprador_id] : []);
   document.getElementById("newEventObservacao").value = occ.observacao ?? "";
+  document.getElementById("newEventNota").value = occ.nota ?? "";
+  clearFeedback(document.getElementById("newEventConflictWarning"));
+  clearFeedback(document.getElementById("newEventFeriadoWarning"));
   setupDatePickerField("newEventData", "newEventDataNative", "newEventDataPickerButton");
   setupDatePickerField("newEventRecorrenciaFim", "newEventRecorrenciaFimNative", "newEventRecorrenciaFimPickerButton");
   document.getElementById("newEventModal").showModal();
@@ -535,17 +549,18 @@ function buildRecorrenciaDates(baseDate, tipo, fimStr) {
 }
 
 async function saveNewEvent() {
+  const editId       = document.getElementById("newEventEditId").value.trim();
   const titulo       = document.getElementById("newEventTitulo").value.trim();
   const data         = brToIso(document.getElementById("newEventData").value);
   const horaInicio   = document.getElementById("newEventHoraInicio").value || null;
   const horaFim      = document.getElementById("newEventHoraFim").value || null;
   const categoriaId  = document.getElementById("newEventCategoria").value || null;
-  const compradores  = getNewEventCompradores(); // array de IDs selecionados
-  const recorrencia  = document.getElementById("newEventRecorrencia").value;
+  const compradores  = getNewEventCompradores();
+  const recorrencia  = editId ? "" : document.getElementById("newEventRecorrencia").value;
   const recFim       = brToIso(document.getElementById("newEventRecorrenciaFim").value);
   const observacao   = document.getElementById("newEventObservacao").value.trim() || null;
   const nota         = document.getElementById("newEventNota").value.trim() || null;
-  const settings     = getSettings();
+  const s            = getSettings();
   const feedbackEl   = document.getElementById("newEventConflictWarning");
 
   if (!titulo || !data) {
@@ -563,7 +578,7 @@ async function saveNewEvent() {
     feriadoWarningEl.classList.add("hidden");
   }
 
-  const hasConflict = await checkEventConflict(settings.tenantId, data, horaInicio, horaFim);
+  const hasConflict = await checkEventConflict(s.tenantId, data, horaInicio, horaFim, editId || null);
   if (hasConflict) {
     setFeedback("Atenção: existe outro evento no mesmo horário nesta data.", "warning", feedbackEl);
     feedbackEl.classList.remove("hidden");
@@ -571,45 +586,85 @@ async function saveNewEvent() {
     feedbackEl.classList.add("hidden");
   }
 
-  const base = {
-    tenant_id:    settings.tenantId,
-    titulo,
-    data_prevista: data,
-    hora_inicio:   horaInicio,
-    hora_fim:      horaFim,
-    categoria_id:  categoriaId,
-    observacao,
-    nota,
-    status: "PENDENTE",
-    recorrencia: recorrencia ? JSON.stringify({ tipo: recorrencia, fim: recFim || null }) : null,
-  };
-
   try {
-    const dates = recorrencia ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)] : [data];
-    // Cria um evento por comprador selecionado (ou sem responsável se nenhum marcado)
-    const buyerIds = compradores.length > 0 ? compradores : [null];
-    for (const d of dates) {
-      for (const buyerId of buyerIds) {
-        await fetchSupabase("/rest/v1/agenda_ocorrencias", {
-          method: "POST",
-          headers: { Prefer: "return=minimal" },
-          body: { ...base, data_prevista: d, comprador_id: buyerId },
-        });
+    if (editId) {
+      // — EDIÇÃO: PATCH na ocorrência existente —
+      const buyerId = compradores[0] ?? null;
+      await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${editId}&tenant_id=eq.${s.tenantId}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: {
+          titulo,
+          data_prevista: data,
+          hora_inicio: horaInicio,
+          hora_fim: horaFim,
+          categoria_id: categoriaId,
+          comprador_id: buyerId,
+          observacao,
+          nota,
+        },
+      });
+      setFeedback("Evento atualizado com sucesso.", "success");
+    } else {
+      // — CRIAÇÃO: POST (multi-comprador × recorrência) —
+      const base = {
+        tenant_id: s.tenantId,
+        titulo,
+        data_prevista: data,
+        hora_inicio: horaInicio,
+        hora_fim: horaFim,
+        categoria_id: categoriaId,
+        observacao,
+        nota,
+        status: "PENDENTE",
+        recorrencia: recorrencia ? JSON.stringify({ tipo: recorrencia, fim: recFim || null }) : null,
+      };
+      const dates = recorrencia ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)] : [data];
+      const buyerIds = compradores.length > 0 ? compradores : [null];
+      for (const d of dates) {
+        for (const buyerId of buyerIds) {
+          await fetchSupabase("/rest/v1/agenda_ocorrencias", {
+            method: "POST",
+            headers: { Prefer: "return=minimal" },
+            body: { ...base, data_prevista: d, comprador_id: buyerId },
+          });
+        }
       }
+      const total = dates.length * buyerIds.length;
+      setFeedback(
+        total > 1
+          ? `${total} evento(s) criado(s)${buyerIds.length > 1 ? ` para ${buyerIds.length} comprador(es)` : ""}${dates.length > 1 ? `, ${dates.length} datas (${recorrencia})` : ""}.`
+          : "Evento criado com sucesso.",
+        "success"
+      );
     }
-    const total = dates.length * buyerIds.length;
-    setFeedback(
-      total > 1
-        ? `${total} evento(s) criado(s)${buyerIds.length > 1 ? ` para ${buyerIds.length} comprador(es)` : ""}${dates.length > 1 ? `, ${dates.length} datas (${recorrencia})` : ""}.`
-        : "Evento criado com sucesso.",
-      "success"
-    );
     closeModal("newEventModal");
     await loadPortalData({ silent: true });
     refreshCalendar();
   } catch (err) {
     setFeedback(`Não foi possível salvar o evento: ${err.message}`, "error", feedbackEl);
     feedbackEl.classList.remove("hidden");
+  }
+}
+
+async function deleteGenericEvent() {
+  const editId = document.getElementById("newEventEditId").value.trim();
+  if (!editId) return;
+  const titulo = document.getElementById("newEventTitulo").value.trim() || "este evento";
+  if (!confirm(`Excluir "${titulo}"? Esta ação não pode ser desfeita.`)) return;
+  try {
+    const s = getSettings();
+    await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${editId}&tenant_id=eq.${s.tenantId}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    });
+    state.agenda = state.agenda.filter((o) => o.id !== editId);
+    closeModal("newEventModal");
+    setFeedback("Evento excluído.", "success");
+    refreshCalendar();
+    renderTables();
+  } catch (err) {
+    setFeedback(`Não foi possível excluir o evento: ${err.message}`, "error");
   }
 }
 

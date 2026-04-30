@@ -1048,13 +1048,14 @@
 
     <dialog id="newEventModal" class="details-modal">
       <form id="newEventForm" method="dialog" class="modal-card">
+        <input type="hidden" id="newEventEditId">
         <button class="close-button" type="button" data-close-modal="newEventModal" aria-label="Fechar novo evento">
           <span class="close-glyph">&#10005;</span>
         </button>
         <div class="section-title">
           <div>
-            <h2>Novo Evento</h2>
-            <p class="muted">Preencha os dados do evento. Hor&aacute;rio padr&atilde;o: 1 hora a partir do in&iacute;cio.</p>
+            <h2 id="newEventModalTitle">Novo Evento</h2>
+            <p class="muted" id="newEventModalSubtitle">Preencha os dados do evento. Hor&aacute;rio padr&atilde;o calculado a partir das configura&ccedil;&otilde;es.</p>
           </div>
         </div>
         <div class="grid detail-grid">
@@ -1081,7 +1082,7 @@
           </div>
           <label>Hor&aacute;rio de in&iacute;cio<br><input id="newEventHoraInicio" type="time" value="08:00"></label>
           <label>Hor&aacute;rio de fim<br><input id="newEventHoraFim" type="time" value="09:00"></label>
-          <label style="grid-column:1/-1">Recorr&ecirc;ncia<br>
+          <label id="newEventRecorrenciaWrap" style="grid-column:1/-1">Recorr&ecirc;ncia<br>
             <select id="newEventRecorrencia">
               <option value="">Sem recorr&ecirc;ncia</option>
               <option value="diaria">Di&aacute;ria</option>
@@ -1108,6 +1109,7 @@
     <div id="newEventFeriadoWarning" class="msg hidden"></div>
         <div class="actions">
           <button id="saveNewEventButton" class="btn" type="button">Salvar Evento</button>
+          <button id="deleteNewEventButton" class="btn btn-danger hidden" type="button">&#128465; Excluir</button>
           <button class="btn btn-outline" type="button" data-close-modal="newEventModal">Cancelar</button>
         </div>
       </form>
