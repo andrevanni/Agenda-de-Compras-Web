@@ -634,6 +634,51 @@ bootstrap();
 (function () {
   let deferredPrompt = null;
 
+  function detectBrowser() {
+    const ua = navigator.userAgent;
+    if (/iPad|iPhone|iPod/.test(ua)) return 'ios';
+    if (/Edg\//.test(ua)) return 'edge';
+    if (/Chrome/.test(ua)) return 'chrome';
+    if (/Firefox/.test(ua)) return 'firefox';
+    return 'other';
+  }
+
+  function renderInstructions() {
+    const el = document.getElementById('pwaModalInstructions');
+    if (!el) return;
+    const browser = detectBrowser();
+    const row = (icon, text) =>
+      `<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #1e293b;">
+        <span style="font-size:18px;flex-shrink:0;">${icon}</span>
+        <span style="font-size:13px;color:#cbd5e1;line-height:1.5;">${text}</span>
+      </div>`;
+
+    if (browser === 'ios') {
+      el.innerHTML =
+        `<p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">iPhone / iPad — Safari</p>` +
+        row('⎙', 'Toque no botão <strong style="color:#f1f5f9;">Compartilhar</strong> na barra inferior do Safari') +
+        row('➕', 'Toque em <strong style="color:#f1f5f9;">"Adicionar à Tela de Início"</strong>') +
+        row('✅', 'Confirme tocando em <strong style="color:#f1f5f9;">"Adicionar"</strong>');
+    } else if (browser === 'edge') {
+      el.innerHTML =
+        `<p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Microsoft Edge</p>` +
+        row('⋯', 'Clique no menu <strong style="color:#f1f5f9;">⋯</strong> (três pontos) no canto superior direito') +
+        row('📱', 'Clique em <strong style="color:#f1f5f9;">Aplicativos</strong> → <strong style="color:#f1f5f9;">"Instalar este site como aplicativo"</strong>') +
+        row('✅', 'Clique em <strong style="color:#f1f5f9;">"Instalar"</strong> na janela que aparecer');
+    } else if (browser === 'chrome') {
+      el.innerHTML =
+        `<p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Google Chrome</p>` +
+        row('⊕', 'Clique no ícone <strong style="color:#f1f5f9;">⊕</strong> na barra de endereço (canto direito)') +
+        `<div style="padding:6px 0;text-align:center;font-size:12px;color:#64748b;">ou</div>` +
+        row('⋮', 'Menu <strong style="color:#f1f5f9;">⋮</strong> → <strong style="color:#f1f5f9;">"Instalar Agenda de Compras"</strong>');
+    } else {
+      el.innerHTML =
+        `<p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Como instalar</p>` +
+        row('⊕', '<strong style="color:#f1f5f9;">Chrome / Edge:</strong> ícone ⊕ na barra de endereço → "Instalar"') +
+        row('⎙', '<strong style="color:#f1f5f9;">iPhone/iPad:</strong> Compartilhar ⎙ → "Adicionar à Tela de Início"');
+    }
+  }
+
   function hidePwaModal() {
     const modal = document.getElementById('pwaModal');
     if (modal) modal.style.display = 'none';
@@ -644,6 +689,7 @@ bootstrap();
     if (!modal) return;
     const btn = document.getElementById('pwaModalInstall');
     if (btn) btn.style.display = deferredPrompt ? 'block' : 'none';
+    renderInstructions();
     modal.style.display = 'flex';
   };
 
