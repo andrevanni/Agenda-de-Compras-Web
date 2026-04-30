@@ -270,7 +270,11 @@ function bindStaticEvents() {
   const openSettings = () => {
     populateSettings();
     document.getElementById("settingsModal").showModal();
+    loadEmailLog();
   };
+
+  document.getElementById("refreshEmailLogButton")?.addEventListener("click", loadEmailLog);
+  document.getElementById("emailLogFilter")?.addEventListener("change", loadEmailLog);
 
   const sidebarSettingsButton = document.getElementById("openSettingsButton");
   if (sidebarSettingsButton) {

@@ -870,6 +870,37 @@
           <button id="saveSettingsButton" class="btn" type="button">Salvar Configura&ccedil;&atilde;o</button>
           <button id="syncAllButton" class="btn btn-outline" type="button">Sincronizar Agora</button>
         </div>
+
+        <div class="section-title" style="margin-top:24px;">
+          <div>
+            <h3>&#128231; Log de E-mails Enviados</h3>
+            <p class="muted">Hist&oacute;rico dos relat&oacute;rios di&aacute;rios disparados pelo sistema.</p>
+          </div>
+          <div class="actions">
+            <select id="emailLogFilter" class="btn btn-outline btn-sm" style="cursor:pointer;">
+              <option value="7">Últimos 7 dias</option>
+              <option value="30" selected>Últimos 30 dias</option>
+              <option value="90">Últimos 90 dias</option>
+            </select>
+            <button id="refreshEmailLogButton" class="btn btn-outline btn-sm" type="button">Atualizar</button>
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top:8px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Comprador</th>
+                <th>Tipo</th>
+                <th>E-mail</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="emailLogTable">
+              <tr><td colspan="5" class="muted">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </form>
     </dialog>
 

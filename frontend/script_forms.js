@@ -932,6 +932,61 @@ async function synchronizePendingAgendaSeeds() {
 }
 
 // ============================================================
+// LOG DE E-MAILS
+// ============================================================
+
+const TIPO_LABEL = {
+  auditoria:           "Auditoria D-1",
+  agenda_proximo:      "Agenda Próxima",
+  consolidado_gestor:  "Consolidado Gestor",
+};
+
+async function loadEmailLog() {
+  const tbody = document.getElementById("emailLogTable");
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="5" class="muted">Carregando...</td></tr>`;
+  const dias = parseInt(document.getElementById("emailLogFilter")?.value ?? "30", 10);
+  const { tenantId } = getSettings();
+  if (!tenantId) {
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">Tenant não configurado.</td></tr>`;
+    return;
+  }
+  const desde = addDaysLocalIso(todayLocalIso(), -dias);
+  try {
+    const rows = await fetchSupabase(
+      `/rest/v1/relatorio_log?select=created_at,tipo,email_destino,status,erro_mensagem,compradores(nome_comprador)` +
+      `&tenant_id=eq.${tenantId}&created_at=gte.${desde}T00:00:00&order=created_at.desc&limit=100`
+    );
+    if (!rows?.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">Nenhum e-mail registrado no período.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map((r) => {
+      const dt = r.created_at ? new Date(r.created_at) : null;
+      const dtLabel = dt
+        ? `${dt.toLocaleDateString("pt-BR")} ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+        : "—";
+      const compradorNome = Array.isArray(r.compradores)
+        ? (r.compradores[0]?.nome_comprador ?? "—")
+        : (r.compradores?.nome_comprador ?? "—");
+      const tipoLabel = TIPO_LABEL[r.tipo] ?? r.tipo;
+      const statusHtml = r.status === "enviado"
+        ? `<span class="kpi-chip" style="background:#d1fae5;color:#065f46;">✅ Enviado</span>`
+        : `<span class="kpi-chip" style="background:#fee2e2;color:#991b1b;" title="${r.erro_mensagem ?? ""}">❌ Erro</span>`;
+      return `<tr>
+        <td style="white-space:nowrap;">${dtLabel}</td>
+        <td>${compradorNome}</td>
+        <td>${tipoLabel}</td>
+        <td style="font-size:12px;color:var(--text-muted);">${r.email_destino}</td>
+        <td>${statusHtml}</td>
+      </tr>`;
+    }).join("");
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">Erro ao carregar: ${err.message}</td></tr>`;
+  }
+}
+
+// ============================================================
 // FERIADOS
 // ============================================================
 
