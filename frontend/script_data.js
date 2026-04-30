@@ -348,6 +348,7 @@ function bindStaticEvents() {
 
   // Calendário
   document.getElementById("newEventButton")?.addEventListener("click", () => openNewEventModal());
+  document.getElementById("newEventButtonCompromissos")?.addEventListener("click", () => openNewEventModal());
   document.getElementById("saveNewEventButton")?.addEventListener("click", saveNewEvent);
   document.getElementById("newEventRecorrencia")?.addEventListener("change", () => {
     const wrap = document.getElementById("newEventRecorrenciaFimWrap");

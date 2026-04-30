@@ -7,6 +7,68 @@ function renderTables() {
   renderPainel();
   renderBuyers();
   renderFeriadosTable();
+  renderCompromissos();
+}
+
+function renderCompromissos() {
+  const { activeBuyerId, tenantId } = getSettings();
+  const catAgendaId = state.categorias.find((c) => c.nome === "Agenda de Compras")?.id;
+
+  const rows = [...state.agenda]
+    .filter((occ) => !occ.fornecedor_id)
+    .filter((occ) => occ.categoria_id !== catAgendaId)
+    .filter((occ) => {
+      if (!activeBuyerId || activeBuyerId === UNASSIGNED_BUYER_VALUE) return true;
+      return occ.comprador_id === activeBuyerId || !occ.comprador_id;
+    })
+    .sort((a, b) => {
+      const da = (a.data_prevista ?? "") + (a.hora_inicio ?? "00:00");
+      const db = (b.data_prevista ?? "") + (b.hora_inicio ?? "00:00");
+      return da.localeCompare(db);
+    });
+
+  const tbody = document.getElementById("compromissosTable");
+  if (!tbody) return;
+
+  tbody.innerHTML = rows.length
+    ? rows.map((occ) => {
+        const cat = categoriaById(occ.categoria_id);
+        const buyer = buyerById(occ.comprador_id);
+        const horario = occ.hora_inicio
+          ? occ.hora_inicio + (occ.hora_fim ? " – " + occ.hora_fim : "")
+          : "-";
+        return `<tr>
+          <td>${formatDate(occ.data_prevista)}</td>
+          <td>${occ.titulo ?? "-"}</td>
+          <td>${cat ? `<span class="pill" style="background:${cat.cor};color:#fff;">${cat.nome}</span>` : "-"}</td>
+          <td>${horario}</td>
+          <td>${buyer?.nome_comprador ?? "<span class='muted'>Sem resp.</span>"}</td>
+          <td class="td-actions">
+            <button class="btn btn-danger btn-sm btn-table" data-delete-compromisso="${occ.id}">Excluir</button>
+          </td>
+        </tr>`;
+      }).join("")
+    : `<tr><td colspan="6">Nenhum compromisso agendado para este comprador.</td></tr>`;
+
+  tbody.querySelectorAll("[data-delete-compromisso]").forEach((btn) => {
+    btn.addEventListener("click", () => deleteCompromisso(btn.dataset.deleteCompromisso));
+  });
+}
+
+async function deleteCompromisso(id) {
+  if (!confirm("Excluir este compromisso permanentemente?")) return;
+  try {
+    await fetchSupabase(
+      `/rest/v1/agenda_ocorrencias?id=eq.${id}&tenant_id=eq.${getSettings().tenantId}`,
+      { method: "DELETE" }
+    );
+    state.agenda = state.agenda.filter((occ) => occ.id !== id);
+    renderCompromissos();
+    refreshCalendar();
+    setFeedback("Compromisso excluído.", "success");
+  } catch (err) {
+    setFeedback(`Erro ao excluir: ${err.message}`, "error");
+  }
 }
 
 function classifyAuditEvent(entry) {
