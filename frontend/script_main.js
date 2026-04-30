@@ -430,19 +430,52 @@ async function saveCategoria(event) {
 // ============================================================
 
 function populateNewEventSelects() {
+  // Categorias — exclui "Agenda de Compras" (tem fluxo próprio)
   const catSelect = document.getElementById("newEventCategoria");
-  const buyerSelect = document.getElementById("newEventComprador");
   if (catSelect) {
-    catSelect.innerHTML = state.categorias
+    const cats = state.categorias.filter((c) => c.nome !== "Agenda de Compras");
+    catSelect.innerHTML = cats
       .map((cat) => `<option value="${cat.id}" style="background:${cat.cor}">${cat.nome}</option>`)
       .join("");
   }
-  if (buyerSelect) {
-    buyerSelect.innerHTML = [
-      `<option value="">Sem responsável</option>`,
-      ...state.buyers.map((b) => `<option value="${b.id}">${b.nome_comprador}</option>`),
-    ].join("");
+
+  // Compradores — checkboxes com "Todos" e seleção individual
+  const wrap = document.getElementById("newEventCompradoresWrap");
+  if (!wrap) return;
+  const checkboxStyle = "display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;white-space:nowrap;";
+  wrap.innerHTML = [
+    `<label style="${checkboxStyle}font-weight:700;padding-right:8px;border-right:1px solid var(--border-color,#334155);">` +
+      `<input type="checkbox" id="newEventCheckAll"> Todos</label>`,
+    ...state.buyers.map((b) =>
+      `<label style="${checkboxStyle}"><input type="checkbox" name="ev_comprador" value="${b.id}"> ${b.nome_comprador}</label>`
+    ),
+  ].join("");
+
+  const checkAll = document.getElementById("newEventCheckAll");
+  const allCbs = () => [...wrap.querySelectorAll('input[name="ev_comprador"]')];
+  checkAll?.addEventListener("change", (e) => allCbs().forEach((cb) => { cb.checked = e.target.checked; }));
+  allCbs().forEach((cb) => cb.addEventListener("change", () => {
+    checkAll.checked = allCbs().every((c) => c.checked);
+  }));
+}
+
+function setNewEventCompradores(buyerIds = []) {
+  const wrap = document.getElementById("newEventCompradoresWrap");
+  if (!wrap) return;
+  wrap.querySelectorAll('input[name="ev_comprador"]').forEach((cb) => {
+    cb.checked = buyerIds.includes(cb.value);
+  });
+  const checkAll = document.getElementById("newEventCheckAll");
+  if (checkAll) {
+    const all = [...wrap.querySelectorAll('input[name="ev_comprador"]')];
+    checkAll.checked = all.length > 0 && all.every((c) => c.checked);
   }
+}
+
+function getNewEventCompradores() {
+  const wrap = document.getElementById("newEventCompradoresWrap");
+  if (!wrap) return [];
+  return [...wrap.querySelectorAll('input[name="ev_comprador"]:checked')].map((cb) => cb.value);
 }
 
 function openNewEventModal(dateStr = "") {
@@ -457,6 +490,9 @@ function openNewEventModal(dateStr = "") {
   clearFeedback(document.getElementById("newEventConflictWarning"));
   setupDatePickerField("newEventData", "newEventDataNative", "newEventDataPickerButton");
   setupDatePickerField("newEventRecorrenciaFim", "newEventRecorrenciaFimNative", "newEventRecorrenciaFimPickerButton");
+  // Pré-seleciona o comprador logado como default
+  const loggedId = getSettings().loggedBuyerId;
+  setNewEventCompradores(loggedId ? [loggedId] : []);
   document.getElementById("newEventModal").showModal();
 }
 
@@ -469,7 +505,7 @@ function openGenericEventDetail(occ) {
   document.getElementById("newEventHoraInicio").value = occ.hora_inicio ?? "08:00";
   document.getElementById("newEventHoraFim").value = occ.hora_fim ?? "09:00";
   document.getElementById("newEventCategoria").value = occ.categoria_id ?? "";
-  document.getElementById("newEventComprador").value = occ.comprador_id ?? "";
+  setNewEventCompradores(occ.comprador_id ? [occ.comprador_id] : []);
   document.getElementById("newEventObservacao").value = occ.observacao ?? "";
   setupDatePickerField("newEventData", "newEventDataNative", "newEventDataPickerButton");
   setupDatePickerField("newEventRecorrenciaFim", "newEventRecorrenciaFimNative", "newEventRecorrenciaFimPickerButton");
@@ -511,7 +547,7 @@ async function saveNewEvent() {
   const horaInicio   = document.getElementById("newEventHoraInicio").value || null;
   const horaFim      = document.getElementById("newEventHoraFim").value || null;
   const categoriaId  = document.getElementById("newEventCategoria").value || null;
-  const compradorId  = document.getElementById("newEventComprador").value || null;
+  const compradores  = getNewEventCompradores(); // array de IDs selecionados
   const recorrencia  = document.getElementById("newEventRecorrencia").value;
   const recFim       = brToIso(document.getElementById("newEventRecorrenciaFim").value);
   const observacao   = document.getElementById("newEventObservacao").value.trim() || null;
@@ -549,7 +585,6 @@ async function saveNewEvent() {
     hora_inicio:   horaInicio,
     hora_fim:      horaFim,
     categoria_id:  categoriaId,
-    comprador_id:  compradorId,
     observacao,
     nota,
     status: "PENDENTE",
@@ -558,16 +593,21 @@ async function saveNewEvent() {
 
   try {
     const dates = recorrencia ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)] : [data];
+    // Cria um evento por comprador selecionado (ou sem responsável se nenhum marcado)
+    const buyerIds = compradores.length > 0 ? compradores : [null];
     for (const d of dates) {
-      await fetchSupabase("/rest/v1/agenda_ocorrencias", {
-        method: "POST",
-        headers: { Prefer: "return=minimal" },
-        body: { ...base, data_prevista: d },
-      });
+      for (const buyerId of buyerIds) {
+        await fetchSupabase("/rest/v1/agenda_ocorrencias", {
+          method: "POST",
+          headers: { Prefer: "return=minimal" },
+          body: { ...base, data_prevista: d, comprador_id: buyerId },
+        });
+      }
     }
+    const total = dates.length * buyerIds.length;
     setFeedback(
-      dates.length > 1
-        ? `Evento criado com ${dates.length} ocorrências (recorrência ${recorrencia}).`
+      total > 1
+        ? `${total} evento(s) criado(s)${buyerIds.length > 1 ? ` para ${buyerIds.length} comprador(es)` : ""}${dates.length > 1 ? `, ${dates.length} datas (${recorrencia})` : ""}.`
         : "Evento criado com sucesso.",
       "success"
     );

@@ -967,9 +967,10 @@
               <input id="newEventDataNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
             </div>
           </label>
-          <label>Comprador respons&aacute;vel<br>
-            <select id="newEventComprador"></select>
-          </label>
+          <div style="grid-column:1/-1">
+            <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted,#94a3b8);display:block;margin-bottom:8px;">Compradores respons&aacute;veis</span>
+            <div id="newEventCompradoresWrap" style="display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 12px;background:var(--input-bg,#0f172a);border:1px solid var(--border-color,#334155);border-radius:8px;max-height:140px;overflow-y:auto;"></div>
+          </div>
           <label>Hor&aacute;rio de in&iacute;cio<br><input id="newEventHoraInicio" type="time" value="08:00"></label>
           <label>Hor&aacute;rio de fim<br><input id="newEventHoraFim" type="time" value="09:00"></label>
           <label style="grid-column:1/-1">Recorr&ecirc;ncia<br>
