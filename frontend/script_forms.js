@@ -856,7 +856,9 @@ async function baixarFeriadosNacionais() {
   feedbackEl.classList.remove("hidden");
 
   try {
-    const resp = await fetch(`https://brasilapi.com.br/api/feriados/v1/${ano}`);
+    const resp = await fetch(`https://brasilapi.com.br/api/feriados/v1/${ano}`, {
+      signal: AbortSignal.timeout(10000),
+    });
     if (!resp.ok) throw new Error(`BrasilAPI retornou ${resp.status}`);
     const lista = await resp.json();
 
