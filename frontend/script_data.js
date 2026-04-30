@@ -404,7 +404,7 @@ function buyerByEmail(email) {
 }
 
 function getLoggedPortalRole() {
-  return localStorage.getItem(storageKeys.loggedPortalRole) ?? "";
+  return sessionStorage.getItem(storageKeys.loggedPortalRole) ?? localStorage.getItem(storageKeys.loggedPortalRole) ?? "";
 }
 
 function getLoggedPortalEmail() {

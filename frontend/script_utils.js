@@ -1,11 +1,15 @@
 
+function _store(key) {
+  return sessionStorage.getItem(key) ?? localStorage.getItem(key);
+}
+
 function getSettings() {
   return {
     supabaseUrl: localStorage.getItem(storageKeys.supabaseUrl) ?? defaultSettings.supabaseUrl,
     supabaseKey: localStorage.getItem(storageKeys.supabaseKey) ?? defaultSettings.supabaseKey,
-    tenantId: localStorage.getItem(storageKeys.tenantId) ?? defaultSettings.tenantId,
-    activeBuyerId: localStorage.getItem(storageKeys.activeBuyerId) ?? "",
-    loggedBuyerId: localStorage.getItem(storageKeys.loggedBuyerId) ?? "",
+    tenantId: _store(storageKeys.tenantId) ?? defaultSettings.tenantId,
+    activeBuyerId: _store(storageKeys.activeBuyerId) ?? "",
+    loggedBuyerId: _store(storageKeys.loggedBuyerId) ?? "",
     logoUrl: localStorage.getItem(storageKeys.logoUrl) ?? defaultSettings.logoUrl,
     theme: localStorage.getItem(storageKeys.theme) ?? "dark",
     apiBaseUrl: localStorage.getItem(storageKeys.apiBaseUrl) ?? defaultSettings.apiBaseUrl,
@@ -13,7 +17,7 @@ function getSettings() {
 }
 
 function getJWT() {
-  return localStorage.getItem(storageKeys.jwt) ?? "";
+  return _store(storageKeys.jwt) ?? "";
 }
 
 async function fetchApi(path, options = {}) {

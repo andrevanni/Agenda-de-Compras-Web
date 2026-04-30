@@ -596,15 +596,16 @@ async function bootstrap() {
   }
 
   // Processa parâmetros de URL (vindos do "Abrir Portal" no admin)
+  // Usa sessionStorage para isolar por aba — não contamina outras abas abertas
   const urlParams = new URLSearchParams(window.location.search);
   const urlJwt = urlParams.get("jwt");
   const urlTenantId = urlParams.get("tenant_id");
   if (urlJwt && urlTenantId) {
-    localStorage.setItem(storageKeys.jwt, urlJwt);
-    localStorage.setItem(storageKeys.tenantId, urlTenantId);
-    localStorage.removeItem(storageKeys.loggedBuyerId);
-    localStorage.removeItem(storageKeys.activeBuyerId);
-    localStorage.setItem(storageKeys.loggedPortalRole, "admin_portal");
+    sessionStorage.setItem(storageKeys.jwt, urlJwt);
+    sessionStorage.setItem(storageKeys.tenantId, urlTenantId);
+    sessionStorage.setItem(storageKeys.loggedPortalRole, "admin_portal");
+    sessionStorage.removeItem(storageKeys.loggedBuyerId);
+    sessionStorage.removeItem(storageKeys.activeBuyerId);
     history.replaceState(null, "", window.location.pathname);
   }
 
