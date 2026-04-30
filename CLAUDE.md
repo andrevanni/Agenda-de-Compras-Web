@@ -25,6 +25,7 @@ Supabase: `fnwsorhflueunqzkwsxu.supabase.co`
 | `PORTAL_ADMIN_EMAIL` | ✅ | `andre@servicefarma.far.br` (usado no "Abrir Portal") |
 | `PORTAL_ADMIN_PASSWORD` | ✅ | Senha Supabase Auth do `andre@servicefarma.far.br` |
 | `FRONTEND_URL` | ✅ | `https://agenda-compras-cliente.vercel.app` (usado no redirect `/portal` e e-mails) |
+| `CRON_SECRET` | ✅ | Token de autenticação do cron de relatório diário (`agenda-cron-2026-sfx`) |
 
 ## Arquitetura
 
@@ -34,7 +35,7 @@ Routes (backend/app/api/v1/) → Services (backend/app/services/) → DB session
 
 - **Frontend cliente** chama Supabase REST direto via `fetchSupabase()`. FastAPI só para auth JWT e operações admin.
 - **Multi-tenancy**: todo registro tem `tenant_id`. Queries SEMPRE filtram por `tenant_id`. RLS no Supabase usa `USING (true)` — isolamento é via aplicação.
-- **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v9_*.sql`). Sem Alembic.
+- **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v11_*.sql`). Sem Alembic.
 
 ## Estrutura do frontend cliente (`frontend/`)
 
@@ -43,17 +44,17 @@ Arquivos JS carregados em ordem no `index.html` — escopo global compartilhado 
 | Arquivo | Conteúdo |
 |---|---|
 | `script_state.js` | Estado global, constantes, mocks, refs DOM, `storageKeys`, `defaultSettings` |
-| `script_utils.js` | `fetchSupabase()`, `fetchApi()`, `refreshJWT()`, `_store()`, utilitários de data/cálculo |
-| `script_render.js` | Render tabelas, fornecedores, compradores, `fetchSupabase` (definido aqui), `renderCompromissos()`, `deleteCompromisso()` |
-| `script_forms.js` | Formulários (saveSupplier, saveBuyer), importação CSV/Excel, exportação, `ensureBuyerSelection()` |
+| `script_utils.js` | `fetchSupabase()`, `fetchApi()`, `refreshJWT()`, `_store()`, utilitários de data/cálculo, `renderBuyers()`, `editBuyer()` |
+| `script_render.js` | Render tabelas, fornecedores, compradores, `saveBuyer()`, `renderCompromissos()`, `deleteCompromisso()` |
+| `script_forms.js` | Formulários (saveSupplier), importação CSV/Excel, exportação, `ensureBuyerSelection()`, `renderAuditDashboard()`, `loadEmailLog()` |
 | `script_data.js` | `loadPortalData()`, `loginBuyer()`, `bindEvents()`, configurações |
-| `script_main.js` | `bootstrap()`, auth, calendário, categorias, PWA install, `refreshJWT` interval |
+| `script_main.js` | `bootstrap()`, auth, calendário, categorias, PWA install, `refreshJWT` interval, `saveNewEvent()`, `deleteGenericEvent()` |
 
 Outros arquivos estáticos:
 
 | Arquivo | Descrição |
 |---|---|
-| `sw.js` | Service Worker v10 — cache dos assets, registrado em `index.html` e `instalar.html` |
+| `sw.js` | Service Worker v12 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
 | `instalar.html` | Página de primeiro acesso: define senha → loga → mostra guia de instalação |
@@ -68,6 +69,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - Seções: Base Operacional (tenants), Clientes, Vigências, Admins, Ajuda, Conexão
 - `fetchAdmin()` envia JWT admin no header `Authorization: Bearer` (com fallback para `X-Admin-Token`)
 - Tenants ordenados **alfabeticamente** por `nome`
+- Cada card de tenant tem toggle **"Envio de relatório diário"** — PATCH imediato em `tenants.envio_relatorio_ativo`
 
 ## storageKeys — portal cliente (`localStorage` / `sessionStorage`)
 
@@ -88,6 +90,8 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | `agenda_sidebar_collapsed` | local | Estado da sidebar |
 | `agenda_calendar_weekdays` | local | Dias exibidos no calendário |
 | `agenda_pwa_installed` | local | Flag para não reabrir modal PWA após instalação |
+| `agenda_duracao_compromissos` | local | Duração padrão em minutos para novos compromissos (padrão 30) |
+| `agenda_duracao_agenda` | local | Duração padrão em minutos para ocorrências de agenda (padrão 30) |
 
 `_store(key)` lê `sessionStorage` primeiro, depois `localStorage` — permite isolamento por aba (admin "Abrir Portal" usa sessionStorage para não contaminar outras abas).
 
@@ -96,7 +100,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | Role (`loggedPortalRole`) | Quem | Permissões |
 |---|---|---|
 | `buyer` | Comprador logado | Ver/tratar agenda da própria carteira; enviar convites; editar campos de qualquer comprador exceto senha; editar própria senha |
-| `admin_client` | E-mail responsável do tenant | Tudo do buyer + editar/excluir qualquer comprador; auditoria completa |
+| `admin_client` | E-mail responsável do tenant | Tudo do buyer + editar/excluir qualquer comprador; auditoria completa; configurações de notificação |
 | `admin_portal` | Admin via "Abrir Portal" | Acesso total — bypass do login; sessão em sessionStorage |
 
 ### Permissões na seção Compradores
@@ -107,6 +111,19 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | Editar senha | ✅ próprio registro apenas | ✅ qualquer |
 | Excluir comprador | ❌ | ✅ |
 | Enviar convite | ✅ | ✅ |
+| Definir is_gestor / notificações por e-mail | ❌ | ✅ |
+
+## Compradores — campos de notificação e papel
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `is_gestor` | boolean | Recebe relatório consolidado de todos os compradores do tenant |
+| `receber_auditoria` | boolean | Recebe e-mail com auditoria do dia anterior |
+| `receber_agenda_proximo` | boolean | Recebe e-mail com agenda do próximo dia útil |
+
+- Gestor sempre recebe dados de todos os compradores, independente dos flags individuais dos outros
+- Não-gestor recebe apenas os dados da própria carteira
+- Campos editáveis apenas por `admin_client` / `admin_portal` no formulário de comprador
 
 ## Backend — arquivos por responsabilidade
 
@@ -120,9 +137,12 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | `api/v1/admin_compradores_invite.py` | `/api/v1/admin/compradores` | Envio de convite pelo admin |
 | `api/v1/portal_compradores.py` | `/api/v1/portal/compradores` | Envio de convite pelo portal cliente (requer JWT) |
 | `api/v1/agenda.py` | `/api/v1/agenda` | Listar próximas/atrasadas, sugerir data, tratar ocorrência |
+| `api/v1/cron.py` | `/api/v1/cron` | Endpoint de cron — dispara relatórios diários |
 | `api/v1/redirect.py` | `/portal` | Redirect 302 para `FRONTEND_URL` (URL estável do instalador) |
 | `services/agenda_service.py` | — | Lógica de tratamento: cálculo de datas, parâmetros |
-| `services/email_service.py` | — | `send_html()` via SMTP SSL |
+| `services/email_service.py` | — | `send_html()` via SMTP SSL; suporta `attachments` (PDF) |
+| `services/relatorio_service.py` | — | Monta e envia relatório diário (HTML + PDF anexo) |
+| `services/pdf_service.py` | — | Gera PDF com ReportLab (padrão visual SFI) |
 | `services/admin_clientes_service.py` | — | Queries SQL de clientes (raw SQL com `sqlalchemy.text()`) |
 | `db/supabase_client.py` | — | `get_supabase()` — cliente Supabase fresco por request |
 | `core/config.py` | — | Pydantic Settings — lê variáveis de ambiente |
@@ -154,63 +174,64 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - `GET /api/v1/agenda/{id}/sugestao`
 - `POST /api/v1/agenda/{id}/tratar`
 
+### Cron (header `X-Cron-Secret` ou `Authorization: Bearer {CRON_SECRET}`)
+- `GET /api/v1/cron/relatorio-diario` — chamado pelo Vercel Cron (00:00 UTC = 21:00 BRT, seg-sex)
+- `POST /api/v1/cron/relatorio-diario` — chamada manual; aceita `?tenant_id=` e `?data_ref=`
+
 ### Redirect (público)
 - `GET /portal` — redirect 302 para `FRONTEND_URL`
 
-## Fluxo de convite de comprador
+## Relatório Diário por E-mail
 
-1. Portal cliente → botão "Convite" → `POST /api/v1/portal/compradores/{id}/enviar-convite` com JWT
-2. Backend gera link Supabase Auth (`type=recovery` ou `type=invite`) com `redirect_to = {FRONTEND_URL}/instalar.html`; grava `user_id` + `app_metadata` no comprador
-3. E-mail enviado com dois CTAs: **"Criar minha senha"** (link 24h) + **"Baixar instalador do atalho"** (bat Windows)
-4. Comprador clica no link → `instalar.html` → define senha → JWT + `refresh_token` + role `buyer` + `loggedBuyerId` + `activeBuyerId` salvos em localStorage → redirect automático para o portal
-5. No portal, o comprador já aparece selecionado como ativo
+### Fluxo
+1. Vercel Cron dispara `GET /api/v1/cron/relatorio-diario` toda noite às 21h BRT (seg-sex)
+2. `relatorio_service.py` busca tenants com `envio_relatorio_ativo = true`
+3. Para cada tenant, busca compradores com `receber_auditoria = true` ou `receber_agenda_proximo = true`
+4. Monta HTML rico + gera PDF com ReportLab (`pdf_service.py`)
+5. Envia e-mail via SMTP com PDF anexo; registra em `relatorio_log`
 
-## Instalador Windows (`frontend/instalar_atalho.bat`)
+### Conteúdo do e-mail/PDF
+- **KPIs do mês**: Total, Realizadas, Atrasadas, Pendentes
+- **Auditoria D-1**: ocorrências com `status = REALIZADA` e `data_realizacao = ontem`
+- **Agenda próximo dia útil**: ocorrências `PENDENTE` para o próximo dia não-feriado
 
-- Arquivo `.bat` autossuficiente (não baixa nada, sem cold start)
-- Detecta Edge ou Chrome em `%ProgramFiles%`, `%ProgramFiles(x86)%` e `%LocalAppData%`
-- Cria `Agenda de Compras.lnk` em `%USERPROFILE%\Desktop` (funciona em qualquer idioma do Windows)
-- Abre com `--app=https://agenda-compras-cliente.vercel.app --no-first-run` (modo app sem barra do browser)
-- URL aponta diretamente para o frontend — sem passar pelo backend (evita cold start de 30-60s)
-- `instalar_atalho.ps1`: versão estendida com download de ícone e mensagens coloridas
-- O e-mail de convite inclui botão verde **"Baixar instalador do atalho"** em ambos os endpoints de convite
+### Gestor vs. comprador normal
+- `is_gestor = true`: recebe dados de **todos** os compradores do tenant
+- `is_gestor = false`: recebe apenas dados da **própria carteira**
 
-## Autenticação JWT — Refresh Automático
+### Ativação
+1. Portal Admin → Base Operacional → toggle **"Envio de relatório diário"** no tenant
+2. Portal Cliente → Compradores → marcar checkboxes de notificação no comprador
+3. Cron roda automaticamente; teste manual via `POST /api/v1/cron/relatorio-diario` com `X-Cron-Secret: agenda-cron-2026-sfx`
 
-- Login e `definir-senha` retornam `access_token` + `refresh_token`
-- `refresh_token` salvo em `_store(storageKeys.refreshToken)` (sessionStorage ou localStorage conforme contexto)
-- `refreshJWT()` em `script_utils.js`: `POST {supabaseUrl}/auth/v1/token?grant_type=refresh_token`; atualiza ambos os tokens; retorna `true/false`
-- `fetchApi()` com retry em 401: chama `refreshJWT()` e repete a request; só lança erro se refresh falhar
-- `setInterval(refreshJWT, 50 * 60 * 1000)` em `bootstrap()` — renova a cada 50 min em background
-- **Compradores** (`role=buyer`): sessão ativa o dia todo sem re-login
-- **Admin "Abrir Portal"** (`role=admin_portal`): JWT em sessionStorage, expira em 1h — abrir portal novamente no admin renova
+### Log de envios
+- Tabela `relatorio_log` no Supabase
+- Visível em Portal Cliente → ⚙️ Configurações → "📧 Log de E-mails Enviados"
+- Filtro por 7 / 30 / 90 dias; chips ✅ Enviado / ❌ Erro
 
-## Isolamento de tenant por aba (admin "Abrir Portal")
+## Auditoria da Operação
 
-- `abrirPortal(tenantId)` no admin abre `window.open("", "_blank")` **antes** do `await` (evita popup blocker)
-- JWT e `tenant_id` gravados em `sessionStorage` da nova aba → `_store()` lê session primeiro
-- Cada aba tem sessionStorage independente — abrir Velanes não contamina a aba do SV
-- Feedback mostra nome do cliente: `"Gerando acesso ao portal de 'Grupo X'..."`
-- JWT do "Abrir Portal" cacheado 55 min em memória no backend (`_portal_jwt_cache`)
+- Protegida por senha (`clientMeta.audit_password`); acesso para `admin_client` e `admin_portal`
+- **Filtros**: período (30 dias / última semana / último mês / personalizado) + filtro por comprador
+- **KPIs**: Eventos, Cumpridas, Postergadas, Aumentos, Reduções, Antecipadas
+- **Gráficos Chart.js**: doughnut (distribuição) + barra horizontal (por comprador) — CDN `chart.js@4.4.4`
+- **Recomendações**: análise por comprador (mais postergador), por fornecedor (mais ajustes), carteira sem dono
+- **Exportação Excel**: botão "📤 Exportar" via SheetJS — exporta entradas filtradas
+- `renderAuditDashboard()` em `script_forms.js`; `classifyAuditEvent()` e `aggregateAuditMetrics()` em `script_render.js`
 
-## Service Worker e PWA
-
-- Cache: `agenda-compras-v10` — bumpar ao alterar JS/CSS (Hard refresh não bypassa o SW no Chrome)
-- SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
-- ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
-- Modal "Instale o app": detecta browser via `userAgent` e mostra instruções específicas (Edge / Chrome / iOS)
-- `showPwaInstallModal()` exposta globalmente — chamada pelo botão "📲 Reinstalar Atalho" na sidebar
-- `beforeinstallprompt` capturado em `script_main.js`: abre modal automaticamente se `agenda_pwa_installed` não estiver no localStorage
-
-## Modal Novo Evento
+## Modal Novo Evento / Edição
 
 - Acessível pelo botão **"+ Novo Evento"** no Calendário e na seção Compromissos
-- **Categoria**: "Agenda de Compras" excluída do dropdown — tem fluxo próprio de tratamento
-- **Compradores**: checkboxes individuais (grid automático) com botões **Todos** / **Nenhum** sempre visíveis acima da lista
-- **Default**: comprador logado (`loggedBuyerId` ou `activeBuyerId`) pré-marcado ao abrir
-- **Multi-comprador**: cria uma ocorrência por comprador selecionado × número de datas (recorrência)
-- **Recorrência**: Diária, Semanal, Quinzenal, Mensal — campo "Data de fim" aparece ao selecionar
-- Eventos genéricos têm `fornecedor_id = null` e ficam visíveis na seção **Compromissos**
+- **Modo criação**: título "Novo Evento", recorrência visível, sem botão Excluir
+- **Modo edição**: título "Editar Evento", recorrência oculta, botão 🗑️ Excluir visível — aberto ao clicar em evento genérico no calendário
+- Clicar em evento de **Agenda de Compras** no calendário abre o detalhe com as regras próprias (inalterado)
+- **PATCH** na ocorrência existente ao salvar em modo edição; **DELETE** com confirmação ao excluir
+- `saveNewEvent()` e `deleteGenericEvent()` em `script_main.js`; `newEventEditId` (hidden input) controla o modo
+- **Categoria**: "Agenda de Compras" excluída do dropdown
+- **Compradores**: checkboxes em grid; botões Todos/Nenhum; comprador logado pré-marcado na criação
+- **Multi-comprador**: cria uma ocorrência por comprador × data (só no modo criação)
+- **Recorrência**: Diária, Semanal, Quinzenal, Mensal (só no modo criação)
+- **Duração padrão**: calculada via `addMinutesToTime()` com `getSettings().duracaoPadraoCompromissos`
 
 ## Seção Compromissos (`id="compromissos"`)
 
@@ -225,9 +246,16 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 ## Seleção de comprador (`ensureBuyerSelection`)
 
 - Chamada apenas em `bootstrap()` — não roda em re-renders
-- Para `role='buyer'`: define `activeBuyerId = loggedBuyerId` **somente** se não houver seleção válida já salva — preserva trocas feitas pelo usuário
+- Para `role='buyer'`: **sempre** define `activeBuyerId = loggedBuyerId` ao abrir o portal (não preserva trocas entre sessões)
 - Para `role='admin_client'`: tenta localizar o comprador pelo e-mail do admin; fallback para `activeBuyerId` ou primeiro da lista
 - Troca de comprador pelo select da sidebar: grava em `localStorage` → `renderTables()` + `refreshCalendar()`
+
+## Configurações do Portal (`⚙️ Configurações`)
+
+- Botão no menu lateral (não mais no topo)
+- **Campos**: URL Supabase, chave publishable, tenant UUID, URL backend, dias do calendário, duração padrão compromissos/agenda, logomarca
+- **Log de E-mails**: tabela de `relatorio_log` filtrada por período (7/30/90 dias); botão Atualizar
+- `populateSettings()` / `saveSettings()` em `script_forms.js`; `loadEmailLog()` em `script_forms.js`
 
 ## Tela de Fornecedores
 
@@ -252,13 +280,59 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 - Aparecem no calendário: fundo amarelo + chip laranja com nome
 - Alerta ao criar evento ou tratar agenda em feriado (não bloqueia)
 - `isFeriado(dateIso)` e `getFeriado(dateIso)` em `script_main.js`
+- Considerados no cálculo do próximo dia útil em `relatorio_service.py`
 
 ## Horário do fornecedor
 
 - `fornecedores.hora_inicio` / `hora_fim` — horário padrão de visita/pedido
 - Propagados ao criar/sincronizar ocorrências pendentes
 - Alerta de conflito de horário ao tratar agenda
-- `checkEventConflict()` em `script_main.js` verifica via Supabase REST
+- `checkEventConflict()` em `script_main.js` verifica via Supabase REST (exclui o próprio evento ao editar)
+
+## Autenticação JWT — Refresh Automático
+
+- Login e `definir-senha` retornam `access_token` + `refresh_token`
+- `refresh_token` salvo em `_store(storageKeys.refreshToken)` (sessionStorage ou localStorage conforme contexto)
+- `refreshJWT()` em `script_utils.js`: `POST {supabaseUrl}/auth/v1/token?grant_type=refresh_token`; atualiza ambos os tokens; retorna `true/false`
+- `fetchApi()` com retry em 401: chama `refreshJWT()` e repete a request; só lança erro se refresh falhar
+- `setInterval(refreshJWT, 50 * 60 * 1000)` em `bootstrap()` — renova a cada 50 min em background
+- **Compradores** (`role=buyer`): sessão ativa o dia todo sem re-login
+- **Admin "Abrir Portal"** (`role=admin_portal`): JWT em sessionStorage, expira em 1h — abrir portal novamente no admin renova
+
+## Isolamento de tenant por aba (admin "Abrir Portal")
+
+- `abrirPortal(tenantId)` no admin abre `window.open("", "_blank")` **antes** do `await` (evita popup blocker)
+- JWT e `tenant_id` gravados em `sessionStorage` da nova aba → `_store()` lê session primeiro
+- Cada aba tem sessionStorage independente — abrir Velanes não contamina a aba do SV
+- Feedback mostra nome do cliente: `"Gerando acesso ao portal de 'Grupo X'..."`
+- JWT do "Abrir Portal" cacheado 55 min em memória no backend (`_portal_jwt_cache`)
+
+## Service Worker e PWA
+
+- Cache: `agenda-compras-v12` — bumpar ao alterar JS/CSS (Hard refresh não bypassa o SW no Chrome)
+- SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
+- ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
+- Modal "Instale o app": detecta browser via `userAgent` e mostra instruções específicas (Edge / Chrome / iOS)
+- `showPwaInstallModal()` exposta globalmente — chamada pelo botão "📲 Reinstalar Atalho" na sidebar
+- `beforeinstallprompt` capturado em `script_main.js`: abre modal automaticamente se `agenda_pwa_installed` não estiver no localStorage
+
+## Fluxo de convite de comprador
+
+1. Portal cliente → botão "Convite" → `POST /api/v1/portal/compradores/{id}/enviar-convite` com JWT
+2. Backend gera link Supabase Auth (`type=recovery` ou `type=invite`) com `redirect_to = {FRONTEND_URL}/instalar.html`; grava `user_id` + `app_metadata` no comprador
+3. E-mail enviado com dois CTAs: **"Criar minha senha"** (link 24h) + **"Baixar instalador do atalho"** (bat Windows)
+4. Comprador clica no link → `instalar.html` → define senha → JWT + `refresh_token` + role `buyer` + `loggedBuyerId` + `activeBuyerId` salvos em localStorage → redirect automático para o portal
+5. No portal, o comprador já aparece selecionado como ativo
+
+## Instalador Windows (`frontend/instalar_atalho.bat`)
+
+- Arquivo `.bat` autossuficiente (não baixa nada, sem cold start)
+- Detecta Edge ou Chrome em `%ProgramFiles%`, `%ProgramFiles(x86)%` e `%LocalAppData%`
+- Cria `Agenda de Compras.lnk` em `%USERPROFILE%\Desktop` (funciona em qualquer idioma do Windows)
+- Abre com `--app=https://agenda-compras-cliente.vercel.app --no-first-run` (modo app sem barra do browser)
+- URL aponta diretamente para o frontend — sem passar pelo backend (evita cold start de 30-60s)
+- `instalar_atalho.ps1`: versão estendida com download de ícone e mensagens coloridas
+- O e-mail de convite inclui botão verde **"Baixar instalador do atalho"** em ambos os endpoints de convite
 
 ## Migrations SQL (`backend/db/`)
 
@@ -274,9 +348,12 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 | `schema_v7_auth_licencas.sql` | Campo `user_id` em compradores, tabela tenant_licencas |
 | `schema_v8_feriados.sql` | Tabela feriados |
 | `schema_v9_fornecedor_horario.sql` | Campos `hora_inicio`/`hora_fim` em fornecedores |
+| `schema_v10_gestor_notificacoes.sql` | Colunas `is_gestor`, `receber_auditoria`, `receber_agenda_proximo` em compradores; tabela `relatorio_log` |
+| `schema_v11_relatorio_flag.sql` | Campo `envio_relatorio_ativo` em tenants |
 
 ## Pendências
 
 - `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites).
 - `PORTAL_ADMIN_PASSWORD` precisa ser exatamente a senha de `andre@servicefarma.far.br` no Supabase Auth.
 - Script `GRUPO_SAO_VALENTIM_setup.sql` não é idempotente — se rodado novamente duplica dados.
+- Logo do cliente no PDF: atualmente só aparece a logo Service Farma no rodapé. Para incluir a logo do cliente, é necessário adicionar campo `logo_url` na tabela `tenants` e armazenar URL pública (Supabase Storage).
