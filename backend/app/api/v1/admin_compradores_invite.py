@@ -99,9 +99,18 @@ def enviar_convite(comprador_id: UUID) -> dict:
       <p style="margin:10px 0 0;font-size:12px;color:#94a3b8;">Este link expira em 24 horas.</p>
     </div>
 
-    <div style="background:#f8fafc;border-radius:8px;padding:16px 20px;margin:0 0 24px;border:1px solid #e2e8f0;">
+    <div style="background:#f8fafc;border-radius:8px;padding:16px 20px;margin:0 0 20px;border:1px solid #e2e8f0;">
       <p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;">Seus dados de acesso</p>
       <p style="margin:0;font-size:14px;color:#374151;">📧 <strong>E-mail:</strong> {c['email']}</p>
+    </div>
+
+    <div style="background:#f0fdf4;border-radius:8px;padding:16px 20px;margin:0 0 24px;border:1px solid #bbf7d0;">
+      <p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#15803d;">🖥️ Instalar atalho na área de trabalho (Windows)</p>
+      <p style="margin:0 0 14px;font-size:13px;color:#374151;line-height:1.5;">Após criar sua senha, instale o atalho para abrir o sistema diretamente pela área de trabalho, sem precisar do navegador:</p>
+      <div style="text-align:center;">
+        <a href="{settings.frontend_url}/instalar_atalho.bat" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:700;">⬇ Baixar instalador do atalho</a>
+        <p style="margin:8px 0 0;font-size:11px;color:#64748b;">Clique duas vezes no arquivo baixado para instalar</p>
+      </div>
     </div>
 
     <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:16px;">
