@@ -650,12 +650,16 @@ bootstrap();
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    // Mostra o botão de 1 clique se o modal já estiver aberto
     const btn = document.getElementById('pwaModalInstall');
     if (btn) btn.style.display = 'block';
+    // Abre o modal automaticamente se o usuário ainda não instalou
+    if (!localStorage.getItem('agenda_pwa_installed') && !isStandalone) {
+      window.showPwaInstallModal();
+    }
   });
 
   window.addEventListener('appinstalled', () => {
+    localStorage.setItem('agenda_pwa_installed', '1');
     hidePwaModal();
     const installBtn = document.getElementById('pwaInstallNavBtn');
     if (installBtn) installBtn.style.display = 'none';
@@ -667,6 +671,7 @@ bootstrap();
     const { outcome } = await deferredPrompt.userChoice;
     deferredPrompt = null;
     if (outcome === 'accepted') {
+      localStorage.setItem('agenda_pwa_installed', '1');
       hidePwaModal();
       const installBtn = document.getElementById('pwaInstallNavBtn');
       if (installBtn) installBtn.style.display = 'none';
