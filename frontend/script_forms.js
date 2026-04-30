@@ -28,6 +28,10 @@ function populateSettings() {
   if (weekdaysSel) weekdaysSel.value = localStorage.getItem(storageKeys.calendarWeekdays) ?? "seg-dom";
   const apiBaseUrlEl = document.getElementById("apiBaseUrl");
   if (apiBaseUrlEl) apiBaseUrlEl.value = localStorage.getItem(storageKeys.apiBaseUrl) ?? "";
+  const durComp = document.getElementById("duracaoPadraoCompromissos");
+  if (durComp) durComp.value = localStorage.getItem(storageKeys.duracaoPadraoCompromissos) ?? "30";
+  const durAgenda = document.getElementById("duracaoPadraoAgenda");
+  if (durAgenda) durAgenda.value = localStorage.getItem(storageKeys.duracaoPadraoAgenda) ?? "30";
   applyLogo();
 }
 
@@ -50,6 +54,10 @@ async function saveSettings() {
   const weekdays = document.getElementById("calendarWeekdays")?.value ?? "seg-dom";
   localStorage.setItem(storageKeys.calendarWeekdays, weekdays);
   applyCalendarWeekdays();
+  const durComp = parseInt(document.getElementById("duracaoPadraoCompromissos")?.value || "30");
+  localStorage.setItem(storageKeys.duracaoPadraoCompromissos, String(Math.max(5, Math.min(480, durComp))));
+  const durAgenda = parseInt(document.getElementById("duracaoPadraoAgenda")?.value || "30");
+  localStorage.setItem(storageKeys.duracaoPadraoAgenda, String(Math.max(5, Math.min(480, durAgenda))));
 
   let logoDataUrl = localStorage.getItem(storageKeys.logoUrl) ?? defaultSettings.logoUrl;
   if (logoFile) {

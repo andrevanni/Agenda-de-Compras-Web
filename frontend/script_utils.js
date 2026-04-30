@@ -13,7 +13,18 @@ function getSettings() {
     logoUrl: localStorage.getItem(storageKeys.logoUrl) ?? defaultSettings.logoUrl,
     theme: localStorage.getItem(storageKeys.theme) ?? "dark",
     apiBaseUrl: localStorage.getItem(storageKeys.apiBaseUrl) || defaultSettings.apiBaseUrl,
+    duracaoPadraoCompromissos: parseInt(localStorage.getItem(storageKeys.duracaoPadraoCompromissos) || "30"),
+    duracaoPadraoAgenda: parseInt(localStorage.getItem(storageKeys.duracaoPadraoAgenda) || "30"),
   };
+}
+
+function addMinutesToTime(timeStr, minutes) {
+  if (!timeStr || !minutes) return timeStr;
+  const [h, m] = timeStr.split(":").map(Number);
+  const total = h * 60 + m + parseInt(minutes);
+  const nh = Math.floor(total / 60) % 24;
+  const nm = total % 60;
+  return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
 }
 
 function getJWT() {

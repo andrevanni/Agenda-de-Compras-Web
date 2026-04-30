@@ -34,6 +34,8 @@ const storageKeys = {
   apiBaseUrl: "agenda_api_base_url",
   jwt: "agenda_jwt",
   refreshToken: "agenda_refresh_token",
+  duracaoPadraoCompromissos: "agenda_duracao_compromissos",
+  duracaoPadraoAgenda: "agenda_duracao_agenda",
   loggedPortalEmail: "agenda_cliente_logged_portal_email",
   logoUrl: "agenda_cliente_logo_url",
   theme: "agenda_ui_theme",

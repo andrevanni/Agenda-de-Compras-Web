@@ -59,6 +59,7 @@
           <button class="nav-link" data-section="categorias" title="Categorias"><span class="nav-icon">🎨</span><span class="nav-label">Categorias</span></button>
           <button class="nav-link" data-section="feriados" title="Feriados"><span class="nav-icon">🏖️</span><span class="nav-label">Feriados</span></button>
           <button class="nav-link" data-section="ajuda" title="Ajuda"><span class="nav-icon">❓</span><span class="nav-label">Ajuda</span></button>
+          <button class="nav-link" id="openSettingsButton" type="button" title="Configurações"><span class="nav-icon">⚙️</span><span class="nav-label">Configura&ccedil;&otilde;es</span></button>
           <button class="nav-link" id="pwaInstallNavBtn" type="button" title="Reinstalar Atalho" onclick="showPwaInstallModal()"><span class="nav-icon">📲</span><span class="nav-label">Reinstalar Atalho</span></button>
         </nav>
 
@@ -66,7 +67,6 @@
 
       <main class="content">
         <div class="top-user">
-          <button id="openSettingsButtonTop" class="btn btn-outline" type="button">Personalizar portal</button>
           <button id="openAuditButtonTop" class="btn btn-outline" type="button">Auditoria</button>
           <button id="logoutPortalButtonTop" class="btn btn-outline" type="button">Encerrar sessão</button>
           <div class="theme-toggle" role="group" aria-label="Tema visual">
@@ -414,7 +414,7 @@
               <details class="ajuda-item" open>
                 <summary>🚀 Primeiros Passos — Configurando o Portal</summary>
                 <div class="ajuda-corpo">
-                  <p>Ao abrir o portal pela primeira vez, clique em <strong>Personalizar Portal</strong> (bot&atilde;o no topo) e preencha:</p>
+                  <p>Ao abrir o portal pela primeira vez, clique em <strong>⚙️ Configura&ccedil;&otilde;es</strong> no menu lateral e preencha:</p>
                   <ul>
                     <li><strong>URL do Supabase</strong> — endere&ccedil;o do seu projeto (ex.: <code>https://xxxx.supabase.co</code>)</li>
                     <li><strong>Chave publishable</strong> — chave anon do Supabase (encontrada em Project Settings &rsaquo; API)</li>
@@ -422,7 +422,7 @@
                     <li><strong>Dias exibidos no calend&aacute;rio</strong> — escolha entre Segunda a Domingo, Segunda a S&aacute;bado ou Segunda a Sexta</li>
                     <li><strong>Logomarca</strong> — fa&ccedil;a upload da logo do cliente (ser&aacute; exibida na sidebar e salva no perfil)</li>
                   </ul>
-                  <p>Ap&oacute;s salvar, clique em <strong>Sincronizar Agora</strong> para carregar os dados reais do Supabase.</p>
+                  <p>Ap&oacute;s salvar, clique em <strong>Sincronizar Agora</strong> (dentro de Configura&ccedil;&otilde;es) para carregar os dados reais do Supabase.</p>
                 </div>
               </details>
 
@@ -674,8 +674,15 @@
                   <p>Clique no bot&atilde;o <strong>⋮</strong> (recolhida) ou <strong>✕</strong> (expandida) no topo da sidebar para alternar. O estado &eacute; memorizado entre sess&otilde;es.</p>
                   <h4>Tema visual</h4>
                   <p>Use os bot&otilde;es <strong>Claro</strong> e <strong>Escuro</strong> no topo da p&aacute;gina para alternar o tema. A prefer&ecirc;ncia &eacute; salva automaticamente.</p>
+                  <h4>Dura&ccedil;&atilde;o padr&atilde;o de eventos</h4>
+                  <p>Em <strong>⚙️ Configura&ccedil;&otilde;es</strong>, defina a dura&ccedil;&atilde;o padr&atilde;o (em minutos) usada ao criar novos eventos:</p>
+                  <ul>
+                    <li><strong>Compromissos</strong> — dura&ccedil;&atilde;o padr&atilde;o dos eventos gen&eacute;ricos (padr&atilde;o: 30 min)</li>
+                    <li><strong>Agenda de Compras</strong> — dura&ccedil;&atilde;o padr&atilde;o das ocorr&ecirc;ncias de fornecedores (padr&atilde;o: 30 min)</li>
+                  </ul>
+                  <p>O hor&aacute;rio de t&eacute;rmino &eacute; calculado automaticamente somando a dura&ccedil;&atilde;o ao hor&aacute;rio de in&iacute;cio. Voc&ecirc; pode ajustar individualmente cada evento no momento de cri&aacute;-lo.</p>
                   <h4>Sincroniza&ccedil;&atilde;o manual</h4>
-                  <p>Se os dados parecerem desatualizados, acesse <strong>Personalizar Portal &rsaquo; Sincronizar Agora</strong> para for&ccedil;ar o recarregamento completo dos dados do Supabase.</p>
+                  <p>Se os dados parecerem desatualizados, acesse <strong>Configura&ccedil;&otilde;es &rsaquo; Sincronizar Agora</strong> para for&ccedil;ar o recarregamento completo dos dados do Supabase.</p>
                   <h4>Reinstalar atalho da &aacute;rea de trabalho</h4>
                   <p>Clique em <strong>📲 Reinstalar Atalho</strong> no final do menu lateral para abrir o guia de instala&ccedil;&atilde;o e baixar novamente o instalador do atalho Windows.</p>
                   <h4>Sess&atilde;o e tempo de acesso</h4>
@@ -834,6 +841,8 @@
               <option value="seg-sex">Segunda a Sexta (5 dias)</option>
             </select>
           </label>
+          <label>Dura&ccedil;&atilde;o padr&atilde;o — Compromissos (minutos)<br><input id="duracaoPadraoCompromissos" type="number" min="5" max="480" step="5" placeholder="30"></label>
+          <label>Dura&ccedil;&atilde;o padr&atilde;o — Agenda de Compras (minutos)<br><input id="duracaoPadraoAgenda" type="number" min="5" max="480" step="5" placeholder="30"></label>
           <label>Logomarca do cliente (arquivo)<br><input id="logoArquivo" type="file" accept=".jpg,.jpeg,.png,.webp"></label>
           <div class="photo-preview-card">
             <strong>Pr&eacute;-visualiza&ccedil;&atilde;o da logomarca</strong>

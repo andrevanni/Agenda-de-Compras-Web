@@ -471,8 +471,10 @@ function openNewEventModal(dateStr = "") {
   populateNewEventSelects();
   document.getElementById("newEventTitulo").value = "";
   document.getElementById("newEventData").value = dateStr ? isoToBr(dateStr) : isoToBr(todayIso());
-  document.getElementById("newEventHoraInicio").value = "08:00";
-  document.getElementById("newEventHoraFim").value = "09:00";
+  const _settings = getSettings();
+  const _horaInicioDefault = "08:00";
+  document.getElementById("newEventHoraInicio").value = _horaInicioDefault;
+  document.getElementById("newEventHoraFim").value = addMinutesToTime(_horaInicioDefault, _settings.duracaoPadraoCompromissos);
   document.getElementById("newEventRecorrencia").value = "";
   document.getElementById("newEventObservacao").value = "";
   document.getElementById("newEventRecorrenciaFimWrap").classList.add("hidden");
@@ -492,8 +494,9 @@ function openGenericEventDetail(occ) {
   populateNewEventSelects();
   document.getElementById("newEventTitulo").value = occ.titulo ?? "";
   document.getElementById("newEventData").value = isoToBr(occ.data_prevista);
-  document.getElementById("newEventHoraInicio").value = occ.hora_inicio ?? "08:00";
-  document.getElementById("newEventHoraFim").value = occ.hora_fim ?? "09:00";
+  const _horaInicioEdit = occ.hora_inicio ?? "08:00";
+  document.getElementById("newEventHoraInicio").value = _horaInicioEdit;
+  document.getElementById("newEventHoraFim").value = occ.hora_fim ?? addMinutesToTime(_horaInicioEdit, getSettings().duracaoPadraoCompromissos);
   document.getElementById("newEventCategoria").value = occ.categoria_id ?? "";
   setNewEventCompradores(occ.comprador_id ? [occ.comprador_id] : []);
   document.getElementById("newEventObservacao").value = occ.observacao ?? "";

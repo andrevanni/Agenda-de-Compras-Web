@@ -277,7 +277,7 @@ function bindStaticEvents() {
     sidebarSettingsButton.addEventListener("click", openSettings);
   }
 
-  document.getElementById("openSettingsButtonTop").addEventListener("click", openSettings);
+  document.getElementById("openSettingsButtonTop")?.addEventListener("click", openSettings);
   document.getElementById("openAuditButtonTop").addEventListener("click", openAuditPasswordModal);
   document.getElementById("logoutPortalButtonTop").addEventListener("click", logoutPortalSession);
   document.getElementById("sidebarToggle")?.addEventListener("click", toggleSidebar);
