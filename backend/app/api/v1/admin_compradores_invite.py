@@ -33,7 +33,7 @@ def enviar_convite(comprador_id: UUID) -> dict:
     t_res = sb.table("tenants").select("nome").eq("id", str(c["tenant_id"])).limit(1).execute()
     tenant_nome = t_res.data[0]["nome"] if t_res.data else "Agenda de Compras"
 
-    instalar_url = f"{settings.frontend_url}/instalar"
+    instalar_url = f"{settings.frontend_url}/instalar.html"
     setup_link = None
     last_error = None
 
