@@ -114,6 +114,7 @@ def definir_senha(payload: DefinirSenhaRequest) -> dict:
     comprador = _comprador_para_usuario(sb, user.email, str(user.id))
     return {
         "access_token": sign_resp.session.access_token,
+        "refresh_token": sign_resp.session.refresh_token,
         "tenant_id": str(comprador["tenant_id"]),
         "comprador_id": str(comprador["id"]),
         "nome": comprador.get("nome_comprador"),

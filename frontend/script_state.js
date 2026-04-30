@@ -33,6 +33,7 @@ const storageKeys = {
   calendarWeekdays: "agenda_calendar_weekdays",
   apiBaseUrl: "agenda_api_base_url",
   jwt: "agenda_jwt",
+  refreshToken: "agenda_refresh_token",
   loggedPortalEmail: "agenda_cliente_logged_portal_email",
   logoUrl: "agenda_cliente_logo_url",
   theme: "agenda_ui_theme",

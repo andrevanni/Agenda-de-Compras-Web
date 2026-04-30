@@ -549,6 +549,7 @@ async function loginBuyer() {
     try {
       const data = await fetchApi("/api/v1/auth/login", { body: { email, password } });
       localStorage.setItem(storageKeys.jwt, data.access_token);
+      if (data.refresh_token) localStorage.setItem(storageKeys.refreshToken, data.refresh_token);
       clearPortalSession();
       // Localiza o comprador pelo id retornado pela API
       const buyerFromApi = state.buyers.find((b) => b.id === data.comprador_id) ??

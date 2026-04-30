@@ -20,16 +20,48 @@ function getJWT() {
   return _store(storageKeys.jwt) ?? "";
 }
 
-async function fetchApi(path, options = {}) {
+async function _doFetchApi(path, options = {}) {
   const { apiBaseUrl } = getSettings();
   if (!apiBaseUrl) throw new Error("API não configurada.");
   const jwt = getJWT();
   const authHeader = jwt ? { Authorization: `Bearer ${jwt}` } : {};
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  return fetch(`${apiBaseUrl}${path}`, {
     method: options.method ?? "POST",
     headers: { "Content-Type": "application/json", ...authHeader, ...(options.headers ?? {}) },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
+}
+
+async function refreshJWT() {
+  const refreshToken = _store(storageKeys.refreshToken);
+  if (!refreshToken) return false;
+  const { supabaseUrl, supabaseKey } = getSettings();
+  try {
+    const resp = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": supabaseKey },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!resp.ok) return false;
+    const data = await resp.json();
+    if (!data.access_token) return false;
+    // Preserva o storage de origem: sessionStorage para admin_portal, localStorage para buyer
+    const useSession = sessionStorage.getItem(storageKeys.jwt) !== null;
+    const store = useSession ? sessionStorage : localStorage;
+    store.setItem(storageKeys.jwt, data.access_token);
+    if (data.refresh_token) store.setItem(storageKeys.refreshToken, data.refresh_token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchApi(path, options = {}) {
+  let response = await _doFetchApi(path, options);
+  if (response.status === 401) {
+    const refreshed = await refreshJWT();
+    if (refreshed) response = await _doFetchApi(path, options);
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.detail ?? data.message ?? `HTTP ${response.status}`);
   return data;

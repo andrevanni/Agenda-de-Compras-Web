@@ -244,6 +244,7 @@
       }
 
       if (data.access_token) localStorage.setItem('agenda_jwt', data.access_token);
+      if (data.refresh_token) localStorage.setItem('agenda_refresh_token', data.refresh_token);
       if (data.tenant_id)    localStorage.setItem('agenda_cliente_tenant_id', data.tenant_id);
       if (data.comprador_id) {
         localStorage.setItem('agenda_cliente_logged_buyer_id', data.comprador_id);
