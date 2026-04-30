@@ -44,7 +44,7 @@ Arquivos JS carregados em ordem no `index.html` — escopo global compartilhado 
 |---|---|
 | `script_state.js` | Estado global, constantes, mocks, refs DOM, `storageKeys`, `defaultSettings` |
 | `script_utils.js` | `fetchSupabase()`, `fetchApi()`, `refreshJWT()`, `_store()`, utilitários de data/cálculo |
-| `script_render.js` | Render tabelas, fornecedores, compradores, `fetchSupabase` (definido aqui) |
+| `script_render.js` | Render tabelas, fornecedores, compradores, `fetchSupabase` (definido aqui), `renderCompromissos()`, `deleteCompromisso()` |
 | `script_forms.js` | Formulários (saveSupplier, saveBuyer), importação CSV/Excel, exportação, `ensureBuyerSelection()` |
 | `script_data.js` | `loadPortalData()`, `loginBuyer()`, `bindEvents()`, configurações |
 | `script_main.js` | `bootstrap()`, auth, calendário, categorias, PWA install, `refreshJWT` interval |
@@ -95,9 +95,18 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 
 | Role (`loggedPortalRole`) | Quem | Permissões |
 |---|---|---|
-| `buyer` | Comprador logado | Ver/tratar agenda da própria carteira; enviar convites |
-| `admin_client` | E-mail responsável do tenant | Ver todos os compradores; tratar qualquer carteira; auditoria |
+| `buyer` | Comprador logado | Ver/tratar agenda da própria carteira; enviar convites; editar campos de qualquer comprador exceto senha; editar própria senha |
+| `admin_client` | E-mail responsável do tenant | Tudo do buyer + editar/excluir qualquer comprador; auditoria completa |
 | `admin_portal` | Admin via "Abrir Portal" | Acesso total — bypass do login; sessão em sessionStorage |
+
+### Permissões na seção Compradores
+
+| Ação | `buyer` | `admin_client` / `admin_portal` |
+|---|---|---|
+| Editar campos (nome, telefone, email, foto) | ✅ qualquer comprador | ✅ |
+| Editar senha | ✅ próprio registro apenas | ✅ qualquer |
+| Excluir comprador | ❌ | ✅ |
+| Enviar convite | ✅ | ✅ |
 
 ## Backend — arquivos por responsabilidade
 
@@ -158,12 +167,13 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 
 ## Instalador Windows (`frontend/instalar_atalho.bat`)
 
-- Arquivo `.bat` autossuficiente (não baixa nada além do atalho)
-- Detecta Edge (prioridade) ou Chrome nos caminhos padrão de `%ProgramFiles(x86)%` e `%ProgramFiles%`
-- Cria `Agenda de Compras.lnk` na área de trabalho com `--app=URL --no-first-run`
-- URL do atalho: `https://agenda-de-compras-api.vercel.app/portal` (redirect estável)
-- Para mudar o destino do portal: atualizar `FRONTEND_URL` no Vercel — atalhos existentes continuam funcionando
+- Arquivo `.bat` autossuficiente (não baixa nada, sem cold start)
+- Detecta Edge ou Chrome em `%ProgramFiles%`, `%ProgramFiles(x86)%` e `%LocalAppData%`
+- Cria `Agenda de Compras.lnk` em `%USERPROFILE%\Desktop` (funciona em qualquer idioma do Windows)
+- Abre com `--app=https://agenda-compras-cliente.vercel.app --no-first-run` (modo app sem barra do browser)
+- URL aponta diretamente para o frontend — sem passar pelo backend (evita cold start de 30-60s)
 - `instalar_atalho.ps1`: versão estendida com download de ícone e mensagens coloridas
+- O e-mail de convite inclui botão verde **"Baixar instalador do atalho"** em ambos os endpoints de convite
 
 ## Autenticação JWT — Refresh Automático
 
@@ -191,6 +201,33 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - Modal "Instale o app": detecta browser via `userAgent` e mostra instruções específicas (Edge / Chrome / iOS)
 - `showPwaInstallModal()` exposta globalmente — chamada pelo botão "📲 Reinstalar Atalho" na sidebar
 - `beforeinstallprompt` capturado em `script_main.js`: abre modal automaticamente se `agenda_pwa_installed` não estiver no localStorage
+
+## Modal Novo Evento
+
+- Acessível pelo botão **"+ Novo Evento"** no Calendário e na seção Compromissos
+- **Categoria**: "Agenda de Compras" excluída do dropdown — tem fluxo próprio de tratamento
+- **Compradores**: checkboxes individuais (grid automático) com botões **Todos** / **Nenhum** sempre visíveis acima da lista
+- **Default**: comprador logado (`loggedBuyerId` ou `activeBuyerId`) pré-marcado ao abrir
+- **Multi-comprador**: cria uma ocorrência por comprador selecionado × número de datas (recorrência)
+- **Recorrência**: Diária, Semanal, Quinzenal, Mensal — campo "Data de fim" aparece ao selecionar
+- Eventos genéricos têm `fornecedor_id = null` e ficam visíveis na seção **Compromissos**
+
+## Seção Compromissos (`id="compromissos"`)
+
+- Menu **🗒️ Compromissos** na sidebar do portal cliente
+- Lista todos os `agenda_ocorrencias` com `fornecedor_id IS NULL` e categoria ≠ "Agenda de Compras"
+- Filtro pelo comprador ativo (`activeBuyerId`)
+- Ordenação crescente por `data_prevista` + `hora_inicio`
+- Colunas: Data, Título, Categoria (pill colorida), Horário, Comprador, Excluir
+- Exclusão remove do `state.agenda` imediatamente e recarrega o calendário (sem reload completo)
+- Botão **+ Novo Evento** no topo da seção
+
+## Seleção de comprador (`ensureBuyerSelection`)
+
+- Chamada apenas em `bootstrap()` — não roda em re-renders
+- Para `role='buyer'`: define `activeBuyerId = loggedBuyerId` **somente** se não houver seleção válida já salva — preserva trocas feitas pelo usuário
+- Para `role='admin_client'`: tenta localizar o comprador pelo e-mail do admin; fallback para `activeBuyerId` ou primeiro da lista
+- Troca de comprador pelo select da sidebar: grava em `localStorage` → `renderTables()` + `refreshCalendar()`
 
 ## Tela de Fornecedores
 
