@@ -14,8 +14,8 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Agenda de Compras">
-    <link rel="icon" href="agenda_compras.ico">
-    <link rel="apple-touch-icon" href="agenda_compras.ico">
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
   </head>
   <body>
@@ -1053,5 +1053,10 @@
     <script src="script_forms.js"></script>
     <script src="script_data.js"></script>
     <script src="script_main.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+      }
+    </script>
   </body>
 </html>
