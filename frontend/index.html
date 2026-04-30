@@ -968,8 +968,14 @@
             </div>
           </label>
           <div style="grid-column:1/-1">
-            <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted,#94a3b8);display:block;margin-bottom:8px;">Compradores respons&aacute;veis</span>
-            <div id="newEventCompradoresWrap" style="display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 12px;background:var(--input-bg,#0f172a);border:1px solid var(--border-color,#334155);border-radius:8px;max-height:140px;overflow-y:auto;"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted,#94a3b8);">Compradores respons&aacute;veis</span>
+              <div style="display:flex;gap:6px;">
+                <button type="button" id="newEventSelectAll" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border-color,#334155);background:transparent;color:var(--text-muted,#94a3b8);cursor:pointer;">Todos</button>
+                <button type="button" id="newEventClearAll" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border-color,#334155);background:transparent;color:var(--text-muted,#94a3b8);cursor:pointer;">Nenhum</button>
+              </div>
+            </div>
+            <div id="newEventCompradoresWrap" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;padding:10px 12px;background:var(--input-bg,#0f172a);border:1px solid var(--border-color,#334155);border-radius:8px;max-height:180px;overflow-y:auto;"></div>
           </div>
           <label>Hor&aacute;rio de in&iacute;cio<br><input id="newEventHoraInicio" type="time" value="08:00"></label>
           <label>Hor&aacute;rio de fim<br><input id="newEventHoraFim" type="time" value="09:00"></label>

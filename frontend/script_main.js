@@ -439,43 +439,32 @@ function populateNewEventSelects() {
       .join("");
   }
 
-  // Compradores — checkboxes com "Todos" e seleção individual
+  // Compradores — um checkbox por linha, layout grid
   const wrap = document.getElementById("newEventCompradoresWrap");
-  if (!wrap) return;
-  const checkboxStyle = "display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;white-space:nowrap;";
-  wrap.innerHTML = [
-    `<label style="${checkboxStyle}font-weight:700;padding-right:8px;border-right:1px solid var(--border-color,#334155);">` +
-      `<input type="checkbox" id="newEventCheckAll"> Todos</label>`,
-    ...state.buyers.map((b) =>
-      `<label style="${checkboxStyle}"><input type="checkbox" name="ev_comprador" value="${b.id}"> ${b.nome_comprador}</label>`
-    ),
-  ].join("");
+  if (wrap) {
+    wrap.innerHTML = state.buyers.map((b) =>
+      `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:3px 0;">` +
+      `<input type="checkbox" name="ev_comprador" value="${b.id}"> ${b.nome_comprador}</label>`
+    ).join("");
+  }
 
-  const checkAll = document.getElementById("newEventCheckAll");
-  const allCbs = () => [...wrap.querySelectorAll('input[name="ev_comprador"]')];
-  checkAll?.addEventListener("change", (e) => allCbs().forEach((cb) => { cb.checked = e.target.checked; }));
-  allCbs().forEach((cb) => cb.addEventListener("change", () => {
-    checkAll.checked = allCbs().every((c) => c.checked);
-  }));
+  // Botões Todos / Nenhum
+  document.getElementById("newEventSelectAll")?.addEventListener("click", () => {
+    document.querySelectorAll('input[name="ev_comprador"]').forEach((cb) => { cb.checked = true; });
+  });
+  document.getElementById("newEventClearAll")?.addEventListener("click", () => {
+    document.querySelectorAll('input[name="ev_comprador"]').forEach((cb) => { cb.checked = false; });
+  });
 }
 
 function setNewEventCompradores(buyerIds = []) {
-  const wrap = document.getElementById("newEventCompradoresWrap");
-  if (!wrap) return;
-  wrap.querySelectorAll('input[name="ev_comprador"]').forEach((cb) => {
+  document.querySelectorAll('input[name="ev_comprador"]').forEach((cb) => {
     cb.checked = buyerIds.includes(cb.value);
   });
-  const checkAll = document.getElementById("newEventCheckAll");
-  if (checkAll) {
-    const all = [...wrap.querySelectorAll('input[name="ev_comprador"]')];
-    checkAll.checked = all.length > 0 && all.every((c) => c.checked);
-  }
 }
 
 function getNewEventCompradores() {
-  const wrap = document.getElementById("newEventCompradoresWrap");
-  if (!wrap) return [];
-  return [...wrap.querySelectorAll('input[name="ev_comprador"]:checked')].map((cb) => cb.value);
+  return [...document.querySelectorAll('input[name="ev_comprador"]:checked')].map((cb) => cb.value);
 }
 
 function openNewEventModal(dateStr = "") {
@@ -490,9 +479,10 @@ function openNewEventModal(dateStr = "") {
   clearFeedback(document.getElementById("newEventConflictWarning"));
   setupDatePickerField("newEventData", "newEventDataNative", "newEventDataPickerButton");
   setupDatePickerField("newEventRecorrenciaFim", "newEventRecorrenciaFimNative", "newEventRecorrenciaFimPickerButton");
-  // Pré-seleciona o comprador logado como default
-  const loggedId = getSettings().loggedBuyerId;
-  setNewEventCompradores(loggedId ? [loggedId] : []);
+  // Pré-seleciona o comprador logado (ou ativo) como default
+  const s = getSettings();
+  const defaultId = s.loggedBuyerId || s.activeBuyerId;
+  setNewEventCompradores(defaultId ? [defaultId] : []);
   document.getElementById("newEventModal").showModal();
 }
 
