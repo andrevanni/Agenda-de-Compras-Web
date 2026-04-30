@@ -241,6 +241,33 @@ const CAMPO_DESCRICAO = {
   "Comprador": "Nome exato do comprador cadastrado no sistema",
 };
 
+function exportarFornecedores() {
+  if (typeof XLSX === "undefined") {
+    setFeedback("Biblioteca Excel não carregada. Recarregue a página.", "error");
+    return;
+  }
+  if (!state.suppliers.length) {
+    setFeedback("Nenhum fornecedor cadastrado para exportar.", "warning");
+    return;
+  }
+  const headers = ["Codigo", "Nome", "Data Pedido", "Frequencia", "Dias", "Parametro Estoque", "Lead Time", "Comprador"];
+  const rows = state.suppliers.map((s) => ({
+    "Codigo": s.codigo_fornecedor,
+    "Nome": s.nome_fornecedor,
+    "Data Pedido": formatDate(s.data_primeiro_pedido),
+    "Frequencia": s.frequencia_revisao,
+    "Dias": s.dias_compra.join("|"),
+    "Parametro Estoque": s.parametro_estoque,
+    "Lead Time": s.lead_time_entrega,
+    "Comprador": s.comprador_nome ?? "",
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+  ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length + 4, 20) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Fornecedores");
+  XLSX.writeFile(wb, `fornecedores_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
 function gerarExcelFornecedores() {
   if (typeof XLSX === "undefined") {
     setFeedback("Biblioteca Excel não carregada. Tente recarregar a página.", "error");

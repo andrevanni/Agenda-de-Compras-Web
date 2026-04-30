@@ -255,6 +255,7 @@
                 <p class="muted">Cadastre, edite, importe e organize os fornecedores da carteira operacional. Na importa&ccedil;&atilde;o CSV, c&oacute;digo e nome s&atilde;o obrigat&oacute;rios; os demais campos podem vir quando dispon&iacute;veis.</p>
               </div>
               <div class="actions">
+                <button id="exportarFornecedoresButton" class="btn btn-outline btn-sm" type="button">📤 Exportar</button>
                 <button id="abrirImportModalButton" class="btn btn-outline btn-sm" type="button">📥 Importar Fornecedores</button>
                 <span id="fornecedorFormMode" class="kpi-emphasis">Novo fornecedor</span>
               </div>
@@ -305,6 +306,9 @@
             </form>
 
             <h3>Fornecedores Cadastrados</h3>
+            <div style="margin-bottom:10px;">
+              <input id="fornecedorSearch" type="search" placeholder="Buscar por código ou nome..." style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#f1f5f9;font-size:14px;">
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>

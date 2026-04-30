@@ -298,8 +298,16 @@ function tableRowForAgenda(row) {
 }
 
 function renderSuppliers() {
-  document.getElementById("fornecedoresTable").innerHTML = state.suppliers.length
-    ? state.suppliers.map((supplier) => `
+  const searchTerm = (document.getElementById("fornecedorSearch")?.value ?? "").toLowerCase().trim();
+  const filtered = searchTerm
+    ? state.suppliers.filter((s) =>
+        s.nome_fornecedor.toLowerCase().includes(searchTerm) ||
+        String(s.codigo_fornecedor).toLowerCase().includes(searchTerm)
+      )
+    : state.suppliers;
+
+  document.getElementById("fornecedoresTable").innerHTML = filtered.length
+    ? filtered.map((supplier) => `
       <tr>
         <td>${supplier.codigo_fornecedor}</td>
         <td>${supplier.nome_fornecedor}</td>
@@ -317,7 +325,7 @@ function renderSuppliers() {
         </td>
       </tr>
     `).join("")
-    : `<tr><td colspan="8">Sem fornecedores cadastrados.</td></tr>`;
+    : `<tr><td colspan="8">${searchTerm ? "Nenhum fornecedor encontrado." : "Sem fornecedores cadastrados."}</td></tr>`;
 
   document.querySelectorAll("[data-edit-supplier]").forEach((button) => {
     button.addEventListener("click", () => editSupplier(button.dataset.editSupplier));

@@ -585,6 +585,16 @@ async function saveNewEvent() {
 // ============================================================
 
 async function bootstrap() {
+  // Se vier com #access_token de convite/recuperação, redireciona para instalar.html
+  const hashStr = window.location.hash.slice(1);
+  const hashParams = Object.fromEntries(
+    hashStr.split("&").map((p) => p.split("=")).filter(([k]) => k).map(([k, v]) => [k, decodeURIComponent(v ?? "")])
+  );
+  if (hashParams["access_token"] && (hashParams["type"] === "recovery" || hashParams["type"] === "invite")) {
+    window.location.replace("/instalar.html" + window.location.hash);
+    return;
+  }
+
   // Processa parâmetros de URL (vindos do "Abrir Portal" no admin)
   const urlParams = new URLSearchParams(window.location.search);
   const urlJwt = urlParams.get("jwt");
