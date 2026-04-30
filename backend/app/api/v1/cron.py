@@ -14,27 +14,45 @@ from app.services.relatorio_service import (
 router = APIRouter(prefix="/cron", tags=["cron"])
 
 
-def _verificar_cron_secret(x_cron_secret: str = Header(default="")) -> None:
+def _verificar_auth(
+    authorization: str = Header(default=""),
+    x_cron_secret: str = Header(default=""),
+) -> None:
+    """
+    Aceita dois formatos:
+      - Vercel Cron Jobs: Authorization: Bearer {CRON_SECRET}
+      - Chamadas manuais: X-Cron-Secret: {CRON_SECRET}
+    """
     if not settings.cron_secret:
         raise HTTPException(status_code=503, detail="CRON_SECRET não configurado no servidor.")
-    if x_cron_secret != settings.cron_secret:
+    bearer = authorization.removeprefix("Bearer ").strip()
+    if bearer != settings.cron_secret and x_cron_secret != settings.cron_secret:
         raise HTTPException(status_code=401, detail="Token de cron inválido.")
 
 
-@router.post("/relatorio-diario")
-def cron_relatorio_diario(
-    data_ref: Optional[date] = Query(default=None, description="Data de referência ISO (padrão: ontem)"),
-    tenant_id: Optional[str] = Query(default=None, description="Rodar somente para este tenant UUID"),
-    _: None = Depends(_verificar_cron_secret),
-    db: Session = Depends(get_db_session),
-) -> dict:
-    """
-    Envia relatórios diários de auditoria e agenda para compradores com notificações habilitadas.
-    Protegido pelo header X-Cron-Secret. Configure o cron-job.org (ou similar) para chamar:
-      POST https://agenda-de-compras-api.vercel.app/api/v1/cron/relatorio-diario
-      Header: X-Cron-Secret: <valor de CRON_SECRET>
-    Horário sugerido: 07:00 BRT (10:00 UTC).
-    """
+def _executar(db: Session, tenant_id: Optional[str], data_ref: Optional[date]) -> dict:
     if tenant_id:
         return enviar_relatorios_tenant(db, tenant_id, data_ref)
     return enviar_relatorios_todos_tenants(db, data_ref)
+
+
+@router.get("/relatorio-diario")
+def cron_relatorio_diario_get(
+    data_ref: Optional[date] = Query(default=None),
+    tenant_id: Optional[str] = Query(default=None),
+    _: None = Depends(_verificar_auth),
+    db: Session = Depends(get_db_session),
+) -> dict:
+    """Chamado pelo Vercel Cron Job (GET). Horário: 00:00 UTC = 21:00 BRT."""
+    return _executar(db, tenant_id, data_ref)
+
+
+@router.post("/relatorio-diario")
+def cron_relatorio_diario_post(
+    data_ref: Optional[date] = Query(default=None),
+    tenant_id: Optional[str] = Query(default=None),
+    _: None = Depends(_verificar_auth),
+    db: Session = Depends(get_db_session),
+) -> dict:
+    """Chamado manualmente via POST com header X-Cron-Secret."""
+    return _executar(db, tenant_id, data_ref)

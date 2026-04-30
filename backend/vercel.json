@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/v1/cron/relatorio-diario",
+      "schedule": "0 0 * * 1-5"
+    }
+  ],
   "builds": [
     {
       "src": "api/index.py",
