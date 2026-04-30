@@ -148,25 +148,11 @@
     <div id="successBlock">
       <div class="success-icon">✅</div>
       <h2>Acesso configurado!</h2>
-      <p class="sub">Senha criada com sucesso. Você já pode acessar o portal.</p>
+      <p class="sub">Senha criada com sucesso. Instale o app para acessar rapidamente pelo atalho.</p>
 
-      <div class="install-guide">
-        <h3>📲 Como instalar o app no seu dispositivo</h3>
-        <div class="install-step">
-          <div class="install-num">1</div>
-          <div class="install-text"><strong>Chrome / Edge (Windows/Android):</strong> clique no ícone <strong>⊕</strong> na barra de endereço → <strong>"Instalar"</strong></div>
-        </div>
-        <div class="install-step">
-          <div class="install-num">2</div>
-          <div class="install-text"><strong>Pelo menu:</strong> três pontos ⋮ → <strong>"Instalar Agenda de Compras"</strong></div>
-        </div>
-        <div class="install-step">
-          <div class="install-num">3</div>
-          <div class="install-text"><strong>Safari (iPhone/iPad):</strong> botão compartilhar ⎙ → <strong>"Adicionar à Tela de Início"</strong></div>
-        </div>
-      </div>
+      <div id="installBlock" style="margin-top:16px;"></div>
 
-      <a href="#" class="btn btn-green" id="acessarPortalBtn" style="margin-top:20px;">
+      <a href="#" class="btn btn-green" id="acessarPortalBtn" style="margin-top:12px;">
         Abrir o Portal Agora →
       </a>
       <p id="countdown"></p>
@@ -176,12 +162,72 @@
 </div>
 
 <script>
-  // Lê a URL do backend salva nas configurações do portal (mesmo localStorage)
   const API_BASE = window.AGENDA_API_URL
     || (localStorage.getItem('agenda_api_base_url') ? localStorage.getItem('agenda_api_base_url') + '/api/v1' : null)
     || 'https://agenda-de-compras-api.vercel.app/api/v1';
 
   const PORTAL_URL = window.location.origin;
+
+  // Captura o evento de instalação PWA assim que o browser disparar
+  let deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    // Se o successBlock já estiver visível, atualiza o bloco de instalação
+    if (document.getElementById('successBlock').style.display !== 'none') {
+      renderInstallBlock();
+    }
+  });
+
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  }
+
+  let countdownInterval = null;
+
+  function renderInstallBlock() {
+    const el = document.getElementById('installBlock');
+    if (!el) return;
+
+    if (deferredInstallPrompt) {
+      el.innerHTML = `
+        <button class="btn" id="btnInstalarApp" style="background:#7c3aed;">
+          📲 Instalar atalho no dispositivo
+        </button>
+        <p style="font-size:12px;color:#64748b;margin-top:8px;text-align:center;">ou use o botão abaixo para abrir sem instalar</p>
+      `;
+      document.getElementById('btnInstalarApp').addEventListener('click', async () => {
+        deferredInstallPrompt.prompt();
+        const { outcome } = await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        if (outcome === 'accepted') {
+          clearInterval(countdownInterval);
+          window.location.href = PORTAL_URL;
+        } else {
+          el.innerHTML = '';
+        }
+      });
+    } else if (isIOS()) {
+      el.innerHTML = `
+        <div class="install-guide">
+          <h3>📲 Instalar no iPhone / iPad</h3>
+          <div class="install-step">
+            <div class="install-num">1</div>
+            <div class="install-text">Toque no botão <strong>Compartilhar ⎙</strong> na parte inferior do Safari</div>
+          </div>
+          <div class="install-step">
+            <div class="install-num">2</div>
+            <div class="install-text">Role e toque em <strong>"Adicionar à Tela de Início"</strong></div>
+          </div>
+          <div class="install-step">
+            <div class="install-num">3</div>
+            <div class="install-text">Confirme tocando em <strong>"Adicionar"</strong> — o ícone aparecerá na tela inicial</div>
+          </div>
+        </div>
+      `;
+    }
+    // Chrome/Edge sem beforeinstallprompt = já instalado ou não elegível; não exibe nada
+  }
 
   function parseHash() {
     const hash = window.location.hash.slice(1);
@@ -255,16 +301,17 @@
       setStep(3);
       document.getElementById('senhaBlock').style.display  = 'none';
       document.getElementById('successBlock').style.display = 'block';
-
       document.getElementById('acessarPortalBtn').href = PORTAL_URL;
 
-      let secs = 5;
+      renderInstallBlock();
+
+      let secs = 15;
       const countEl = document.getElementById('countdown');
-      countEl.textContent = `Abrindo em ${secs}s...`;
-      const iv = setInterval(() => {
+      countEl.textContent = `Abrindo automaticamente em ${secs}s...`;
+      countdownInterval = setInterval(() => {
         secs--;
-        if (secs <= 0) { clearInterval(iv); window.location.href = PORTAL_URL; }
-        else countEl.textContent = `Abrindo em ${secs}s...`;
+        if (secs <= 0) { clearInterval(countdownInterval); window.location.href = PORTAL_URL; }
+        else countEl.textContent = `Abrindo automaticamente em ${secs}s...`;
       }, 1000);
 
     } catch {

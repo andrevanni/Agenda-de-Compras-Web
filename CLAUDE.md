@@ -85,7 +85,7 @@ Todos os endpoints admin aceitam JWT (`Authorization: Bearer`) OU `X-Admin-Token
 
 ## Service Worker
 
-- Cache: `agenda-compras-v9` (bumpar versão ao alterar JS/CSS para forçar atualização nos clientes)
+- Cache: `agenda-compras-v10` (bumpar versão ao alterar JS/CSS para forçar atualização nos clientes)
 - Hard refresh (`Ctrl+Shift+R`) **não** bypassa o service worker no Chrome — só bumpar a versão do cache garante atualização
 
 ## Tela de Fornecedores

@@ -1,9 +1,15 @@
-const CACHE = 'agenda-compras-v9';
+const CACHE = 'agenda-compras-v10';
 const ASSETS = [
   '/',
   '/index.html',
+  '/instalar.html',
   '/styles.css',
-  '/script.js',
+  '/script_state.js',
+  '/script_utils.js',
+  '/script_render.js',
+  '/script_forms.js',
+  '/script_data.js',
+  '/script_main.js',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
