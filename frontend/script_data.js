@@ -127,20 +127,8 @@ async function importSuppliersFromFile(fileOrObj) {
       return;
     }
 
-    const confirmImport = window.confirm(
-      preview.issues.length
-        ? `Foram encontradas ${preview.validRows} linha(s) válidas e ${preview.issues.length} com problema. Deseja importar apenas as linhas válidas?`
-        : preview.notices.length
-          ? `Foram encontradas ${preview.validRows} linha(s) válidas com alguns ajustes automáticos. Deseja continuar com a importação?`
-          : `Foram encontradas ${preview.validRows} linha(s) válidas. Deseja continuar com a importação?`
-    );
-
-    if (!confirmImport) {
-      setFeedback("Importação cancelada após a pré-validação.", "warning");
-      return;
-    }
-
     const suppliers = parseSuppliersCsv(text);
+    const total = suppliers.length;
     const existingCodes = new Set(
       state.suppliers.map((item) => String(item.codigo_fornecedor ?? "").trim().toUpperCase()).filter(Boolean)
     );
@@ -155,6 +143,8 @@ async function importSuppliersFromFile(fileOrObj) {
         diasCompra: diasCompraRaw ?? ["SEGUNDA"],
       };
     });
+
+    renderImportPreview(`Processando... enviando ${total} fornecedores para o servidor. Aguarde.`, "info");
 
     const upsertedRows = await fetchSupabase("/rest/v1/fornecedores?on_conflict=tenant_id,codigo_fornecedor", {
       method: "POST",
@@ -179,7 +169,11 @@ async function importSuppliersFromFile(fileOrObj) {
       });
     }
 
+    let progress = 0;
     for (const item of normalizedSuppliers) {
+      progress++;
+      renderImportPreview(`Processando ${progress} de ${total} fornecedores... aguarde.`, "info");
+
       const supplierId = upsertedByCode.get(item.supplierPayload.codigo_fornecedor) ?? null;
       const diasCompra = item.diasCompra;
 
@@ -210,6 +204,7 @@ async function importSuppliersFromFile(fileOrObj) {
       touchedCodes.push(item.supplierPayload.codigo_fornecedor);
     }
 
+    renderImportPreview(`Finalizando... gerando agendas restantes.`, "info");
     const refreshedImportedSuppliers = await fetchPersistedSuppliersByCodes(touchedCodes);
     const missingSeeds = await backfillMissingPendingOccurrences(refreshedImportedSuppliers, []);
     agendaCount += missingSeeds;
