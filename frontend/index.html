@@ -406,13 +406,17 @@
                   <p>Compradores s&atilde;o os usu&aacute;rios operacionais que gerenciam a carteira de fornecedores.</p>
                   <h4>Como cadastrar</h4>
                   <ol>
-                    <li>Acesse <strong>Cadastro de Compradores</strong> no menu</li>
-                    <li>Preencha nome, e-mail e defina uma senha de acesso</li>
-                    <li>Opcionalmente adicione telefone e foto</li>
+                    <li>Acesse <strong>Compradores</strong> no menu lateral</li>
+                    <li>Preencha nome, e-mail e, opcionalmente, telefone e foto</li>
                     <li>Clique em <strong>Salvar Comprador</strong></li>
                   </ol>
-                  <h4>Primeiro acesso</h4>
-                  <p>No primeiro login, o sistema detecta que n&atilde;o h&aacute; senha cadastrada e solicita que o pr&oacute;prio comprador defina e confirme a senha.</p>
+                  <h4>Primeiro acesso — fluxo de convite</h4>
+                  <ol>
+                    <li>Ap&oacute;s cadastrar, clique em <strong>Convite</strong> ao lado do comprador para enviar o e-mail de acesso</li>
+                    <li>O comprador recebe um e-mail com o link para definir a senha (v&aacute;lido por 24 horas)</li>
+                    <li>Ao clicar no link, o comprador &eacute; direcionado para a p&aacute;gina de configura&ccedil;&atilde;o, define a senha e j&aacute; entra no portal automaticamente — selecionado como comprador ativo</li>
+                    <li>O e-mail tamb&eacute;m cont&eacute;m o <strong>instalador do atalho</strong> para Windows (ver se&ccedil;&atilde;o &ldquo;Instala&ccedil;&atilde;o do Atalho&rdquo;)</li>
+                  </ol>
                   <h4>Comprador ativo vs. logado</h4>
                   <ul>
                     <li><strong>Logado</strong>: quem entrou no sistema (rastreado na auditoria)</li>
@@ -420,6 +424,29 @@
                   </ul>
                   <h4>Administrador do Cliente</h4>
                   <p>O e-mail cadastrado como <em>respons&aacute;vel</em> no perfil do tenant tem acesso de administrador: pode ver todos os compradores, tratar agendas de qualquer carteira e acessar a auditoria.</p>
+                  <p class="ajuda-dica">💡 A sess&atilde;o permanece ativa o dia todo — o portal renova o JWT automaticamente a cada 50 minutos em segundo plano.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
+                <summary>📲 Instala&ccedil;&atilde;o do Atalho — Windows</summary>
+                <div class="ajuda-corpo">
+                  <p>O sistema pode ser acessado como um aplicativo nativo no Windows, sem precisar abrir o navegador manualmente.</p>
+                  <h4>Como instalar (primeira vez)</h4>
+                  <ol>
+                    <li>No e-mail de convite, clique em <strong>&ldquo;Baixar instalador do atalho&rdquo;</strong> (bot&atilde;o verde)</li>
+                    <li>Abra o arquivo <code>instalar_atalho.bat</code> baixado com duplo clique</li>
+                    <li>O instalador detecta Edge ou Chrome, baixa o &iacute;cone e cria o atalho na &aacute;rea de trabalho automaticamente</li>
+                    <li>Clique duas vezes no atalho <strong>Agenda de Compras</strong> para abrir o sistema</li>
+                  </ol>
+                  <h4>Como reinstalar</h4>
+                  <p>Se o atalho for removido acidentalmente, clique em <strong>📲 Reinstalar Atalho</strong> no menu lateral do portal para abrir as instru&ccedil;&otilde;es e baixar o instalador novamente.</p>
+                  <h4>Como o atalho funciona</h4>
+                  <ul>
+                    <li>O atalho aponta para uma <strong>URL est&aacute;vel de redirecionamento</strong> — se o endere&ccedil;o do portal mudar, o atalho continua funcionando sem precisar ser reinstalado</li>
+                    <li>Abre em <strong>modo app</strong> (Edge/Chrome sem barra do navegador), igual a um programa instalado</li>
+                  </ul>
+                  <p class="ajuda-dica">⚠️ Requer Microsoft Edge ou Google Chrome instalado. N&atilde;o funciona com Firefox ou Internet Explorer.</p>
                 </div>
               </details>
 
@@ -590,6 +617,10 @@
                   <p>Use os bot&otilde;es <strong>Claro</strong> e <strong>Escuro</strong> no topo da p&aacute;gina para alternar o tema. A prefer&ecirc;ncia &eacute; salva automaticamente.</p>
                   <h4>Sincroniza&ccedil;&atilde;o manual</h4>
                   <p>Se os dados parecerem desatualizados, acesse <strong>Personalizar Portal &rsaquo; Sincronizar Agora</strong> para for&ccedil;ar o recarregamento completo dos dados do Supabase.</p>
+                  <h4>Reinstalar atalho da &aacute;rea de trabalho</h4>
+                  <p>Clique em <strong>📲 Reinstalar Atalho</strong> no final do menu lateral para abrir o guia de instala&ccedil;&atilde;o e baixar novamente o instalador do atalho Windows.</p>
+                  <h4>Sess&atilde;o e tempo de acesso</h4>
+                  <p>O portal renova a autentica&ccedil;&atilde;o automaticamente a cada 50 minutos. N&atilde;o &eacute; necess&aacute;rio fazer login novamente durante o dia de trabalho.</p>
                 </div>
               </details>
 

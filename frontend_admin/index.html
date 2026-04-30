@@ -352,9 +352,10 @@
                   <li><strong>Clientes</strong> — Cadastre os dados comerciais (razão social, CNPJ, e-mail, logomarca) e vincule à base criada no passo anterior.</li>
                   <li><strong>Vigências</strong> — Defina o plano e o período de uso da licença.</li>
                   <li><strong>Compradores</strong> — Cadastre os usuários do cliente diretamente no Supabase (tabela <code>compradores</code>) ou via importação, informando nome, e-mail e <code>tenant_id</code> da base.</li>
-                  <li><strong>Enviar Convites</strong> — Na seção Base Operacional, clique em "Enviar Convites" para o cliente receber o link de acesso por e-mail.</li>
-                  <li><strong>Abrir Portal</strong> — Use "Abrir Portal" para verificar o ambiente antes de entregar ao cliente.</li>
+                  <li><strong>Enviar Convites</strong> — Na seção Base Operacional, clique em "Enviar Convites". O comprador recebe um e-mail com o link para definir a senha (24h) e o <strong>instalador de atalho para Windows</strong> (arquivo .bat).</li>
+                  <li><strong>Abrir Portal</strong> — Use "Abrir Portal" para verificar o ambiente do cliente antes de entregar.</li>
                 </ol>
+                <p class="ajuda-dica">💡 O comprador instala o atalho clicando duas vezes no arquivo <code>instalar_atalho.bat</code> que recebe no e-mail. O atalho abre o sistema em modo app (sem barra do navegador).</p>
               </div>
             </details>
 
@@ -377,8 +378,13 @@
                 <ol class="ajuda-steps">
                   <li>Vá em <strong>Base Operacional</strong> e localize o tenant do cliente.</li>
                   <li>Clique em <strong>Enviar Convites</strong>.</li>
-                  <li>O sistema lista os compradores cadastrados. Digite o e-mail do comprador desejado.</li>
-                  <li>O comprador recebe um e-mail com link para definir a senha e instalar o app.</li>
+                  <li>O sistema lista os compradores cadastrados. Digite o e-mail do comprador desejado e confirme.</li>
+                  <li>O comprador recebe um e-mail com dois itens: o <strong>link para definir a senha</strong> (válido 24h) e o botão <strong>"Baixar instalador do atalho"</strong> para Windows.</li>
+                </ol>
+                <h4>O que o comprador faz ao receber o e-mail</h4>
+                <ol class="ajuda-steps">
+                  <li>Clica em "Criar minha senha" → define a senha na página de configuração de acesso → entra no portal automaticamente já selecionado como comprador ativo</li>
+                  <li>Clica em "Baixar instalador do atalho" → abre o arquivo <code>instalar_atalho.bat</code> com duplo clique → atalho criado na área de trabalho com o ícone do sistema</li>
                 </ol>
                 <p class="ajuda-dica">⚠️ O comprador precisa ter e-mail cadastrado na tabela <code>compradores</code> para receber o convite.</p>
               </div>
@@ -407,6 +413,29 @@
                   <li>Ajudar o cliente com dúvidas de uso</li>
                   <li>Validar o onboarding antes de entregar o acesso</li>
                 </ul>
+                <h4>Comportamento atual</h4>
+                <ul class="ajuda-lista-ul">
+                  <li>O feedback mostra o nome do cliente sendo aberto: <em>"Gerando acesso ao portal de &ldquo;Grupo X&rdquo;..."</em></li>
+                  <li>A nova aba recebe foco automaticamente após abrir</li>
+                  <li>A autenticação é reutilizada por até 55 minutos (sem chamada extra ao Supabase)</li>
+                  <li>Cada aba abre um cliente isolado — abrir Velanes não interfere na aba do SV já aberta</li>
+                </ul>
+                <p class="ajuda-dica">⚠️ A sessão "Abrir Portal" expira em 1 hora. Para continuar, feche a aba e clique em "Abrir Portal" novamente.</p>
+              </div>
+            </details>
+
+            <details class="ajuda-item">
+              <summary>📲 Instalador de Atalho Windows — como funciona?</summary>
+              <div class="ajuda-corpo">
+                <p>O e-mail de convite inclui um botão para baixar o <strong>instalador de atalho</strong> (<code>instalar_atalho.bat</code>). Quando o comprador clica duas vezes nesse arquivo:</p>
+                <ol class="ajuda-steps">
+                  <li>O instalador detecta automaticamente se Edge ou Chrome está instalado (Edge tem prioridade)</li>
+                  <li>Baixa o ícone do sistema do servidor</li>
+                  <li>Cria um atalho na área de trabalho que abre o portal em <strong>modo app</strong> — sem barra do navegador, igual a um programa instalado</li>
+                </ol>
+                <h4>URL de redirecionamento</h4>
+                <p>O atalho aponta para <code>agenda-de-compras-api.vercel.app/portal</code>, que redireciona para o portal real. Se o endereço do portal mudar, basta atualizar a variável <code>FRONTEND_URL</code> no Vercel — todos os atalhos já instalados continuam funcionando sem redistribuição.</p>
+                <p class="ajuda-dica">⚠️ Requer Microsoft Edge ou Google Chrome. Não funciona com Firefox ou Internet Explorer.</p>
               </div>
             </details>
 
