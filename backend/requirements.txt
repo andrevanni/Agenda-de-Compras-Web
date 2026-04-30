@@ -5,3 +5,4 @@ psycopg[binary]==3.2.13
 pydantic-settings==2.10.1
 email-validator==2.2.0
 supabase==2.15.2
+reportlab==4.2.5

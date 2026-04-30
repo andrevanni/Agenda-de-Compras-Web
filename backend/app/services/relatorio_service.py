@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.services.email_service import send_html
+from app.services.pdf_service import build_relatorio_pdf
 
 DIAS_PT = {0: "Segunda", 1: "Terça", 2: "Quarta", 3: "Quinta", 4: "Sexta", 5: "Sábado", 6: "Domingo"}
 MESES_PT = {
@@ -414,8 +415,26 @@ def enviar_relatorios_tenant(
         )
         subject = f"Agenda de Compras — Relatório {_fmt(data_ref)}"
 
+        # Gera PDF anexo
+        pdf_bytes: Optional[bytes] = None
         try:
-            send_html([c["email"]], subject, html)
+            pdf_bytes = build_relatorio_pdf(
+                nome_comprador=c["nome_comprador"],
+                is_gestor=is_gestor,
+                data_ref=data_ref,
+                proximo_dia=proximo_dia,
+                kpis=kpis,
+                auditoria_rows=auditoria_rows,
+                agenda_rows=agenda_rows,
+                tenant_name=tenant_name,
+            )
+        except Exception:
+            pdf_bytes = None
+
+        attachments = [(f"relatorio_{_fmt(data_ref).replace('/', '-')}.pdf", pdf_bytes)] if pdf_bytes else None
+
+        try:
+            send_html([c["email"]], subject, html, attachments=attachments)
             _log_envio(db, tenant_id, c["id"], tipo, data_ref, c["email"], "enviado")
             sent += 1
         except Exception as exc:
