@@ -8,15 +8,15 @@
   "theme_color": "#0f1621",
   "icons": [
     {
-      "src": "agenda_compras.ico",
+      "src": "icon-192.png",
       "sizes": "192x192",
-      "type": "image/x-icon",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "agenda_compras.ico",
+      "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/x-icon",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

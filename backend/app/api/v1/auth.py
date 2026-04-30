@@ -65,6 +65,7 @@ def login(payload: LoginRequest) -> dict:
     comprador = _comprador_para_usuario(sb, resp.user.email, str(resp.user.id))
     return {
         "access_token": resp.session.access_token,
+        "refresh_token": resp.session.refresh_token,
         "tenant_id": str(comprador["tenant_id"]),
         "comprador_id": str(comprador["id"]),
         "nome": comprador.get("nome_comprador"),

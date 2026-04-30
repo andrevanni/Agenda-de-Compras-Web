@@ -245,7 +245,11 @@
 
       if (data.access_token) localStorage.setItem('agenda_jwt', data.access_token);
       if (data.tenant_id)    localStorage.setItem('agenda_cliente_tenant_id', data.tenant_id);
-      if (data.comprador_id) localStorage.setItem('agenda_comprador_id', data.comprador_id);
+      if (data.comprador_id) {
+        localStorage.setItem('agenda_cliente_logged_buyer_id', data.comprador_id);
+        localStorage.setItem('agenda_cliente_active_buyer_id', data.comprador_id);
+        localStorage.setItem('agenda_cliente_logged_portal_role', 'buyer');
+      }
 
       setStep(3);
       document.getElementById('senhaBlock').style.display  = 'none';

@@ -600,7 +600,7 @@ async function bootstrap() {
   const urlParams = new URLSearchParams(window.location.search);
   const urlJwt = urlParams.get("jwt");
   const urlTenantId = urlParams.get("tenant_id");
-  if (urlJwt && urlTenantId) {
+  if (urlJwt && urlJwt !== "null" && urlTenantId) {
     sessionStorage.setItem(storageKeys.jwt, urlJwt);
     sessionStorage.setItem(storageKeys.tenantId, urlTenantId);
     sessionStorage.setItem(storageKeys.loggedPortalRole, "admin_portal");

@@ -1,10 +1,12 @@
-const CACHE = 'agenda-compras-v7';
+const CACHE = 'agenda-compras-v8';
 const ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
   '/script.js',
   '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
   'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap',
   'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js',
 ];

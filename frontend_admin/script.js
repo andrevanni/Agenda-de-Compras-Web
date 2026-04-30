@@ -536,21 +536,26 @@ function renderTenants() {
 const PORTAL_CLIENT_URL = "https://agenda-compras-cliente.vercel.app";
 
 async function abrirPortal(tenantId) {
+  const tenantNome = tenants.find((t) => t.id === tenantId)?.nome ?? tenantId;
+  const clienteNomeDisplay = clientePorTenant(tenantId);
+  const label = clienteNomeDisplay !== "Sem cliente comercial" ? clienteNomeDisplay : tenantNome;
+
   // Abre janela ANTES do await para não ser bloqueada pelo popup blocker
   const nova = window.open("", "_blank");
   try {
-    setFeedback("Gerando acesso ao portal...", "info");
+    setFeedback(`Gerando acesso ao portal de "${label}"...`, "info");
     const data = await fetchAdmin(`/api/v1/admin/abrir-portal/${tenantId}`, { method: "POST" });
     const url = `${PORTAL_CLIENT_URL}/?jwt=${encodeURIComponent(data.access_token)}&tenant_id=${encodeURIComponent(data.tenant_id)}`;
     if (nova && !nova.closed) {
       nova.location.href = url;
-      setFeedback("Portal aberto em nova aba.", "success");
+      nova.focus();
+      setFeedback(`Portal de "${label}" aberto em nova aba.`, "success");
     } else {
-      setFeedback(`Portal gerado. Acesse: <a href="${url}" target="_blank">clique aqui</a>`, "success");
+      setFeedback(`Portal de "${label}" gerado. Acesse: <a href="${url}" target="_blank">clique aqui</a>`, "success");
     }
   } catch (err) {
     if (nova && !nova.closed) nova.close();
-    setFeedback(`Não foi possível abrir o portal: ${err.message}`, "error");
+    setFeedback(`Não foi possível abrir o portal de "${label}": ${err.message}`, "error");
   }
 }
 
@@ -597,7 +602,7 @@ async function garantirSenhaAuditoriaInicial() {
 
 async function loadAdminData() {
   try {
-    tenants = await fetchSupabase("/rest/v1/tenants?select=id,nome,created_at&order=created_at.desc");
+    tenants = await fetchSupabase("/rest/v1/tenants?select=id,nome,created_at&order=nome.asc");
     try {
       clientes = await fetchSupabase("/rest/v1/clientes?select=*&order=created_at.desc");
       vigencias = await fetchSupabase("/rest/v1/clientes_licencas?select=*&order=created_at.desc");
