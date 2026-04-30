@@ -346,10 +346,7 @@ async function importarArquivoFornecedores(file) {
 function ensureBuyerSelection() {
   const settings = getSettings();
   if (getLoggedPortalRole() === "buyer" && settings.loggedBuyerId && state.buyers.some((buyer) => buyer.id === settings.loggedBuyerId)) {
-    // Só define se ainda não há seleção — não substitui troca feita pelo usuário
-    if (!settings.activeBuyerId || !state.buyers.some((b) => b.id === settings.activeBuyerId)) {
-      localStorage.setItem(storageKeys.activeBuyerId, settings.loggedBuyerId);
-    }
+    localStorage.setItem(storageKeys.activeBuyerId, settings.loggedBuyerId);
   } else if (getLoggedPortalRole() === "admin_client") {
     const adminBuyer = (settings.loggedBuyerId && state.buyers.some((buyer) => buyer.id === settings.loggedBuyerId))
       ? state.buyers.find((buyer) => buyer.id === settings.loggedBuyerId)
