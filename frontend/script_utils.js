@@ -392,7 +392,7 @@ function renderBuyers() {
         <td>${buyer.email ?? "-"}</td>
         <td class="td-actions">
           <div class="actions">
-            ${isAdmin ? `<button class="btn btn-outline btn-sm" data-edit-buyer="${buyer.id}">Editar</button>` : ""}
+            <button class="btn btn-outline btn-sm" data-edit-buyer="${buyer.id}">Editar</button>
             ${isAdmin ? `<button class="btn btn-danger btn-sm" data-delete-buyer="${buyer.id}">Excluir</button>` : ""}
             ${buyer.email ? `<button class="btn btn-outline btn-sm" data-invite-buyer="${buyer.id}" title="Enviar convite de acesso">✉️ Convite</button>` : ""}
           </div>
@@ -620,6 +620,9 @@ function editBuyer(buyerId) {
   document.getElementById("compradorEmail").value = buyer.email ?? "";
   document.getElementById("compradorSenha").value = "";
   document.getElementById("compradorFormMode").textContent = `Editando ${buyer.nome_comprador}`;
+  // Compradores (role=buyer) não podem alterar senhas — apenas admins
+  const senhaLabel = document.getElementById("compradorSenha").closest("label");
+  if (senhaLabel) senhaLabel.style.display = getLoggedPortalRole() === "buyer" ? "none" : "";
   updateBuyerPreview();
 }
 

@@ -521,7 +521,7 @@ async function saveBuyer(event) {
     return;
   }
 
-  if (rawPassword) {
+  if (rawPassword && getLoggedPortalRole() !== "buyer") {
     payload.senha_hash = rawPassword;
   }
 
