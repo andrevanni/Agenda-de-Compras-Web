@@ -508,7 +508,9 @@ function renderVigencias() {
 
 function renderTenants() {
   tenantsCount.textContent = `${tenants.length} base(s) operacional(is) encontrada(s).`;
-  tenantsList.innerHTML = tenants.map((tenant) => `
+  tenantsList.innerHTML = tenants.map((tenant) => {
+    const ativo = Boolean(tenant.envio_relatorio_ativo);
+    return `
     <article class="data-card">
       <div>
         <div class="pill-row">
@@ -517,13 +519,20 @@ function renderTenants() {
         <h4>${tenant.nome ?? "Base sem nome"}</h4>
         <p class="meta">Criado em ${tenant.created_at ? formatDateTime(tenant.created_at) : "Não informado"}</p>
         <p class="submeta">${clientePorTenant(tenant.id)}</p>
+        <label style="display:inline-flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;font-size:13px;">
+          <input type="checkbox" data-toggle-relatorio="${tenant.id}" ${ativo ? "checked" : ""}
+            style="width:16px;height:16px;cursor:pointer;">
+          <span style="color:${ativo ? "#10b981" : "#94a3b8"};">
+            ${ativo ? "✅ Envio de relatório diário ativo" : "⬜ Envio de relatório diário desativado"}
+          </span>
+        </label>
       </div>
       <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
         <button class="secondary-button" type="button" data-abrir-portal="${tenant.id}">🚀 Abrir Portal</button>
         <button class="secondary-button" type="button" data-enviar-convites="${tenant.id}">📧 Enviar Convites</button>
       </div>
-    </article>
-  `).join("");
+    </article>`;
+  }).join("");
 
   document.querySelectorAll("[data-abrir-portal]").forEach((btn) => {
     btn.addEventListener("click", () => abrirPortal(btn.dataset.abrirPortal));
@@ -531,6 +540,33 @@ function renderTenants() {
   document.querySelectorAll("[data-enviar-convites]").forEach((btn) => {
     btn.addEventListener("click", () => listarCompradores(btn.dataset.enviarConvites));
   });
+  document.querySelectorAll("[data-toggle-relatorio]").forEach((chk) => {
+    chk.addEventListener("change", () => toggleRelatorioAtivo(chk.dataset.toggleRelatorio, chk.checked, chk));
+  });
+}
+
+async function toggleRelatorioAtivo(tenantId, ativo, chkEl) {
+  const label = chkEl.nextElementSibling;
+  chkEl.disabled = true;
+  try {
+    await fetchSupabase(`/rest/v1/tenants?id=eq.${tenantId}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ envio_relatorio_ativo: ativo }),
+    });
+    const t = tenants.find((t) => t.id === tenantId);
+    if (t) t.envio_relatorio_ativo = ativo;
+    if (label) {
+      label.textContent = ativo ? "✅ Envio de relatório diário ativo" : "⬜ Envio de relatório diário desativado";
+      label.style.color = ativo ? "#10b981" : "#94a3b8";
+    }
+    setFeedback(`Relatório diário ${ativo ? "ativado" : "desativado"} para "${tenants.find((t) => t.id === tenantId)?.nome ?? tenantId}".`, "success", true);
+  } catch (err) {
+    chkEl.checked = !ativo;
+    setFeedback(`Erro ao atualizar: ${err.message}`, "error");
+  } finally {
+    chkEl.disabled = false;
+  }
 }
 
 const PORTAL_CLIENT_URL = "https://agenda-compras-cliente.vercel.app";
@@ -602,7 +638,7 @@ async function garantirSenhaAuditoriaInicial() {
 
 async function loadAdminData() {
   try {
-    tenants = await fetchSupabase("/rest/v1/tenants?select=id,nome,created_at&order=nome.asc");
+    tenants = await fetchSupabase("/rest/v1/tenants?select=id,nome,created_at,envio_relatorio_ativo&order=nome.asc");
     try {
       clientes = await fetchSupabase("/rest/v1/clientes?select=*&order=created_at.desc");
       vigencias = await fetchSupabase("/rest/v1/clientes_licencas?select=*&order=created_at.desc");

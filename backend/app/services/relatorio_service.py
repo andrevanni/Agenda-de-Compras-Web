@@ -455,7 +455,7 @@ def enviar_relatorios_todos_tenants(
     data_ref: Optional[date] = None,
 ) -> dict:
     """Chamado pelo cron job — percorre todos os tenants."""
-    tenants = db.execute(text("SELECT id::text AS id FROM tenants")).mappings().all()
+    tenants = db.execute(text("SELECT id::text AS id FROM tenants WHERE envio_relatorio_ativo = true")).mappings().all()
     total_sent = 0
     total_errors = 0
     results = []
