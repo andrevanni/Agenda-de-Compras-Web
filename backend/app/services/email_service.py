@@ -12,8 +12,10 @@ def _build_transport() -> smtplib.SMTP_SSL:
 
 
 def send_html(to: list[str], subject: str, html: str) -> None:
-    if not to or not settings.smtp_password:
+    if not to:
         return
+    if not settings.smtp_password:
+        raise RuntimeError("SMTP_PASSWORD não configurado no servidor.")
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"]    = f"{settings.smtp_from_name} <{settings.smtp_user}>"
