@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     portal_admin_password: str = ""
 
     # URL do frontend (para links nos e-mails)
-    frontend_url: str = "https://agenda-compras-web.vercel.app"
+    frontend_url: str = "https://agenda-compras-cliente.vercel.app"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
