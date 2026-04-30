@@ -322,7 +322,9 @@ function bindStaticEvents() {
   document.getElementById("fecharImportModal").addEventListener("click", () => {
     document.getElementById("importModal").style.display = "none";
   });
+  document.getElementById("exportarFornecedoresButton").addEventListener("click", exportarFornecedores);
   document.getElementById("gerarExcelButton").addEventListener("click", gerarExcelFornecedores);
+  document.getElementById("fornecedorSearch").addEventListener("input", renderSuppliers);
   document.getElementById("importFornecedoresButton").addEventListener("click", () => {
     document.getElementById("importFornecedorFile").click();
   });
