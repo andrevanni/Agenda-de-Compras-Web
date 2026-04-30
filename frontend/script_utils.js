@@ -373,7 +373,7 @@ async function enviarConviteComprador(buyerId, btn) {
   btn.disabled = true;
   try {
     await fetchApi(`/api/v1/portal/compradores/${buyerId}/enviar-convite`, { method: "POST" });
-    setFeedback("Convite enviado com sucesso.", "success", true);
+    setFeedback("Convite enviado com sucesso.", "success");
   } catch (err) {
     setFeedback(`Erro ao enviar convite: ${err.message}`, "error");
   } finally {
