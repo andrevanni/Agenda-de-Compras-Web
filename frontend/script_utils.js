@@ -382,6 +382,7 @@ function buyerPhotoCell(buyer) {
 }
 
 function renderBuyers() {
+  const isAdmin = getLoggedPortalRole() !== "buyer";
   document.getElementById("compradoresTable").innerHTML = state.buyers.length
     ? state.buyers.map((buyer) => `
       <tr>
@@ -391,8 +392,8 @@ function renderBuyers() {
         <td>${buyer.email ?? "-"}</td>
         <td class="td-actions">
           <div class="actions">
-            <button class="btn btn-outline btn-sm" data-edit-buyer="${buyer.id}">Editar</button>
-            <button class="btn btn-danger btn-sm" data-delete-buyer="${buyer.id}">Excluir</button>
+            ${isAdmin ? `<button class="btn btn-outline btn-sm" data-edit-buyer="${buyer.id}">Editar</button>` : ""}
+            ${isAdmin ? `<button class="btn btn-danger btn-sm" data-delete-buyer="${buyer.id}">Excluir</button>` : ""}
             ${buyer.email ? `<button class="btn btn-outline btn-sm" data-invite-buyer="${buyer.id}" title="Enviar convite de acesso">✉️ Convite</button>` : ""}
           </div>
         </td>

@@ -7,24 +7,21 @@ echo   Instalador de Atalho para Area de Trabalho
 echo   ============================================
 echo.
 
-set "URL=https://agenda-de-compras-api.vercel.app/portal"
+:: URL direta do portal (sem redirect para evitar demora na abertura)
+set "URL=https://agenda-compras-cliente.vercel.app"
+
+:: Destino do atalho — Desktop funciona em qualquer idioma do Windows
+set "SHORTCUT=%USERPROFILE%\Desktop\Agenda de Compras.lnk"
 
 :: Procura Edge em todos os locais possiveis
-set "E1=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
-set "E2=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
-set "E3=%LocalAppData%\Microsoft\Edge\Application\msedge.exe"
+if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"       ( set "BROWSER=%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"       & goto :criar )
+if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"  ( set "BROWSER=%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"  & goto :criar )
+if exist "%LocalAppData%\Microsoft\Edge\Application\msedge.exe"        ( set "BROWSER=%LocalAppData%\Microsoft\Edge\Application\msedge.exe"        & goto :criar )
 
 :: Procura Chrome em todos os locais possiveis
-set "C1=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
-set "C2=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
-set "C3=%LocalAppData%\Google\Chrome\Application\chrome.exe"
-
-if exist "%E1%" ( set "BROWSER=%E1%" & goto :ok )
-if exist "%E2%" ( set "BROWSER=%E2%" & goto :ok )
-if exist "%E3%" ( set "BROWSER=%E3%" & goto :ok )
-if exist "%C1%" ( set "BROWSER=%C1%" & goto :ok )
-if exist "%C2%" ( set "BROWSER=%C2%" & goto :ok )
-if exist "%C3%" ( set "BROWSER=%C3%" & goto :ok )
+if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe"         ( set "BROWSER=%ProgramFiles%\Google\Chrome\Application\chrome.exe"         & goto :criar )
+if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"   ( set "BROWSER=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"   & goto :criar )
+if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe"         ( set "BROWSER=%LocalAppData%\Google\Chrome\Application\chrome.exe"         & goto :criar )
 
 echo   ERRO: Microsoft Edge ou Google Chrome nao encontrado.
 echo.
@@ -34,23 +31,27 @@ echo.
 pause
 exit /b 1
 
-:ok
+:criar
 echo   Criando atalho na area de trabalho...
-echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut([Environment]::GetFolderPath('Desktop')+'\Agenda de Compras.lnk'); $sc.TargetPath='%BROWSER%'; $sc.Arguments='--app=%URL% --no-first-run'; $sc.Description='Agenda de Compras - Service Farma'; $sc.Save()"
+powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -Command "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%SHORTCUT%'); $sc.TargetPath='%BROWSER%'; $sc.Arguments='--app=%URL% --no-first-run'; $sc.Description='Agenda de Compras - Service Farma'; $sc.Save()"
 
 if %errorlevel% neq 0 (
-    echo   Erro. Tente clicar com o botao direito no arquivo e
-    echo   escolher "Executar como administrador".
+    echo.
+    echo   Erro ao criar o atalho.
+    echo   Clique com botao direito neste arquivo e escolha
+    echo   "Executar como administrador".
     echo.
     pause
     exit /b 1
 )
 
-echo   Atalho criado com sucesso!
 echo.
-echo   Procure "Agenda de Compras" na area de trabalho e
-echo   clique duas vezes para abrir o sistema.
+echo   ============================================
+echo   Atalho criado na area de trabalho!
+echo   ============================================
+echo.
+echo   Procure o icone "Agenda de Compras" na area
+echo   de trabalho e clique duas vezes para abrir.
 echo.
 pause
