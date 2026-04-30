@@ -178,8 +178,8 @@
 <script>
   // Lê a URL do backend salva nas configurações do portal (mesmo localStorage)
   const API_BASE = window.AGENDA_API_URL
-    || localStorage.getItem('apiBaseUrl') + '/api/v1'
-    || (window.location.origin + '/api/v1');
+    || (localStorage.getItem('agenda_api_base_url') ? localStorage.getItem('agenda_api_base_url') + '/api/v1' : null)
+    || 'https://agenda-de-compras-api.vercel.app/api/v1';
 
   const PORTAL_URL = window.location.origin;
 
