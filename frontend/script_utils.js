@@ -12,7 +12,7 @@ function getSettings() {
     loggedBuyerId: _store(storageKeys.loggedBuyerId) ?? "",
     logoUrl: localStorage.getItem(storageKeys.logoUrl) ?? defaultSettings.logoUrl,
     theme: localStorage.getItem(storageKeys.theme) ?? "dark",
-    apiBaseUrl: localStorage.getItem(storageKeys.apiBaseUrl) ?? defaultSettings.apiBaseUrl,
+    apiBaseUrl: localStorage.getItem(storageKeys.apiBaseUrl) || defaultSettings.apiBaseUrl,
   };
 }
 
