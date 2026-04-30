@@ -536,17 +536,20 @@ function renderTenants() {
 const PORTAL_CLIENT_URL = "https://agenda-compras-cliente.vercel.app";
 
 async function abrirPortal(tenantId) {
+  // Abre janela ANTES do await para não ser bloqueada pelo popup blocker
+  const nova = window.open("", "_blank");
   try {
     setFeedback("Gerando acesso ao portal...", "info");
     const data = await fetchAdmin(`/api/v1/admin/abrir-portal/${tenantId}`, { method: "POST" });
     const url = `${PORTAL_CLIENT_URL}/?jwt=${encodeURIComponent(data.access_token)}&tenant_id=${encodeURIComponent(data.tenant_id)}`;
-    const nova = window.open(url, "_blank");
-    if (!nova) {
-      setFeedback(`Portal gerado. Acesse: ${url}`, "success");
+    if (nova && !nova.closed) {
+      nova.location.href = url;
+      setFeedback("Portal aberto em nova aba.", "success");
     } else {
-      setFeedback("Portal aberto em nova aba.", "success", true);
+      setFeedback(`Portal gerado. Acesse: <a href="${url}" target="_blank">clique aqui</a>`, "success");
     }
   } catch (err) {
+    if (nova && !nova.closed) nova.close();
     setFeedback(`Não foi possível abrir o portal: ${err.message}`, "error");
   }
 }
