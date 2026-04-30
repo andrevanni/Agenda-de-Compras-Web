@@ -561,12 +561,18 @@ async function saveBuyer(event) {
   const existingPhoto = document.getElementById("compradorFotoAtual").value.trim();
   const file = document.getElementById("compradorFotoArquivo").files[0];
   const rawPassword = document.getElementById("compradorSenha").value.trim();
+  const isAdmin = getLoggedPortalRole() !== "buyer";
   const payload = {
     tenant_id: getSettings().tenantId,
     nome_comprador: document.getElementById("compradorNome").value.trim(),
     telefone: document.getElementById("compradorTelefone").value.trim() || null,
     email: document.getElementById("compradorEmail").value.trim().toLowerCase() || null,
     foto_path: existingPhoto || null,
+    ...(isAdmin ? {
+      is_gestor: document.getElementById("compradorIsGestor")?.checked ?? false,
+      receber_auditoria: document.getElementById("compradorReceberAuditoria")?.checked ?? false,
+      receber_agenda_proximo: document.getElementById("compradorReceberAgenda")?.checked ?? false,
+    } : {}),
   };
 
   if (file) {
@@ -584,7 +590,6 @@ async function saveBuyer(event) {
   }
 
   const isSelf = getLoggedPortalRole() === "buyer" && getSettings().loggedBuyerId === buyerId;
-  const isAdmin = getLoggedPortalRole() !== "buyer";
   if (rawPassword && (isAdmin || isSelf)) {
     payload.senha_hash = rawPassword;
   }

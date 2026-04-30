@@ -395,21 +395,27 @@ function buyerPhotoCell(buyer) {
 function renderBuyers() {
   const isAdmin = getLoggedPortalRole() !== "buyer";
   document.getElementById("compradoresTable").innerHTML = state.buyers.length
-    ? state.buyers.map((buyer) => `
-      <tr>
-        <td>${buyerPhotoCell(buyer)}</td>
-        <td>${buyer.nome_comprador}</td>
-        <td>${buyer.telefone ?? "-"}</td>
-        <td>${buyer.email ?? "-"}</td>
-        <td class="td-actions">
-          <div class="actions">
-            <button class="btn btn-outline btn-sm" data-edit-buyer="${buyer.id}">Editar</button>
-            ${isAdmin ? `<button class="btn btn-danger btn-sm" data-delete-buyer="${buyer.id}">Excluir</button>` : ""}
-            ${buyer.email ? `<button class="btn btn-outline btn-sm" data-invite-buyer="${buyer.id}" title="Enviar convite de acesso">✉️ Convite</button>` : ""}
-          </div>
-        </td>
-      </tr>
-    `).join("")
+    ? state.buyers.map((buyer) => {
+      const badges = [
+        buyer.is_gestor ? '<span class="kpi-chip" style="background:#6366f1;color:#fff;font-size:10px;padding:1px 6px;">GESTOR</span>' : "",
+        buyer.receber_auditoria ? '<span title="Recebe auditoria por e-mail" style="font-size:12px;">📊</span>' : "",
+        buyer.receber_agenda_proximo ? '<span title="Recebe agenda por e-mail" style="font-size:12px;">📅</span>' : "",
+      ].filter(Boolean).join(" ");
+      return `
+        <tr>
+          <td>${buyerPhotoCell(buyer)}</td>
+          <td>${buyer.nome_comprador}${badges ? `<br><span style="display:inline-flex;gap:4px;align-items:center;margin-top:3px;">${badges}</span>` : ""}</td>
+          <td>${buyer.telefone ?? "-"}</td>
+          <td>${buyer.email ?? "-"}</td>
+          <td class="td-actions">
+            <div class="actions">
+              <button class="btn btn-outline btn-sm" data-edit-buyer="${buyer.id}">Editar</button>
+              ${isAdmin ? `<button class="btn btn-danger btn-sm" data-delete-buyer="${buyer.id}">Excluir</button>` : ""}
+              ${buyer.email ? `<button class="btn btn-outline btn-sm" data-invite-buyer="${buyer.id}" title="Enviar convite de acesso">✉️ Convite</button>` : ""}
+            </div>
+          </td>
+        </tr>`;
+    }).join("")
     : `<tr><td colspan="5">Sem compradores cadastrados.</td></tr>`;
 
   document.querySelectorAll("[data-edit-buyer]").forEach((button) => {
@@ -630,8 +636,10 @@ function editBuyer(buyerId) {
   document.getElementById("compradorTelefone").value = buyer.telefone ?? "";
   document.getElementById("compradorEmail").value = buyer.email ?? "";
   document.getElementById("compradorSenha").value = "";
+  document.getElementById("compradorIsGestor").checked = Boolean(buyer.is_gestor);
+  document.getElementById("compradorReceberAuditoria").checked = Boolean(buyer.receber_auditoria);
+  document.getElementById("compradorReceberAgenda").checked = Boolean(buyer.receber_agenda_proximo);
   document.getElementById("compradorFormMode").textContent = `Editando ${buyer.nome_comprador}`;
-  // Senha: visível para admins e para o próprio comprador editando seu registro
   const senhaLabel = document.getElementById("compradorSenha").closest("label");
   if (senhaLabel) {
     const isSelf = getLoggedPortalRole() === "buyer" && getSettings().loggedBuyerId === buyerId;

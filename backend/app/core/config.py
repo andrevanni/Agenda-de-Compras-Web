@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # URL do frontend (para links nos e-mails)
     frontend_url: str = "https://agenda-compras-cliente.vercel.app"
 
+    # Token secreto para o endpoint de cron — configure em CRON_SECRET no Vercel
+    cron_secret: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 

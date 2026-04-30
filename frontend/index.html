@@ -17,6 +17,7 @@
     <link rel="icon" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   </head>
   <body>
     <div class="app">
@@ -377,6 +378,21 @@
               <div class="photo-preview-card">
                 <strong>Pr&eacute;-visualiza&ccedil;&atilde;o</strong>
                 <div id="compradorFotoPreview" class="avatar avatar-lg avatar-placeholder">?</div>
+              </div>
+              <div class="comprador-notif-group">
+                <p class="comprador-notif-title">Papel e notificações por e-mail</p>
+                <label class="checkbox-row">
+                  <input type="checkbox" id="compradorIsGestor">
+                  <span><strong>Gestor</strong> — recebe relatório consolidado de todos os compradores</span>
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" id="compradorReceberAuditoria">
+                  <span>Receber auditoria do dia anterior por e-mail</span>
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" id="compradorReceberAgenda">
+                  <span>Receber agenda do próximo dia útil por e-mail</span>
+                </label>
               </div>
               <div class="actions">
                 <button type="submit" class="btn">Salvar Comprador</button>
@@ -891,6 +907,7 @@
             <button class="close-button audit-close-button" type="button" data-close-modal="auditModal" aria-label="Fechar auditoria">
               <span class="close-glyph">&#10005;</span>
             </button>
+            <button id="exportAuditButton" class="btn btn-outline btn-sm" type="button">&#128228; Exportar</button>
             <button id="refreshAuditButton" class="btn btn-outline btn-sm" type="button">Atualizar vis&atilde;o</button>
           </div>
         </div>
@@ -921,10 +938,27 @@
               <input id="auditEndDateNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
             </div>
           </label>
+          <label>
+            Comprador<br>
+            <select id="auditBuyerFilter">
+              <option value="">Todos</option>
+            </select>
+          </label>
           <div id="auditPeriodSummary" class="audit-period-summary muted"></div>
         </div>
 
         <div id="auditSummaryGrid" class="kpi-grid"></div>
+
+        <div class="audit-charts-row">
+          <div class="audit-chart-box">
+            <div class="audit-chart-label">Distribui&ccedil;&atilde;o do per&iacute;odo</div>
+            <canvas id="auditChartPie" height="180"></canvas>
+          </div>
+          <div class="audit-chart-box audit-chart-bar-box">
+            <div class="audit-chart-label">Eventos por comprador</div>
+            <canvas id="auditChartBar"></canvas>
+          </div>
+        </div>
 
         <div class="audit-layout">
           <section class="audit-block">

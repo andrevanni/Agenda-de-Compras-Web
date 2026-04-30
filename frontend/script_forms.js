@@ -532,46 +532,83 @@ function renderSemComprador() {
   });
 }
 
-function buildAuditRecommendations(entries) {
+function buildAuditRecommendations(entries, allEntries = null) {
   const metrics = aggregateAuditMetrics(entries);
+  const base = allEntries ?? entries;
   const recommendations = [];
 
   recommendations.push({
     title: "Resumo executivo",
-    text: `${metrics.total} evento(s) auditado(s), com ${metrics.cumpridas} agenda(s) cumprida(s), ${metrics.postergadas} postergações, ${metrics.aumentos} aumento(s) e ${metrics.reducoes} redução(ões) de parâmetro.`,
+    text: `${metrics.total} evento(s) auditado(s): ${metrics.cumpridas} cumprida(s), ${metrics.postergadas} postergada(s), ${metrics.antecipadas} antecipada(s). Ajustes de parâmetro: +${metrics.aumentos} aumento(s), −${metrics.reducoes} redução(ões).`,
   });
 
   if (metrics.postergadas >= 3) {
+    const taxa = metrics.total > 0 ? Math.round((metrics.postergadas / metrics.total) * 100) : 0;
     recommendations.push({
-      title: "Risco de atraso acumulado",
-      text: "A quantidade de postergações sugere revisar a carga por comprador, os dias de compra e a aderência da frequência de revisão por fornecedor.",
+      title: "⚠️ Risco de atraso acumulado",
+      text: `${taxa}% das agendas foram postergadas. Revise a carga por comprador, os dias de compra e a aderência da frequência de revisão por fornecedor.`,
+    });
+  }
+
+  // Análise por comprador — destaca o mais sobrecarregado
+  const byBuyer = new Map();
+  base.forEach((e) => {
+    if (!byBuyer.has(e.buyerName)) byBuyer.set(e.buyerName, { total: 0, postergadas: 0, aumentos: 0 });
+    const b = byBuyer.get(e.buyerName);
+    b.total++;
+    b.postergadas += e.metrics.postergada;
+    b.aumentos += e.metrics.aumentoParametro;
+  });
+  const maisPostergado = Array.from(byBuyer.entries())
+    .filter(([, v]) => v.total >= 3)
+    .sort(([, a], [, b]) => (b.postergadas / b.total) - (a.postergadas / a.total))[0];
+  if (maisPostergado && maisPostergado[1].postergadas > 0) {
+    const [nome, v] = maisPostergado;
+    const pct = Math.round((v.postergadas / v.total) * 100);
+    recommendations.push({
+      title: `📋 Atenção: ${nome}`,
+      text: `${pct}% das agendas de ${nome} foram postergadas no período (${v.postergadas} de ${v.total}). Recomenda-se revisão da carteira desse comprador.`,
     });
   }
 
   if (metrics.aumentos > metrics.reducoes) {
     recommendations.push({
-      title: "Pressão de estoque",
-      text: "Os aumentos de parâmetro superaram as reduções. Vale revisar fornecedores com recorrência de ajuste para elevar o parâmetro base ou o lead time esperado.",
+      title: "📈 Pressão de estoque",
+      text: "Os aumentos de parâmetro superaram as reduções. Vale revisar fornecedores com ajuste recorrente para elevar o parâmetro base ou o lead time esperado.",
     });
   } else if (metrics.reducoes > metrics.aumentos) {
     recommendations.push({
-      title: "Espaço para enxugar estoque",
+      title: "📉 Espaço para enxugar estoque",
       text: "As reduções de parâmetro estão predominando. Considere revisar fornecedores com sobrecobertura e ajustar a política base de parâmetro.",
     });
   }
 
-  const withoutBuyer = entries.filter((entry) => entry.buyerId === "sem-comprador").length;
-  if (withoutBuyer) {
+  const semComprador = entries.filter((e) => e.buyerId === "sem-comprador").length;
+  if (semComprador) {
     recommendations.push({
-      title: "Carteira sem dono",
-      text: `${withoutBuyer} evento(s) ainda estão sem comprador vinculado. O ideal é distribuir esses fornecedores para fechar a rastreabilidade da auditoria.`,
+      title: "👤 Carteira sem dono",
+      text: `${semComprador} evento(s) sem comprador vinculado. Distribua esses fornecedores para fechar a rastreabilidade da auditoria.`,
+    });
+  }
+
+  // Fornecedor com mais aumentos de parâmetro
+  const bySupplier = new Map();
+  entries.forEach((e) => {
+    if (!bySupplier.has(e.supplierName)) bySupplier.set(e.supplierName, 0);
+    bySupplier.set(e.supplierName, bySupplier.get(e.supplierName) + e.metrics.aumentoParametro);
+  });
+  const maisAumento = Array.from(bySupplier.entries()).sort(([, a], [, b]) => b - a)[0];
+  if (maisAumento && maisAumento[1] >= 2) {
+    recommendations.push({
+      title: `🏭 Fornecedor em alerta: ${maisAumento[0]}`,
+      text: `${maisAumento[1]} ajuste(s) de aumento de parâmetro registrado(s). Considere revisar o parâmetro base ou o lead time desse fornecedor.`,
     });
   }
 
   if (recommendations.length === 1) {
     recommendations.push({
-      title: "Operação estável",
-      text: "Não foram detectados desvios relevantes. Mantenha a rotina de revisão e acompanhe a evolução semanal dos eventos por comprador.",
+      title: "✅ Operação estável",
+      text: "Nenhum desvio relevante detectado. Mantenha a rotina de revisão e acompanhe a evolução semanal por comprador.",
     });
   }
 
@@ -643,15 +680,101 @@ function syncAuditPeriodInputs() {
   summary.textContent = range.label;
 }
 
+let _auditChartPie = null;
+let _auditChartBar = null;
+
+function _destroyAuditCharts() {
+  if (_auditChartPie) { _auditChartPie.destroy(); _auditChartPie = null; }
+  if (_auditChartBar) { _auditChartBar.destroy(); _auditChartBar = null; }
+}
+
+function _renderAuditCharts(entries) {
+  _destroyAuditCharts();
+  if (typeof Chart === "undefined") return;
+
+  const metrics = aggregateAuditMetrics(entries);
+  const pieCtx = document.getElementById("auditChartPie")?.getContext("2d");
+  if (pieCtx && metrics.total > 0) {
+    _auditChartPie = new Chart(pieCtx, {
+      type: "doughnut",
+      data: {
+        labels: ["Cumpridas", "Postergadas", "Antecipadas"],
+        datasets: [{ data: [metrics.cumpridas, metrics.postergadas, metrics.antecipadas], backgroundColor: ["#10b981", "#ef4444", "#f59e0b"], borderWidth: 2 }],
+      },
+      options: { plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } }, cutout: "60%" },
+    });
+  }
+
+  const grouped = new Map();
+  entries.forEach((e) => {
+    if (!grouped.has(e.buyerName)) grouped.set(e.buyerName, { cumpridas: 0, postergadas: 0, antecipadas: 0 });
+    const b = grouped.get(e.buyerName);
+    b.cumpridas += e.metrics.cumprida;
+    b.postergadas += e.metrics.postergada;
+    b.antecipadas += e.metrics.antecipada;
+  });
+
+  const barCtx = document.getElementById("auditChartBar")?.getContext("2d");
+  if (barCtx && grouped.size > 0) {
+    const labels = Array.from(grouped.keys());
+    _auditChartBar = new Chart(barCtx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          { label: "Cumpridas", data: labels.map((n) => grouped.get(n).cumpridas), backgroundColor: "#10b981" },
+          { label: "Postergadas", data: labels.map((n) => grouped.get(n).postergadas), backgroundColor: "#ef4444" },
+          { label: "Antecipadas", data: labels.map((n) => grouped.get(n).antecipadas), backgroundColor: "#f59e0b" },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } },
+        scales: { x: { stacked: true, ticks: { precision: 0 } }, y: { stacked: true } },
+      },
+    });
+  }
+}
+
+function _populateAuditBuyerFilter() {
+  const sel = document.getElementById("auditBuyerFilter");
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Todos</option>' +
+    state.buyers.map((b) => `<option value="${b.id}"${b.id === current ? " selected" : ""}>${b.nome_comprador}</option>`).join("");
+}
+
+function exportAuditToExcel(entries, range) {
+  if (!entries.length) { setFeedback("Nenhum dado para exportar.", "warning"); return; }
+  const rows = entries.map((e) => ({
+    "Comprador": e.buyerName,
+    "Código": e.supplierCode,
+    "Fornecedor": e.supplierName,
+    "Data ação": e.actionDate ? formatDate(e.actionDate) : "-",
+    "Data prevista": e.plannedDate ? formatDate(e.plannedDate) : "-",
+    "Tipo": e.tipo,
+    "Δ Parâmetro (dias)": Number(e.meta?.incremento_parametro_dias ?? 0),
+    "Δ Próxima data (dias)": Number(e.meta?.ajuste_proxima_data_dias ?? 0),
+    "Detalhe": e.resumo,
+  }));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, "Auditoria");
+  XLSX.writeFile(wb, `auditoria_${range.start}_${range.end}.xlsx`);
+}
+
 function renderAuditDashboard() {
   const summaryGrid = document.getElementById("auditSummaryGrid");
   const insights = document.getElementById("auditInsights");
   const aiAnalysis = document.getElementById("auditAiAnalysis");
   const buyerGroups = document.getElementById("auditBuyerGroups");
   syncAuditPeriodInputs();
+  _populateAuditBuyerFilter();
   const range = getAuditRange();
+  const filterBuyerId = document.getElementById("auditBuyerFilter")?.value ?? "";
 
-  const entries = state.auditOccurrences
+  const allEntries = state.auditOccurrences
     .map(classifyAuditEvent)
     .filter((entry) => entry.status !== "PENDENTE" || entry.meta)
     .filter((entry) => {
@@ -661,6 +784,8 @@ function renderAuditDashboard() {
       return true;
     })
     .sort((left, right) => String(right.actionDate).localeCompare(String(left.actionDate)));
+
+  const entries = filterBuyerId ? allEntries.filter((e) => e.buyerId === filterBuyerId) : allEntries;
 
   const metrics = aggregateAuditMetrics(entries);
   summaryGrid.innerHTML = [
@@ -677,31 +802,37 @@ function renderAuditDashboard() {
     </div>
   `).join("");
 
-  const syntheticCards = [
+  _renderAuditCharts(entries);
+
+  // Leitura sintética
+  const txAdimplencia = metrics.total > 0 ? Math.round((metrics.cumpridas / metrics.total) * 100) : 0;
+  insights.innerHTML = [
     {
-      title: "Eventos auditáveis",
-      text: metrics.total ? "A trilha combina ocorrências tratadas, parâmetros ajustados e reprogramações feitas na agenda." : "Ainda não há eventos suficientes para a auditoria.",
+      title: "Taxa de adimplência",
+      text: metrics.total
+        ? `${txAdimplencia}% das agendas foram cumpridas no prazo (${metrics.cumpridas} de ${metrics.total}). ${txAdimplencia >= 80 ? "Performance dentro do esperado." : "Performance abaixo de 80% — recomenda-se revisão da carga."}`
+        : "Ainda não há eventos suficientes para calcular a taxa.",
     },
     {
       title: "Acompanhamento por comprador",
-      text: `A visão abaixo agrupa o histórico por comprador e permite expandir o detalhamento dos eventos registrados no período ${range.label.toLowerCase()}.`,
+      text: `${range.label}. Use o filtro acima para isolar um comprador. Expanda os grupos abaixo para drill-down por evento.`,
     },
-  ];
-
-  insights.innerHTML = syntheticCards.map((item) => `
+  ].map((item) => `
     <article class="audit-insight-card">
       <strong>${item.title}</strong>
       <div>${item.text}</div>
     </article>
   `).join("");
 
-  aiAnalysis.innerHTML = buildAuditRecommendations(entries).map((item) => `
+  // Inteligência — recomendações gerais + por comprador
+  aiAnalysis.innerHTML = buildAuditRecommendations(entries, allEntries).map((item) => `
     <article class="audit-insight-card">
       <strong>${item.title}</strong>
       <div>${item.text}</div>
     </article>
   `).join("");
 
+  // Agrupamento por comprador
   const grouped = new Map();
   entries.forEach((entry) => {
     if (!grouped.has(entry.buyerId)) grouped.set(entry.buyerId, []);
@@ -710,18 +841,20 @@ function renderAuditDashboard() {
 
   buyerGroups.innerHTML = grouped.size
     ? Array.from(grouped.entries()).map(([buyerId, buyerEntries]) => {
-      const buyerMetrics = aggregateAuditMetrics(buyerEntries);
+      const bm = aggregateAuditMetrics(buyerEntries);
+      const adimplencia = bm.total > 0 ? Math.round((bm.cumpridas / bm.total) * 100) : 0;
       return `
-        <details class="audit-group" ${buyerId !== "sem-comprador" ? "open" : ""}>
+        <details class="audit-group" open>
           <summary>
             <div class="audit-group-summary">
               <strong>${buyerEntries[0].buyerName}</strong>
-              <span class="muted">${buyerEntries.length} evento(s) auditado(s)</span>
+              <span class="muted">${buyerEntries.length} evento(s) — ${adimplencia}% adimplência</span>
             </div>
             <div class="audit-group-metrics">
-              <span class="audit-pill">Cumpridas: ${buyerMetrics.cumpridas}</span>
-              <span class="audit-pill">Postergadas: ${buyerMetrics.postergadas}</span>
-              <span class="audit-pill">Aumentos: ${buyerMetrics.aumentos}</span>
+              <span class="audit-pill">✅ ${bm.cumpridas}</span>
+              <span class="audit-pill" style="background:var(--danger-light,#fee2e2);color:var(--danger,#dc2626)">⏰ ${bm.postergadas}</span>
+              <span class="audit-pill" style="background:#fef3c7;color:#92400e">⬆ ${bm.aumentos}</span>
+              <span class="audit-pill" style="background:#d1fae5;color:#065f46">⬇ ${bm.reducoes}</span>
             </div>
           </summary>
           <div class="audit-group-body table-wrap">
@@ -731,30 +864,39 @@ function renderAuditDashboard() {
                   <th>Data</th>
                   <th>Fornecedor</th>
                   <th>Evento</th>
-                  <th>Impacto</th>
+                  <th>Δ Parâm.</th>
+                  <th>Δ Data</th>
                   <th>Detalhe</th>
                 </tr>
               </thead>
               <tbody>
-                ${buyerEntries.map((entry) => `
-                  <tr>
-                    <td>${entry.actionDate ? formatDate(entry.actionDate) : "-"}</td>
-                    <td>${entry.supplierCode} - ${entry.supplierName}</td>
-                    <td>${entry.tipo}</td>
-                    <td>
-                      Parâmetro: ${Number(entry.meta?.incremento_parametro_dias ?? 0)} dia(s)<br>
-                      Próxima data: ${Number(entry.meta?.ajuste_proxima_data_dias ?? 0)} dia(s)
-                    </td>
-                    <td class="audit-event-note">${entry.resumo}</td>
-                  </tr>
-                `).join("")}
+                ${buyerEntries.map((entry) => {
+                  const dp = Number(entry.meta?.incremento_parametro_dias ?? 0);
+                  const dd = Number(entry.meta?.ajuste_proxima_data_dias ?? 0);
+                  const dpColor = dp > 0 ? "color:#f59e0b" : dp < 0 ? "color:#10b981" : "color:#6b7280";
+                  const ddColor = dd > 0 ? "color:#ef4444" : dd < 0 ? "color:#10b981" : "color:#6b7280";
+                  return `
+                    <tr>
+                      <td>${entry.actionDate ? formatDate(entry.actionDate) : "-"}</td>
+                      <td>${entry.supplierCode} — ${entry.supplierName}</td>
+                      <td>${entry.tipo}</td>
+                      <td style="${dpColor};font-weight:600">${dp > 0 ? "+" : ""}${dp}d</td>
+                      <td style="${ddColor};font-weight:600">${dd > 0 ? "+" : ""}${dd}d</td>
+                      <td class="audit-event-note">${entry.resumo}</td>
+                    </tr>`;
+                }).join("")}
               </tbody>
             </table>
           </div>
-        </details>
-      `;
+        </details>`;
     }).join("")
-    : `<div class="msg info">Ainda não há histórico suficiente para montar a auditoria detalhada.</div>`;
+    : `<div class="msg info">Nenhum evento encontrado para os filtros selecionados.</div>`;
+
+  // Bind export button
+  document.getElementById("exportAuditButton")?.addEventListener("click", () => exportAuditToExcel(entries, range), { once: true });
+
+  // Bind buyer filter change
+  document.getElementById("auditBuyerFilter")?.addEventListener("change", renderAuditDashboard, { once: true });
 }
 
 function refreshSupplierSuggestion() {
