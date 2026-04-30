@@ -521,7 +521,9 @@ async function saveBuyer(event) {
     return;
   }
 
-  if (rawPassword && getLoggedPortalRole() !== "buyer") {
+  const isSelf = getLoggedPortalRole() === "buyer" && getSettings().loggedBuyerId === buyerId;
+  const isAdmin = getLoggedPortalRole() !== "buyer";
+  if (rawPassword && (isAdmin || isSelf)) {
     payload.senha_hash = rawPassword;
   }
 

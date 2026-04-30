@@ -620,9 +620,13 @@ function editBuyer(buyerId) {
   document.getElementById("compradorEmail").value = buyer.email ?? "";
   document.getElementById("compradorSenha").value = "";
   document.getElementById("compradorFormMode").textContent = `Editando ${buyer.nome_comprador}`;
-  // Compradores (role=buyer) não podem alterar senhas — apenas admins
+  // Senha: visível para admins e para o próprio comprador editando seu registro
   const senhaLabel = document.getElementById("compradorSenha").closest("label");
-  if (senhaLabel) senhaLabel.style.display = getLoggedPortalRole() === "buyer" ? "none" : "";
+  if (senhaLabel) {
+    const isSelf = getLoggedPortalRole() === "buyer" && getSettings().loggedBuyerId === buyerId;
+    const isAdmin = getLoggedPortalRole() !== "buyer";
+    senhaLabel.style.display = (isAdmin || isSelf) ? "" : "none";
+  }
   updateBuyerPreview();
 }
 
