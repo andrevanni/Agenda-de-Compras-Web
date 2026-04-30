@@ -385,7 +385,7 @@ function parseSuppliersCsv(text) {
     const diasCompra = parseImportDays(diasIndex >= 0 ? parts[diasIndex] : "", frequencia);
 
     if (!codigo || !fabricante) {
-      throw new Error(`Linha ${rowIndex + 2}: código ou nome ausente.`);
+      return null;
     }
 
     let safeEstoque = Number.isNaN(parametroEstoque) ? frequencia : parametroEstoque;
@@ -407,7 +407,7 @@ function parseSuppliersCsv(text) {
         ? `Fornecedor ${codigo}: parâmetro ajustado para ${frequencia} porque não pode ser menor que a frequência.`
         : null,
     };
-  });
+  }).filter(Boolean);
 }
 
 function validateSuppliersCsv(text) {
