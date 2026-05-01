@@ -464,6 +464,68 @@
             </details>
 
             <details class="ajuda-item">
+              <summary>📧 Relatório diário por e-mail — como ativar?</summary>
+              <div class="ajuda-corpo">
+                <p>O sistema envia automaticamente um relatório por e-mail toda noite útil (seg–sex) às <strong>21h BRT</strong>. Para ativar:</p>
+                <ol class="ajuda-steps">
+                  <li><strong>Base Operacional</strong> — Localize o tenant e marque o toggle <em>"Envio de relatório diário"</em>. Enquanto desativado, nenhum e-mail é enviado para aquele cliente.</li>
+                  <li><strong>Abrir Portal</strong> — Acesse o portal do cliente e vá em <strong>Compradores</strong>.</li>
+                  <li>Edite cada comprador que deve receber o e-mail e marque as opções de notificação desejadas (veja tópico abaixo).</li>
+                </ol>
+                <h4>Conteúdo do relatório</h4>
+                <ul class="ajuda-lista-ul">
+                  <li><strong>Itens em atraso</strong> — agenda de compras pendente com data vencida (destaque vermelho)</li>
+                  <li><strong>Agenda do próximo dia útil</strong> — compras agendadas + outros compromissos</li>
+                  <li><strong>Tratamentos do dia anterior</strong> — o que foi realizado, com justificativas quando registradas</li>
+                  <li><strong>KPIs do mês corrente e anterior</strong> — 10 métricas: realizadas, atrasadas, postergadas, antecipadas, adiadas, parâmetros alterados e execuções fora da carteira</li>
+                </ul>
+                <p>O e-mail inclui um <strong>PDF anexo</strong> com o mesmo conteúdo formatado para impressão.</p>
+                <p class="ajuda-dica">💡 O relatório só é enviado para compradores com e-mail cadastrado e com pelo menos uma das opções de notificação ativa.</p>
+              </div>
+            </details>
+
+            <details class="ajuda-item">
+              <summary>📋 Notificações por comprador — gestor, auditoria e agenda</summary>
+              <div class="ajuda-corpo">
+                <p>Cada comprador tem três configurações independentes de notificação, editáveis em <strong>Compradores</strong> no portal do cliente:</p>
+                <table class="ajuda-tabela">
+                  <thead><tr><th>Campo</th><th>O que recebe</th><th>Para quem</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Gestor</strong></td>
+                      <td>Dados consolidados de <em>todos</em> os compradores do tenant</td>
+                      <td>Gerente / responsável geral</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Receber auditoria</strong></td>
+                      <td>Tratamentos realizados no dia anterior (com justificativas)</td>
+                      <td>Qualquer comprador com acesso ao e-mail</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Receber agenda próximo</strong></td>
+                      <td>Itens em atraso + agenda do próximo dia útil</td>
+                      <td>Qualquer comprador com acesso ao e-mail</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <h4>Diferença entre Gestor e comprador comum</h4>
+                <ul class="ajuda-lista-ul">
+                  <li><strong>Gestor</strong>: recebe KPIs e detalhes de <em>toda</em> a equipe — ideal para supervisores</li>
+                  <li><strong>Comprador comum</strong>: recebe apenas os dados da própria carteira de fornecedores</li>
+                  <li>É possível ter mais de um gestor por tenant</li>
+                </ul>
+                <h4>Como configurar</h4>
+                <ol class="ajuda-steps">
+                  <li>No painel admin, clique em <strong>Abrir Portal</strong> do cliente desejado</li>
+                  <li>No portal, acesse o menu <strong>Compradores</strong></li>
+                  <li>Clique em editar no comprador e marque as checkboxes <em>Gestor</em>, <em>Receber auditoria</em> e/ou <em>Receber agenda próximo</em></li>
+                  <li>Salve — a configuração entra em vigor no próximo envio noturno</li>
+                </ol>
+                <p class="ajuda-dica">⚠️ Apenas <em>admin_client</em> e <em>admin_portal</em> podem alterar essas configurações. Compradores comuns não têm acesso a esses campos.</p>
+              </div>
+            </details>
+
+            <details class="ajuda-item">
               <summary>Conexão avançada — quando preciso mexer?</summary>
               <div class="ajuda-corpo">
                 <p>Guarda as credenciais do banco e do backend. Altere apenas se:</p>
