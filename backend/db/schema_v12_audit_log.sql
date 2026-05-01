@@ -24,3 +24,12 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_tenant_created
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_objeto
   ON audit_log(tenant_id, tipo_objeto, objeto_id);
+
+-- RLS — mesmo padrão das demais tabelas do sistema
+ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "audit_log tenant access" ON audit_log;
+CREATE POLICY "audit_log tenant access" ON audit_log
+  FOR ALL
+  USING (app.user_belongs_to_tenant(tenant_id))
+  WITH CHECK (app.user_belongs_to_tenant(tenant_id));
