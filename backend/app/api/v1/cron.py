@@ -1,9 +1,7 @@
-import traceback
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -33,13 +31,9 @@ def _verificar_auth(
 
 
 def _executar(db: Session, tenant_id: Optional[str], data_ref: Optional[date]) -> dict:
-    try:
-        if tenant_id:
-            return enviar_relatorios_tenant(db, tenant_id, data_ref)
-        return enviar_relatorios_todos_tenants(db, data_ref)
-    except Exception as exc:
-        tb = traceback.format_exc()
-        return JSONResponse(status_code=500, content={"error": str(exc), "traceback": tb})
+    if tenant_id:
+        return enviar_relatorios_tenant(db, tenant_id, data_ref)
+    return enviar_relatorios_todos_tenants(db, data_ref)
 
 
 @router.get("/relatorio-diario")
