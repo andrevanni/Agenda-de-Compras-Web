@@ -162,39 +162,60 @@ def _section_banner(title: str, subtitle: str, width: int, accent: str = "#0f766
 
 
 def _kpi_cards(kpis: dict, width: int) -> Table:
-    items = [
+    row1 = [
         ("Total",      kpis.get("total", 0),      "#1e293b"),
         ("Realizadas", kpis.get("realizadas", 0),  "#059669"),
+        ("Adiadas",    kpis.get("adiadas", 0),     "#7c3aed"),
         ("Atrasadas",  kpis.get("atrasadas", 0),   "#dc2626"),
         ("Pendentes",  kpis.get("pendentes", 0),   "#2563eb"),
     ]
-    card_w = (width - 18) / 4
+    row2 = [
+        ("Postergadas",   kpis.get("postergadas", 0),      "#ea580c"),
+        ("Antecipadas",   kpis.get("antecipadas", 0),      "#0891b2"),
+        ("Param. +",      kpis.get("param_aumentados", 0), "#d97706"),
+        ("Param. -",      kpis.get("param_reduzidos", 0),  "#10b981"),
+        ("Fora Carteira", kpis.get("fora_carteira", 0),    "#6b7280"),
+    ]
+    n = len(row1)
+    card_w = (width - (n - 1) * 5) / n
 
-    def card(label: str, value: int, accent: str) -> Table:
-        t_s = _s(f"ct_{label}", fontName="Helvetica", fontSize=8.5, leading=11, textColor=C_SLATE)
-        v_s = _s(f"cv_{label}", fontName="Helvetica-Bold", fontSize=18, leading=22, textColor=C_NAVY)
+    def card(label: str, value: int, accent: str, small: bool = False) -> Table:
+        fs_val = 15 if small else 18
+        t_s = _s(f"ct_{label}", fontName="Helvetica", fontSize=7.5, leading=10, textColor=C_SLATE)
+        v_s = _s(f"cv_{label}", fontName="Helvetica-Bold", fontSize=fs_val, leading=fs_val + 4, textColor=C_NAVY)
         tbl = Table([[Paragraph(label, t_s)], [Paragraph(str(value), v_s)]], colWidths=[card_w])
         tbl.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, -1), C_BG_CARD),
             ("BOX",           (0, 0), (-1, -1), 0.7, C_BORDER),
-            ("LINEABOVE",     (0, 0), (-1, 0), 3.5, colors.HexColor(accent)),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 10),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
-            ("TOPPADDING",    (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LINEABOVE",     (0, 0), (-1, 0), 3, colors.HexColor(accent)),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+            ("TOPPADDING",    (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ]))
         return tbl
 
-    cards = [card(lbl, val, acc) for lbl, val, acc in items]
-    grid = Table([cards], colWidths=[card_w] * 4)
-    grid.setStyle(TableStyle([
+    cards1 = [card(lbl, val, acc) for lbl, val, acc in row1]
+    cards2 = [card(lbl, val, acc, small=True) for lbl, val, acc in row2]
+    spacing = TableStyle([
         ("LEFTPADDING",  (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
         ("TOPPADDING",   (0, 0), (-1, -1), 0),
         ("BOTTOMPADDING",(0, 0), (-1, -1), 0),
         ("VALIGN",       (0, 0), (-1, -1), "TOP"),
+    ])
+    g1 = Table([cards1], colWidths=[card_w] * n)
+    g1.setStyle(spacing)
+    g2 = Table([cards2], colWidths=[card_w] * n)
+    g2.setStyle(spacing)
+    wrapper = Table([[g1], [g2]], colWidths=[width])
+    wrapper.setStyle(TableStyle([
+        ("LEFTPADDING",  (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING",   (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING",(0, 0), (-1, -1), 6),
     ]))
-    return grid
+    return wrapper
 
 
 def _atrasados_table(rows: list[dict], width: int) -> list:

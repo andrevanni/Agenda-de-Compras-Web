@@ -54,8 +54,39 @@ def _kpis_query(db: Session, tenant_id: str, inicio: date, fim: date, comprador_
             SELECT
                 COUNT(*) FILTER (WHERE status IN ('REALIZADA','PENDENTE','ADIADA')) AS total,
                 COUNT(*) FILTER (WHERE status = 'REALIZADA') AS realizadas,
+                COUNT(*) FILTER (WHERE status = 'ADIADA') AS adiadas,
                 COUNT(*) FILTER (WHERE status = 'PENDENTE' AND data_prevista < :fim) AS atrasadas,
-                COUNT(*) FILTER (WHERE status = 'PENDENTE' AND data_prevista >= :fim) AS pendentes
+                COUNT(*) FILTER (WHERE status = 'PENDENTE' AND data_prevista >= :fim) AS pendentes,
+                COUNT(*) FILTER (
+                    WHERE status = 'REALIZADA'
+                      AND observacao IS NOT NULL
+                      AND observacao::jsonb ? 'ajuste_proxima_data_dias'
+                      AND (observacao::jsonb->>'ajuste_proxima_data_dias')::int > 0
+                ) AS postergadas,
+                COUNT(*) FILTER (
+                    WHERE status = 'REALIZADA'
+                      AND observacao IS NOT NULL
+                      AND observacao::jsonb ? 'ajuste_proxima_data_dias'
+                      AND (observacao::jsonb->>'ajuste_proxima_data_dias')::int < 0
+                ) AS antecipadas,
+                COUNT(*) FILTER (
+                    WHERE status = 'REALIZADA'
+                      AND observacao IS NOT NULL
+                      AND observacao::jsonb ? 'incremento_parametro_dias'
+                      AND (observacao::jsonb->>'incremento_parametro_dias')::int > 0
+                ) AS param_aumentados,
+                COUNT(*) FILTER (
+                    WHERE status = 'REALIZADA'
+                      AND observacao IS NOT NULL
+                      AND observacao::jsonb ? 'incremento_parametro_dias'
+                      AND (observacao::jsonb->>'incremento_parametro_dias')::int < 0
+                ) AS param_reduzidos,
+                COUNT(*) FILTER (
+                    WHERE status = 'REALIZADA'
+                      AND observacao IS NOT NULL
+                      AND observacao::jsonb ? 'executado_fora_da_carteira'
+                      AND (observacao::jsonb->>'executado_fora_da_carteira')::boolean = true
+                ) AS fora_carteira
             FROM agenda_ocorrencias
             WHERE tenant_id = cast(:tid as uuid)
               AND data_prevista BETWEEN :inicio AND :fim
@@ -64,7 +95,9 @@ def _kpis_query(db: Session, tenant_id: str, inicio: date, fim: date, comprador_
         """),
         params,
     ).mappings().first()
-    return dict(row) if row else {"total": 0, "realizadas": 0, "atrasadas": 0, "pendentes": 0}
+    empty = {"total": 0, "realizadas": 0, "adiadas": 0, "atrasadas": 0, "pendentes": 0,
+             "postergadas": 0, "antecipadas": 0, "param_aumentados": 0, "param_reduzidos": 0, "fora_carteira": 0}
+    return dict(row) if row else empty
 
 
 def _get_itens_atrasados(
@@ -234,21 +267,29 @@ def _build_html_email(
     )
 
     def kpi_row(kpis: dict, label: str) -> str:
-        items = [
-            ("Total", kpis.get("total", 0), "#1e293b"),
-            ("Realizadas", kpis.get("realizadas", 0), "#059669"),
-            ("Atrasadas", kpis.get("atrasadas", 0), "#dc2626"),
-            ("Pendentes", kpis.get("pendentes", 0), "#2563eb"),
-        ]
-        cells = "".join(
-            f'<td style="text-align:center;padding:10px 14px;background:#f8fafc;border-radius:8px;">'
-            f'<div style="font-size:20px;font-weight:700;color:{color};">{val}</div>'
-            f'<div style="font-size:10px;color:#64748b;text-transform:uppercase;">{lbl}</div></td>'
-            for lbl, val, color in items
-        )
+        def cell(lbl: str, val: int, color: str) -> str:
+            return (
+                f'<td style="text-align:center;padding:8px 10px;background:#f8fafc;border-radius:8px;">'
+                f'<div style="font-size:18px;font-weight:700;color:{color};">{val}</div>'
+                f'<div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.3px;">{lbl}</div></td>'
+            )
+        row1 = "".join([
+            cell("Total",      kpis.get("total", 0),      "#1e293b"),
+            cell("Realizadas", kpis.get("realizadas", 0),  "#059669"),
+            cell("Adiadas",    kpis.get("adiadas", 0),     "#7c3aed"),
+            cell("Atrasadas",  kpis.get("atrasadas", 0),   "#dc2626"),
+            cell("Pendentes",  kpis.get("pendentes", 0),   "#2563eb"),
+        ])
+        row2 = "".join([
+            cell("Postergadas",   kpis.get("postergadas", 0),      "#ea580c"),
+            cell("Antecipadas",   kpis.get("antecipadas", 0),      "#0891b2"),
+            cell("Parâm. ↑", kpis.get("param_aumentados", 0), "#d97706"),
+            cell("Parâm. ↓", kpis.get("param_reduzidos", 0),  "#10b981"),
+            cell("Fora carteira", kpis.get("fora_carteira", 0),    "#6b7280"),
+        ])
         return (
             f'<p style="font-size:13px;font-weight:600;color:#1e293b;margin:20px 0 6px;">{label}</p>'
-            f'<table style="width:100%;border-spacing:6px;border-collapse:separate;"><tr>{cells}</tr></table>'
+            f'<table style="width:100%;border-spacing:5px;border-collapse:separate;"><tr>{row1}</tr><tr>{row2}</tr></table>'
         )
 
     def atrasados_section() -> str:
