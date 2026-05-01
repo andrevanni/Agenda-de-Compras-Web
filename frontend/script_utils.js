@@ -757,12 +757,40 @@ async function persistSupplierNote(supplierId, noteText) {
   }
 }
 
+async function logAuditEvent(evento) {
+  try {
+    const { tenantId } = getSettings();
+    if (!tenantId) return;
+    await fetchSupabase("/rest/v1/audit_log", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: { tenant_id: tenantId, ...evento },
+    });
+  } catch { /* audit não deve bloquear operações principais */ }
+}
+
 async function deleteSupplier(supplierId) {
   if (!window.confirm("Deseja realmente excluir este fornecedor?")) return;
+  const supplier = state.suppliers.find((s) => s.id === supplierId);
   try {
     await fetchSupabase(`/rest/v1/fornecedor_dias_compra?fornecedor_id=eq.${supplierId}`, { method: "DELETE" });
     await fetchSupabase(`/rest/v1/fornecedores?id=eq.${supplierId}`, { method: "DELETE" });
     await persistSupplierNote(supplierId, "");
+    const executor = loggedPortalActor();
+    await logAuditEvent({
+      tipo_objeto: "fornecedor",
+      objeto_id: supplierId,
+      objeto_nome: supplier?.nome_fornecedor ?? supplierId,
+      acao: "exclusao",
+      campos_alterados: supplier ? {
+        codigo_fornecedor: { de: supplier.codigo_fornecedor, para: null },
+        nome_fornecedor: { de: supplier.nome_fornecedor, para: null },
+        comprador_id: { de: supplier.comprador_id, para: null },
+      } : null,
+      comprador_id: executor?.role === "buyer" ? executor.id : null,
+      executor_role: executor?.role ?? "anon",
+      executor_nome: executor?.displayName ?? "Sistema",
+    });
     setFeedback("Fornecedor excluido com sucesso.", "success");
     await loadPortalData({ silent: true });
   } catch (error) {
@@ -776,6 +804,7 @@ async function deleteBuyer(buyerId) {
     return;
   }
   if (!window.confirm("Deseja realmente excluir este comprador?")) return;
+  const buyer = state.buyers.find((b) => b.id === buyerId);
   try {
     await fetchSupabase(`/rest/v1/fornecedores?comprador_id=eq.${buyerId}`, {
       method: "PATCH",
@@ -788,6 +817,20 @@ async function deleteBuyer(buyerId) {
       body: { comprador_id: null },
     });
     await fetchSupabase(`/rest/v1/compradores?id=eq.${buyerId}`, { method: "DELETE" });
+    const executor = loggedPortalActor();
+    await logAuditEvent({
+      tipo_objeto: "comprador",
+      objeto_id: buyerId,
+      objeto_nome: buyer?.nome_comprador ?? buyerId,
+      acao: "exclusao",
+      campos_alterados: buyer ? {
+        nome_comprador: { de: buyer.nome_comprador, para: null },
+        email: { de: buyer.email, para: null },
+      } : null,
+      comprador_id: executor?.role === "buyer" ? executor.id : null,
+      executor_role: executor?.role ?? "anon",
+      executor_nome: executor?.displayName ?? "Sistema",
+    });
     setFeedback("Comprador excluido com sucesso.", "success");
     await loadPortalData({ silent: true });
   } catch (error) {

@@ -812,6 +812,17 @@
                 Nota (fixada no Painel)<br>
                 <textarea id="agendaNota" rows="2" placeholder="Registre algo importante sobre este compromisso..."></textarea>
               </label>
+
+              <div id="agendaAuditSummary" class="audit-pre-treat">
+                <div class="audit-pre-treat-title">&#128203; O que ser&aacute; registrado na auditoria:</div>
+                <ul id="agendaAuditItems" class="audit-items-list"></ul>
+                <div class="justify-row">
+                  <span class="muted">Deseja justificar?</span>
+                  <button type="button" id="justificativaSimBtn" class="btn btn-sm btn-outline">Sim</button>
+                  <button type="button" id="justificativaNaoBtn" class="btn btn-sm btn-outline justify-active">N&atilde;o</button>
+                </div>
+                <textarea id="agendaJustificativa" class="hidden" rows="3" placeholder="Descreva o motivo em texto livre..."></textarea>
+              </div>
             </section>
 
             <aside class="detail-treatment-side">
@@ -1021,6 +1032,16 @@
             </div>
           </div>
           <div id="auditBuyerGroups" class="audit-groups"></div>
+        </section>
+
+        <section class="audit-block">
+          <div class="section-title">
+            <div>
+              <h3>Eventos de Cadastro</h3>
+              <p class="muted">Cria&ccedil;&otilde;es, exclus&otilde;es e altera&ccedil;&otilde;es em fornecedores e compradores no per&iacute;odo.</p>
+            </div>
+          </div>
+          <div id="auditCadastroSection" class="table-wrap"></div>
         </section>
       </form>
     </dialog>

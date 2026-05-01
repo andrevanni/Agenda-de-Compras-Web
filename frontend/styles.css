@@ -1090,6 +1090,67 @@ textarea::placeholder {
   min-height: 72px;
 }
 
+.audit-justificativa {
+  display: block;
+  margin-top: 4px;
+  color: #6366f1;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.audit-pre-treat {
+  background: var(--surface-alt, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.audit-pre-treat-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+.audit-items-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text, #1e293b);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.justify-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.justify-active {
+  background: var(--primary, #2563eb) !important;
+  color: #fff !important;
+  border-color: var(--primary, #2563eb) !important;
+}
+
+.audit-pre-treat textarea {
+  margin-top: 4px;
+  width: 100%;
+  min-height: 68px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #e2e8f0);
+  padding: 8px 10px;
+  font-size: 13px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
 .date-input-group {
   position: relative;
   display: grid;

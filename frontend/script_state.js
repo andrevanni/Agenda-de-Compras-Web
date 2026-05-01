@@ -128,6 +128,7 @@ const state = {
   suppliers: structuredClone(mockSuppliers),
   agenda: [],
   auditOccurrences: [],
+  auditLogs: [],
   categorias: [],
   feriados: [],
   calendarInstance: null,

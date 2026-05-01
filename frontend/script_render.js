@@ -300,6 +300,28 @@ function openAgendaDetail(occurrenceId) {
   document.getElementById("incrementoAjusteProxima").textContent = "+0 dia(s)";
   document.getElementById("incrementoParametroTotal").textContent = formatIncrement(incrementoTratamentoBase);
   document.getElementById("novoParametro").textContent = String(supplier.parametro_compra + incrementoTratamentoBase);
+
+  // Reset justificativa
+  const justField = document.getElementById("agendaJustificativa");
+  const simBtn = document.getElementById("justificativaSimBtn");
+  const naoBtn = document.getElementById("justificativaNaoBtn");
+  if (justField) { justField.value = ""; justField.classList.add("hidden"); }
+  if (simBtn) simBtn.classList.remove("justify-active");
+  if (naoBtn) naoBtn.classList.add("justify-active");
+
+  if (simBtn) simBtn.onclick = () => {
+    justField?.classList.remove("hidden");
+    simBtn.classList.add("justify-active");
+    naoBtn?.classList.remove("justify-active");
+    justField?.focus();
+  };
+  if (naoBtn) naoBtn.onclick = () => {
+    justField?.classList.add("hidden");
+    if (justField) justField.value = "";
+    naoBtn.classList.add("justify-active");
+    simBtn?.classList.remove("justify-active");
+  };
+
   refreshAgendaSupplierNotesState(supplier.id);
   clearFeedback(agendaDetailFeedback);
   document.getElementById("agendaDetailModal").showModal();
@@ -335,6 +357,33 @@ function updateAgendaAdjustment() {
   document.getElementById("incrementoAjusteProxima").textContent = formatIncrement(incrementoAjuste);
   document.getElementById("incrementoParametroTotal").textContent = formatIncrement(incrementoTotal);
   document.getElementById("novoParametro").textContent = String(supplier.parametro_compra + incrementoTotal);
+  updateAuditSummary(row, supplier, incrementoTratamentoBase, incrementoAjuste, incrementoTotal);
+}
+
+function updateAuditSummary(row, supplier, incrementoTratamentoBase, incrementoAjuste, incrementoTotal) {
+  const list = document.getElementById("agendaAuditItems");
+  if (!list) return;
+  const items = [];
+  if (incrementoTratamentoBase > 0) {
+    items.push(`Agenda tratada com <strong>${incrementoTratamentoBase} dia(s) de atraso</strong>`);
+  } else if (incrementoTratamentoBase < 0) {
+    items.push(`Agenda tratada com <strong>${Math.abs(incrementoTratamentoBase)} dia(s) de antecedência</strong>`);
+  } else {
+    items.push("Agenda cumprida no prazo");
+  }
+  if (incrementoAjuste > 0) {
+    items.push(`Próxima data <strong>postergada em ${incrementoAjuste} dia(s)</strong> em relação à sugestão`);
+  } else if (incrementoAjuste < 0) {
+    items.push(`Próxima data <strong>antecipada em ${Math.abs(incrementoAjuste)} dia(s)</strong> em relação à sugestão`);
+  }
+  if (incrementoTotal !== 0) {
+    items.push(`Parâmetro de compra: <strong>${supplier.parametro_compra} → ${supplier.parametro_compra + incrementoTotal} dias</strong>`);
+  }
+  const executor = loggedPortalActor();
+  if (executor?.role === "buyer" && supplier.comprador_id && executor.id !== supplier.comprador_id) {
+    items.push(`Executado fora da carteira por <strong>${executor.displayName}</strong>`);
+  }
+  list.innerHTML = items.map((i) => `<li>${i}</li>`).join("");
 }
 
 async function tratarAgendaAtual() {
@@ -344,6 +393,7 @@ async function tratarAgendaAtual() {
   const executor = loggedPortalActor();
   const chosenDate = brToIso(document.getElementById("proximaDataInput").value);
   const observation = document.getElementById("agendaObservacao").value.trim() || "Tratado pela tela";
+  const justificativa = document.getElementById("agendaJustificativa")?.value.trim() || null;
   const settings = getSettings();
 
   if (!chosenDate) {
@@ -417,6 +467,7 @@ async function tratarAgendaAtual() {
         : incrementoAjuste < 0
           ? `Agenda antecipada em ${Math.abs(incrementoAjuste)} dia(s) com novo parametro sugerido de ${supplier.parametro_compra + incrementoTotal}.`
           : `Agenda cumprida com novo parametro sugerido de ${supplier.parametro_compra + incrementoTotal}.`,
+      ...(justificativa ? { justificativa } : {}),
     });
 
     await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${row.id}`, {
@@ -558,6 +609,7 @@ function setupDatePickerField(textInputId, nativeInputId, buttonId) {
 async function saveBuyer(event) {
   event.preventDefault();
   const buyerId = document.getElementById("compradorId").value.trim();
+  const oldBuyer = buyerId ? (state.buyers.find((b) => b.id === buyerId) ?? null) : null;
   const existingPhoto = document.getElementById("compradorFotoAtual").value.trim();
   const file = document.getElementById("compradorFotoArquivo").files[0];
   const rawPassword = document.getElementById("compradorSenha").value.trim();
@@ -620,6 +672,42 @@ async function saveBuyer(event) {
       });
       setFeedback("Comprador cadastrado com sucesso.", "success");
     }
+    // Log de auditoria
+    const executor = loggedPortalActor();
+    const executorInfo = {
+      comprador_id: executor?.role === "buyer" ? executor.id : null,
+      executor_role: executor?.role ?? "anon",
+      executor_nome: executor?.displayName ?? "Sistema",
+    };
+    const savedBuyerId = targetBuyerId || buyerId;
+    if (!buyerId && !targetBuyerId) {
+      await logAuditEvent({
+        tipo_objeto: "comprador",
+        objeto_id: null,
+        objeto_nome: payload.nome_comprador,
+        acao: "criacao",
+        campos_alterados: {
+          nome_comprador: { de: null, para: payload.nome_comprador },
+          email: { de: null, para: payload.email },
+        },
+        ...executorInfo,
+      });
+    } else if (oldBuyer) {
+      const diffs = {};
+      if (oldBuyer.nome_comprador !== payload.nome_comprador) diffs.nome_comprador = { de: oldBuyer.nome_comprador, para: payload.nome_comprador };
+      if ((oldBuyer.email ?? "") !== (payload.email ?? "")) diffs.email = { de: oldBuyer.email, para: payload.email };
+      if (Object.keys(diffs).length > 0) {
+        await logAuditEvent({
+          tipo_objeto: "comprador",
+          objeto_id: savedBuyerId || null,
+          objeto_nome: payload.nome_comprador,
+          acao: "alteracao",
+          campos_alterados: diffs,
+          ...executorInfo,
+        });
+      }
+    }
+
     resetBuyerForm();
     await loadPortalData({ silent: true });
   } catch (error) {
@@ -630,6 +718,8 @@ async function saveBuyer(event) {
 async function saveSupplier(event) {
   event.preventDefault();
   const supplierId = document.getElementById("fornecedorId").value.trim();
+  const oldSupplier = supplierId ? (state.suppliers.find((s) => s.id === supplierId) ?? null) : null;
+  const oldDays = oldSupplier ? [...(oldSupplier.dias_compra ?? [])] : [];
   const supplierNotesDraft = document.getElementById("fornecedorNotasDraft").value.trim();
   const frequency = Number(document.getElementById("fornecedorFrequencia").value || 0);
   const selectedDays = orderedDays(selectedSupplierDays());
@@ -716,6 +806,75 @@ async function saveSupplier(event) {
       hora_inicio: payload.hora_inicio,
       hora_fim: payload.hora_fim,
     });
+
+    // Log de auditoria
+    const executor = loggedPortalActor();
+    const executorInfo = {
+      comprador_id: executor?.role === "buyer" ? executor.id : null,
+      executor_role: executor?.role ?? "anon",
+      executor_nome: executor?.displayName ?? "Sistema",
+    };
+
+    if (!supplierId) {
+      await logAuditEvent({
+        tipo_objeto: "fornecedor",
+        objeto_id: savedId,
+        objeto_nome: payload.nome_fornecedor,
+        acao: "criacao",
+        campos_alterados: {
+          codigo_fornecedor: { de: null, para: payload.codigo_fornecedor },
+          nome_fornecedor: { de: null, para: payload.nome_fornecedor },
+          frequencia_revisao: { de: null, para: payload.frequencia_revisao },
+          parametro_estoque: { de: null, para: payload.parametro_estoque },
+          lead_time_entrega: { de: null, para: payload.lead_time_entrega },
+          comprador_id: { de: null, para: payload.comprador_id },
+          comprador_nome: { de: null, para: state.buyers.find((b) => b.id === payload.comprador_id)?.nome_comprador ?? null },
+          dias_compra: { de: null, para: selectedDays },
+        },
+        ...executorInfo,
+      });
+    } else if (oldSupplier) {
+      const diffs = {};
+      if (oldSupplier.codigo_fornecedor !== payload.codigo_fornecedor || oldSupplier.nome_fornecedor !== payload.nome_fornecedor) {
+        diffs.codigo_fornecedor = { de: oldSupplier.codigo_fornecedor, para: payload.codigo_fornecedor };
+        diffs.nome_fornecedor = { de: oldSupplier.nome_fornecedor, para: payload.nome_fornecedor };
+      }
+      if (oldSupplier.comprador_id !== payload.comprador_id) {
+        diffs.comprador_id = { de: oldSupplier.comprador_id, para: payload.comprador_id };
+        diffs.comprador_nome = {
+          de: state.buyers.find((b) => b.id === oldSupplier.comprador_id)?.nome_comprador ?? null,
+          para: state.buyers.find((b) => b.id === payload.comprador_id)?.nome_comprador ?? null,
+        };
+      }
+      if (oldSupplier.frequencia_revisao !== payload.frequencia_revisao) {
+        diffs.frequencia_revisao = { de: oldSupplier.frequencia_revisao, para: payload.frequencia_revisao };
+      }
+      if (oldSupplier.parametro_estoque !== payload.parametro_estoque) {
+        diffs.parametro_estoque = { de: oldSupplier.parametro_estoque, para: payload.parametro_estoque };
+      }
+      if (oldSupplier.lead_time_entrega !== payload.lead_time_entrega) {
+        diffs.lead_time_entrega = { de: oldSupplier.lead_time_entrega, para: payload.lead_time_entrega };
+      }
+      if (oldSupplier.hora_inicio !== payload.hora_inicio || oldSupplier.hora_fim !== payload.hora_fim) {
+        diffs.hora_inicio = { de: oldSupplier.hora_inicio, para: payload.hora_inicio };
+        diffs.hora_fim = { de: oldSupplier.hora_fim, para: payload.hora_fim };
+      }
+      const sortedOld = [...oldDays].sort().join(",");
+      const sortedNew = [...selectedDays].sort().join(",");
+      if (sortedOld !== sortedNew) {
+        diffs.dias_compra = { de: oldDays, para: selectedDays };
+      }
+      if (Object.keys(diffs).length > 0) {
+        await logAuditEvent({
+          tipo_objeto: "fornecedor",
+          objeto_id: savedId,
+          objeto_nome: payload.nome_fornecedor,
+          acao: "alteracao",
+          campos_alterados: diffs,
+          ...executorInfo,
+        });
+      }
+    }
 
     setFeedback(
       agendaSeed.created

@@ -5,7 +5,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
   const settings = getSettings();
   try {
     await detectSupplierNotesColumn();
-    const [tenantRows, clientRows, buyersRows, supplierRowsRaw, agendaRowsRaw, auditRows, feriadosRows] = await Promise.all([
+    const [tenantRows, clientRows, buyersRows, supplierRowsRaw, agendaRowsRaw, auditRows, feriadosRows, auditLogRows] = await Promise.all([
       fetchSupabase(`/rest/v1/tenants?select=id,nome&id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/clientes?select=id,nome_fantasia,razao_social,email_responsavel,observacoes&tenant_id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/compradores?select=id,nome_comprador,telefone,email,foto_path,senha_hash&tenant_id=eq.${settings.tenantId}&order=nome_comprador.asc`),
@@ -13,6 +13,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
       fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`),
       fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,observacao,data_realizacao,created_at,updated_at&tenant_id=eq.${settings.tenantId}&order=updated_at.desc`),
       fetchSupabase(`/rest/v1/feriados?select=id,data,nome,tipo&tenant_id=eq.${settings.tenantId}&order=data.asc`),
+      fetchSupabase(`/rest/v1/audit_log?select=id,tipo_objeto,objeto_id,objeto_nome,acao,campos_alterados,executor_role,executor_nome,comprador_id,created_at&tenant_id=eq.${settings.tenantId}&order=created_at.desc&limit=500`),
     ]);
 
     const supplierRows = supplierRowsRaw.map(mapSupplier);
@@ -57,6 +58,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
     state.suppliers = supplierRows;
     state.agenda = agendaRows;
     state.auditOccurrences = auditRows;
+    state.auditLogs = auditLogRows ?? [];
     state.feriados = feriadosRows ?? [];
 
     if (clientMeta.logo_url) {

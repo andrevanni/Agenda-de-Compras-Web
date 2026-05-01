@@ -764,6 +764,22 @@ function exportAuditToExcel(entries, range) {
   XLSX.writeFile(wb, `auditoria_${range.start}_${range.end}.xlsx`);
 }
 
+const AUDIT_ACAO_LABEL = { criacao: "Criação", exclusao: "Exclusão", alteracao: "Alteração" };
+const AUDIT_OBJETO_LABEL = { fornecedor: "Fornecedor", comprador: "Comprador" };
+const AUDIT_CAMPO_LABEL = {
+  codigo_fornecedor: "Código",
+  nome_fornecedor: "Nome",
+  comprador_nome: "Comprador",
+  frequencia_revisao: "Frequência",
+  parametro_estoque: "Parâm. Estoque",
+  lead_time_entrega: "Lead Time",
+  dias_compra: "Dias de Compra",
+  hora_inicio: "Horário Início",
+  hora_fim: "Horário Fim",
+  nome_comprador: "Nome",
+  email: "E-mail",
+};
+
 function renderAuditDashboard() {
   const summaryGrid = document.getElementById("auditSummaryGrid");
   const insights = document.getElementById("auditInsights");
@@ -875,6 +891,10 @@ function renderAuditDashboard() {
                   const dd = Number(entry.meta?.ajuste_proxima_data_dias ?? 0);
                   const dpColor = dp > 0 ? "color:#f59e0b" : dp < 0 ? "color:#10b981" : "color:#6b7280";
                   const ddColor = dd > 0 ? "color:#ef4444" : dd < 0 ? "color:#10b981" : "color:#6b7280";
+                  const justificativa = entry.meta?.justificativa ?? "";
+                  const detalheHtml = justificativa
+                    ? `${entry.resumo}<br><span class="audit-justificativa">📝 ${justificativa}</span>`
+                    : entry.resumo;
                   return `
                     <tr>
                       <td>${entry.actionDate ? formatDate(entry.actionDate) : "-"}</td>
@@ -882,7 +902,7 @@ function renderAuditDashboard() {
                       <td>${entry.tipo}</td>
                       <td style="${dpColor};font-weight:600">${dp > 0 ? "+" : ""}${dp}d</td>
                       <td style="${ddColor};font-weight:600">${dd > 0 ? "+" : ""}${dd}d</td>
-                      <td class="audit-event-note">${entry.resumo}</td>
+                      <td class="audit-event-note">${detalheHtml}</td>
                     </tr>`;
                 }).join("")}
               </tbody>
@@ -891,6 +911,52 @@ function renderAuditDashboard() {
         </details>`;
     }).join("")
     : `<div class="msg info">Nenhum evento encontrado para os filtros selecionados.</div>`;
+
+  // Seção: Eventos de Cadastro (fornecedor / comprador)
+  const cadastroSection = document.getElementById("auditCadastroSection");
+  if (cadastroSection) {
+    const auditLogs = (state.auditLogs ?? []).filter((log) => {
+      const d = log.created_at?.slice(0, 10) ?? "";
+      if (range.start && d < range.start) return false;
+      if (range.end && d > range.end) return false;
+      return true;
+    });
+    if (!auditLogs.length) {
+      cadastroSection.innerHTML = `<div class="msg info">Nenhum evento de cadastro no período.</div>`;
+    } else {
+      cadastroSection.innerHTML = `<table class="audit-event-table">
+        <thead><tr>
+          <th>Data</th><th>Tipo</th><th>Objeto</th><th>Ação</th><th>Alterações</th><th>Por</th>
+        </tr></thead>
+        <tbody>
+          ${auditLogs.map((log) => {
+            const dt = log.created_at ? new Date(log.created_at) : null;
+            const dtLabel = dt ? dt.toLocaleDateString("pt-BR") : "-";
+            const campos = log.campos_alterados ?? {};
+            const diffsHtml = Object.entries(campos)
+              .filter(([k]) => k !== "comprador_id")
+              .map(([campo, val]) => {
+                const label = AUDIT_CAMPO_LABEL[campo] ?? campo;
+                const de = val.de !== null && val.de !== undefined ? String(Array.isArray(val.de) ? val.de.join(", ") : val.de) : "—";
+                const para = val.para !== null && val.para !== undefined ? String(Array.isArray(val.para) ? val.para.join(", ") : val.para) : "—";
+                if (val.de === null) return `<em>${label}:</em> ${para}`;
+                if (val.para === null) return `<em>${label}:</em> ${de} <span style="color:#dc2626">removido</span>`;
+                return `<em>${label}:</em> ${de} → ${para}`;
+              })
+              .join("<br>");
+            return `<tr>
+              <td style="white-space:nowrap">${dtLabel}</td>
+              <td><span class="audit-pill" style="background:#e0e7ff;color:#3730a3">${AUDIT_OBJETO_LABEL[log.tipo_objeto] ?? log.tipo_objeto}</span></td>
+              <td>${log.objeto_nome ?? "-"}</td>
+              <td><span class="audit-pill" style="${log.acao === "exclusao" ? "background:#fee2e2;color:#991b1b" : log.acao === "criacao" ? "background:#d1fae5;color:#065f46" : "background:#fef3c7;color:#92400e"}">${AUDIT_ACAO_LABEL[log.acao] ?? log.acao}</span></td>
+              <td style="font-size:12px;line-height:1.6">${diffsHtml || "—"}</td>
+              <td style="font-size:12px;color:#64748b">${log.executor_nome ?? "-"}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+    }
+  }
 
   // Bind export button
   document.getElementById("exportAuditButton")?.addEventListener("click", () => exportAuditToExcel(entries, range), { once: true });
