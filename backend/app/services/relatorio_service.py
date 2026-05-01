@@ -318,16 +318,18 @@ def _build_html_email(
     def auditoria_section() -> str:
         if not auditoria_rows:
             return '<p style="font-size:13px;color:#64748b;padding:10px;">Nenhum tratamento registrado.</p>'
-        linhas = "".join(
-            f'<tr><td style="padding:7px 10px;font-size:12px;">{r["nome_comprador"]}</td>'
-            f'<td style="padding:7px 10px;font-size:12px;">{r["codigo_fornecedor"]} — {r["nome_fornecedor"]}</td>'
-            f'<td style="padding:7px 10px;font-size:11px;color:#64748b;">{r.get("data_prevista","—")}</td>'
-            f'<td style="padding:7px 10px;font-size:11px;color:#64748b;">'
-            f'{_resumo_obs(r.get("observacao"))}'
-            f'{"<br><em style=\\"color:#6366f1\\">" + _justificativa_obs(r.get("observacao")) + "</em>" if _justificativa_obs(r.get("observacao")) else ""}'
-            f'</td></tr>'
-            for r in auditoria_rows
-        )
+        partes = []
+        for r in auditoria_rows:
+            just = _justificativa_obs(r.get("observacao"))
+            just_html = '<br><em style="color:#6366f1">' + just + "</em>" if just else ""
+            partes.append(
+                f'<tr><td style="padding:7px 10px;font-size:12px;">{r["nome_comprador"]}</td>'
+                f'<td style="padding:7px 10px;font-size:12px;">{r["codigo_fornecedor"]} — {r["nome_fornecedor"]}</td>'
+                f'<td style="padding:7px 10px;font-size:11px;color:#64748b;">{r.get("data_prevista", "—")}</td>'
+                f'<td style="padding:7px 10px;font-size:11px;color:#64748b;">{_resumo_obs(r.get("observacao"))}{just_html}</td>'
+                f'</tr>'
+            )
+        linhas = "".join(partes)
         return (
             '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;">'
             '<thead><tr style="background:#f8fafc;">'
