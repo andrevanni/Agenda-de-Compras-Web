@@ -239,8 +239,9 @@ def _agenda_compras_table(rows: list[dict], dia_label: str, width: int) -> list:
     header = [Paragraph(h, h_s) for h in ["Comprador", "Fornecedor", "Horário"]]
     data = [header]
     for r in rows:
-        hi = r.get("hora_inicio") or "—"
-        hf = r.get("hora_fim")
+        hi = str(r.get("hora_inicio") or "")[:5] or "—"
+        hf_raw = r.get("hora_fim")
+        hf = str(hf_raw)[:5] if hf_raw else None
         horario = f"{hi} → {hf}" if hf else hi
         data.append([
             Paragraph(r.get("nome_comprador", ""), c_s),
@@ -272,8 +273,9 @@ def _outros_compromissos_table(rows: list[dict], width: int) -> list:
     header = [Paragraph(h, h_s) for h in ["Comprador", "Compromisso", "Categoria", "Horário"]]
     data = [header]
     for r in rows:
-        hi = r.get("hora_inicio") or "—"
-        hf = r.get("hora_fim")
+        hi = str(r.get("hora_inicio") or "")[:5] or "—"
+        hf_raw = r.get("hora_fim")
+        hf = str(hf_raw)[:5] if hf_raw else None
         horario = f"{hi} → {hf}" if hf else hi
         data.append([
             Paragraph(r.get("nome_comprador", ""), c_s),

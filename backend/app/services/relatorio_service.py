@@ -273,16 +273,29 @@ def _build_html_email(
             f'<tbody>{linhas}</tbody></table>'
         )
 
+    def _fmt_hora(t) -> str:
+        if t is None:
+            return "—"
+        return str(t)[:5]
+
+    def _horario_cell(r: dict) -> str:
+        hi = _fmt_hora(r.get("hora_inicio"))
+        hf = r.get("hora_fim")
+        return hi + (" → " + _fmt_hora(hf) if hf else "")
+
     def agenda_section() -> str:
         parts = []
         if agenda_compras_rows:
-            linhas = "".join(
-                f'<tr><td style="padding:7px 10px;font-size:12px;color:#374151;">{r["nome_comprador"]}</td>'
-                f'<td style="padding:7px 10px;font-size:12px;">{r["codigo_fornecedor"]} — {r["nome_fornecedor"]}</td>'
-                f'<td style="padding:7px 10px;font-size:12px;color:#64748b;">{r.get("hora_inicio") or "—"}'
-                f'{" → " + r["hora_fim"] if r.get("hora_fim") else ""}</td></tr>'
-                for r in agenda_compras_rows
-            )
+            linhas_ac = []
+            for r in agenda_compras_rows:
+                linhas_ac.append(
+                    f'<tr>'
+                    f'<td style="padding:7px 10px;font-size:12px;color:#374151;">{r["nome_comprador"]}</td>'
+                    f'<td style="padding:7px 10px;font-size:12px;">{r["codigo_fornecedor"]} — {r["nome_fornecedor"]}</td>'
+                    f'<td style="padding:7px 10px;font-size:12px;color:#64748b;">{_horario_cell(r)}</td>'
+                    f'</tr>'
+                )
+            linhas = "".join(linhas_ac)
             parts.append(
                 '<p style="font-size:12px;font-weight:600;color:#2563eb;margin:10px 0 4px;">Agenda de Compras</p>'
                 '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;">'
@@ -293,14 +306,17 @@ def _build_html_email(
                 f'<tbody>{linhas}</tbody></table>'
             )
         if outros_compromissos_rows:
-            linhas = "".join(
-                f'<tr><td style="padding:7px 10px;font-size:12px;color:#374151;">{r["nome_comprador"]}</td>'
-                f'<td style="padding:7px 10px;font-size:12px;">{r["titulo"]}</td>'
-                f'<td style="padding:7px 10px;font-size:11px;color:#6b7280;">{r.get("categoria","")}</td>'
-                f'<td style="padding:7px 10px;font-size:12px;color:#64748b;">{r.get("hora_inicio") or "—"}'
-                f'{" → " + r["hora_fim"] if r.get("hora_fim") else ""}</td></tr>'
-                for r in outros_compromissos_rows
-            )
+            linhas_oc = []
+            for r in outros_compromissos_rows:
+                linhas_oc.append(
+                    f'<tr>'
+                    f'<td style="padding:7px 10px;font-size:12px;color:#374151;">{r["nome_comprador"]}</td>'
+                    f'<td style="padding:7px 10px;font-size:12px;">{r["titulo"]}</td>'
+                    f'<td style="padding:7px 10px;font-size:11px;color:#6b7280;">{r.get("categoria", "")}</td>'
+                    f'<td style="padding:7px 10px;font-size:12px;color:#64748b;">{_horario_cell(r)}</td>'
+                    f'</tr>'
+                )
+            linhas = "".join(linhas_oc)
             parts.append(
                 '<p style="font-size:12px;font-weight:600;color:#6b7280;margin:10px 0 4px;">Outros Compromissos</p>'
                 '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;">'
