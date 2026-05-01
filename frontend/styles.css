@@ -1093,9 +1093,9 @@ textarea::placeholder {
 .comprador-notif-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   padding: 14px 16px;
-  background: var(--surface-alt, #f8fafc);
+  background: var(--card-bg, #ffffff);
   border: 1px solid var(--border, #e2e8f0);
   border-radius: 8px;
   margin-top: 4px;
@@ -1104,10 +1104,10 @@ textarea::placeholder {
 .comprador-notif-title {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-muted, #64748b);
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: .5px;
-  margin: 0 0 4px;
+  margin: 0 0 6px;
 }
 
 .checkbox-row {
@@ -1116,7 +1116,6 @@ textarea::placeholder {
   gap: 10px;
   cursor: pointer;
   font-size: 13px;
-  color: var(--text, #1e293b);
   line-height: 1.5;
   padding: 6px 10px;
   border-radius: 6px;
@@ -1124,7 +1123,7 @@ textarea::placeholder {
 }
 
 .checkbox-row:hover {
-  background: var(--border, #e2e8f0);
+  background: rgba(0,0,0,.04);
 }
 
 .checkbox-row input[type="checkbox"] {
@@ -1132,12 +1131,13 @@ textarea::placeholder {
   height: 16px;
   margin-top: 2px;
   flex-shrink: 0;
-  accent-color: var(--primary, #2563eb);
+  accent-color: #2563eb;
   cursor: pointer;
 }
 
 .checkbox-row span {
   flex: 1;
+  color: #1e293b;
 }
 
 .audit-justificativa {
