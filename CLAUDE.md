@@ -35,7 +35,7 @@ Routes (backend/app/api/v1/) → Services (backend/app/services/) → DB session
 
 - **Frontend cliente** chama Supabase REST direto via `fetchSupabase()`. FastAPI só para auth JWT e operações admin.
 - **Multi-tenancy**: todo registro tem `tenant_id`. Queries SEMPRE filtram por `tenant_id`. RLS no Supabase usa `USING (true)` — isolamento é via aplicação.
-- **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v11_*.sql`). Sem Alembic.
+- **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v12_*.sql`). Sem Alembic.
 
 ## Estrutura do frontend cliente (`frontend/`)
 
@@ -54,7 +54,7 @@ Outros arquivos estáticos:
 
 | Arquivo | Descrição |
 |---|---|
-| `sw.js` | Service Worker v12 — cache dos assets, registrado em `index.html` e `instalar.html` |
+| `sw.js` | Service Worker v13 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
 | `instalar.html` | Página de primeiro acesso: define senha → loga → mostra guia de instalação |
@@ -190,14 +190,17 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 4. Monta HTML rico + gera PDF com ReportLab (`pdf_service.py`)
 5. Envia e-mail via SMTP com PDF anexo; registra em `relatorio_log`
 
-### Conteúdo do e-mail/PDF
-- **KPIs do mês**: Total, Realizadas, Atrasadas, Pendentes
-- **Auditoria D-1**: ocorrências com `status = REALIZADA` e `data_realizacao = ontem`
-- **Agenda próximo dia útil**: ocorrências `PENDENTE` para o próximo dia não-feriado
+### Estrutura do PDF (6 seções — reestruturado em mai/2026)
+1. **Cabeçalho** (hero band): tenant, destinatário, data
+2. **⚠️ Itens em Atraso**: PENDENTE com `data_prevista < próximo dia útil` — destaque vermelho
+3. **📅 Agenda do Próximo Dia Útil**: A) Agenda de Compras (fornecedor_id IS NOT NULL) + B) Outros Compromissos (fornecedor_id IS NULL)
+4. **📋 Tratamentos do Dia Anterior**: detalhado — obs. + justificativa em itálico roxo quando presente
+5. **📊 KPIs Mês Corrente**: Total / Realizadas / Atrasadas / Pendentes
+6. **📊 KPIs Mês Anterior**: mesma estrutura (comparativo)
 
 ### Gestor vs. comprador normal
-- `is_gestor = true`: recebe dados de **todos** os compradores do tenant
-- `is_gestor = false`: recebe apenas dados da **própria carteira**
+- `is_gestor = true`: recebe dados de **todos** os compradores do tenant (dados gerais — carregados uma vez, reutilizados)
+- `is_gestor = false`: recebe apenas dados da **própria carteira** (queries filtradas por `comprador_id`)
 
 ### Ativação
 1. Portal Admin → Base Operacional → toggle **"Envio de relatório diário"** no tenant
@@ -212,12 +215,24 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 ## Auditoria da Operação
 
 - Protegida por senha (`clientMeta.audit_password`); acesso para `admin_client` e `admin_portal`
+- **Escopo**: apenas Agenda de Compras + cadastro de Fornecedores + cadastro de Compradores
 - **Filtros**: período (30 dias / última semana / último mês / personalizado) + filtro por comprador
-- **KPIs**: Eventos, Cumpridas, Postergadas, Aumentos, Reduções, Antecipadas
+- **KPIs de Agenda**: Eventos, Cumpridas, Postergadas, Aumentos, Reduções, Antecipadas
 - **Gráficos Chart.js**: doughnut (distribuição) + barra horizontal (por comprador) — CDN `chart.js@4.4.4`
 - **Recomendações**: análise por comprador (mais postergador), por fornecedor (mais ajustes), carteira sem dono
 - **Exportação Excel**: botão "📤 Exportar" via SheetJS — exporta entradas filtradas
-- `renderAuditDashboard()` em `script_forms.js`; `classifyAuditEvent()` e `aggregateAuditMetrics()` em `script_render.js`
+- **Seção "Eventos de Cadastro"**: tabela de `audit_log` filtrada por período — criações, exclusões e alterações de fornecedores e compradores com chips coloridos (verde/amarelo/vermelho)
+- **Justificativa**: ao tratar agenda, o modal exibe resumo dinâmico do que será auditado + botão "Sim/Não" para justificativa livre; texto gravado em `observacao.justificativa`; exibido em itálico roxo na tabela de auditoria
+- `renderAuditDashboard()` em `script_forms.js`; `classifyAuditEvent()`, `aggregateAuditMetrics()`, `updateAuditSummary()` em `script_render.js`
+- `state.auditLogs` carregado em `loadPortalData()` (500 registros mais recentes de `audit_log`)
+
+## Audit Log — eventos de cadastro (`audit_log`)
+
+- Tabela criada em `schema_v12_audit_log.sql`; RLS com `app.user_belongs_to_tenant(tenant_id)`
+- **Fornecedores**: `logAuditEvent()` em `script_utils.js` chamado por `saveSupplier()` (criação + diff de campos) e `deleteSupplier()` (exclusão com snapshot)
+- **Compradores**: chamado por `saveBuyer()` (criação + diff nome/email) e `deleteBuyer()` (exclusão)
+- Campos logados: `tipo_objeto`, `objeto_id`, `objeto_nome`, `acao` (criacao/alteracao/exclusao), `campos_alterados` (jsonb com `{de, para}`), `executor_role`, `executor_nome`
+- **Não** loga outros objetos (categorias, feriados, etc.)
 
 ## Modal Novo Evento / Edição
 
@@ -309,7 +324,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache: `agenda-compras-v12` — bumpar ao alterar JS/CSS (Hard refresh não bypassa o SW no Chrome)
+- Cache: `agenda-compras-v13` — bumpar ao alterar JS/CSS (Hard refresh não bypassa o SW no Chrome)
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
 - Modal "Instale o app": detecta browser via `userAgent` e mostra instruções específicas (Edge / Chrome / iOS)
@@ -350,10 +365,35 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 | `schema_v9_fornecedor_horario.sql` | Campos `hora_inicio`/`hora_fim` em fornecedores |
 | `schema_v10_gestor_notificacoes.sql` | Colunas `is_gestor`, `receber_auditoria`, `receber_agenda_proximo` em compradores; tabela `relatorio_log` |
 | `schema_v11_relatorio_flag.sql` | Campo `envio_relatorio_ativo` em tenants |
+| `schema_v12_audit_log.sql` | Tabela `audit_log` para eventos de fornecedor e comprador; RLS com `app.user_belongs_to_tenant` |
+
+## DATABASE_URL — Conexão com Supabase (⚠️ crítico)
+
+O Vercel (região gru1/São Paulo) **não suporta IPv6**, mas o host direto do Supabase (`db.fnwsorhflueunqzkwsxu.supabase.co:5432`) resolve apenas IPv6. Usar sempre o **Connection Pooler** (IPv4):
+
+```
+postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.pooler.supabase.com:6543/postgres?prepare_threshold=0
+```
+
+- Host pooler: `aws-0-us-west-2.pooler.supabase.com` (região us-west-2)
+- Porta: `6543` (transaction pooler)
+- Username: `postgres.fnwsorhflueunqzkwsxu` (formato Supavisor: `postgres.{project_ref}`)
+- `prepare_threshold=0` em vez de `pgbouncer=true` — correto para psycopg3 (dialect `postgresql+psycopg`)
+- Após trocar: salvar no Vercel → Settings → Environment Variables → Redeploy
+
+## Tenant de Teste — Service Farma
+
+- `tenant_id`: `c2f65634-b7e0-47f0-8937-94446540701a`
+- Dados inseridos por `backend/db/test_data_service_farma.sql` (mai/2026)
+- 2 compradores: André Vanni (gestor, `andre@servicefarma.far.br`) e Maria Costa
+- 8 fornecedores: EMS, Eurofarma, Hypera, Takeda, Roche, Mantecorp, Pfizer, Cimed
+- `envio_relatorio_ativo = true`
+- Cron manual: `POST /api/v1/cron/relatorio-diario?tenant_id=c2f65634-b7e0-47f0-8937-94446540701a&data_ref=2026-04-30` com `X-Cron-Secret: agenda-cron-2026-sfx`
 
 ## Pendências
 
+- **`DATABASE_URL` no Vercel**: trocar para o pooler (us-west-2, porta 6543) — sem isso o cron e outros endpoints que usam SQLAlchemy retornam 500.
 - `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites).
 - `PORTAL_ADMIN_PASSWORD` precisa ser exatamente a senha de `andre@servicefarma.far.br` no Supabase Auth.
-- Script `GRUPO_SAO_VALENTIM_setup.sql` não é idempotente — se rodado novamente duplica dados.
 - Logo do cliente no PDF: atualmente só aparece a logo Service Farma no rodapé. Para incluir a logo do cliente, é necessário adicionar campo `logo_url` na tabela `tenants` e armazenar URL pública (Supabase Storage).
+- `cron.py` tem código de debug ativo (`traceback` no response 500) — remover após validar o relatório.
