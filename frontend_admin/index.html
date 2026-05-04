@@ -76,6 +76,7 @@
         <button class="nav-link" data-section="clientes">Clientes</button>
         <button class="nav-link" data-section="vigencias">Vigências</button>
         <button class="nav-link" data-section="admins">Admins</button>
+        <button class="nav-link" data-section="emaillog">Log de E-mails</button>
         <button class="nav-link" data-section="ajuda">Ajuda</button>
         <button class="nav-link" data-section="conexao">Conexão avançada</button>
       </nav>
@@ -536,6 +537,57 @@
               </div>
             </details>
 
+          </div>
+        </div>
+      </section>
+
+      <section id="emaillogSection" class="admin-section hidden">
+        <div class="board">
+          <div class="board-header">
+            <div>
+              <p class="eyebrow">Monitoramento</p>
+              <h3>Log de E-mails Enviados</h3>
+              <p class="board-copy">Histórico de relatórios diários e notificações enviadas por e-mail.</p>
+            </div>
+            <button id="emailLogRefreshButton" class="secondary-button" type="button">Atualizar</button>
+          </div>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end;">
+            <label style="display:flex;flex-direction:column;gap:4px;">
+              <span style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Período</span>
+              <select id="emailLogDias" style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#f1f5f9;font-size:13px;">
+                <option value="7">Últimos 7 dias</option>
+                <option value="30" selected>Últimos 30 dias</option>
+                <option value="90">Últimos 90 dias</option>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;">
+              <span style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Base operacional</span>
+              <select id="emailLogTenant" style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#f1f5f9;font-size:13px;">
+                <option value="">Todas</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="emailLogSummary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;"></div>
+
+          <div id="emailLogTableWrap" style="overflow-x:auto;">
+            <table id="emailLogTable" style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead>
+                <tr style="border-bottom:1px solid #334155;">
+                  <th style="text-align:left;padding:8px 12px;color:#64748b;font-weight:600;white-space:nowrap;">Data envio</th>
+                  <th style="text-align:left;padding:8px 12px;color:#64748b;font-weight:600;">Base</th>
+                  <th style="text-align:left;padding:8px 12px;color:#64748b;font-weight:600;">Comprador</th>
+                  <th style="text-align:left;padding:8px 12px;color:#64748b;font-weight:600;">Tipo</th>
+                  <th style="text-align:left;padding:8px 12px;color:#64748b;font-weight:600;white-space:nowrap;">Data ref.</th>
+                  <th style="text-align:left;padding:8px 12px;color:#64748b;font-weight:600;">Destinatário</th>
+                  <th style="text-align:left;padding:8px 12px;color:#64748b;font-weight:600;">Status</th>
+                </tr>
+              </thead>
+              <tbody id="emailLogBody">
+                <tr><td colspan="7" style="padding:24px;text-align:center;color:#64748b;">Carregando...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>

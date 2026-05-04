@@ -508,6 +508,10 @@ function renderVigencias() {
 
 function renderTenants() {
   tenantsCount.textContent = `${tenants.length} base(s) operacional(is) encontrada(s).`;
+  const emailLogTenantSelect = document.getElementById("emailLogTenant");
+  if (emailLogTenantSelect) {
+    emailLogTenantSelect.innerHTML = `<option value="">Todas</option>${tenants.map((t) => `<option value="${t.id}">${t.nome ?? t.id}</option>`).join("")}`;
+  }
   tenantsList.innerHTML = tenants.map((tenant) => {
     const ativo = Boolean(tenant.envio_relatorio_ativo);
     return `
@@ -851,6 +855,7 @@ function showSection(section) {
   document.getElementById("tenantsSection").classList.toggle("hidden", section !== "tenants");
   document.getElementById("adminsSection").classList.toggle("hidden", section !== "admins");
   document.getElementById("ajudaSection").classList.toggle("hidden", section !== "ajuda");
+  document.getElementById("emaillogSection").classList.toggle("hidden", section !== "emaillog");
   conexaoSection.classList.toggle("hidden", section !== "conexao");
 }
 
@@ -858,6 +863,7 @@ document.querySelectorAll("[data-section]").forEach((button) => {
   button.addEventListener("click", () => {
     showSection(button.dataset.section);
     if (button.dataset.section === "admins") loadAdmins();
+    if (button.dataset.section === "emaillog") loadEmailLog();
   });
 });
 
@@ -977,6 +983,79 @@ document.getElementById("convidarAdminForm").addEventListener("submit", async (e
     btn.disabled = false;
   }
 });
+
+// --- Email Log ---
+
+const EMAIL_LOG_TIPO_LABEL = {
+  auditoria: "Auditoria",
+  agenda_proximo: "Agenda próximo dia",
+  consolidado_gestor: "Consolidado gestor",
+};
+
+async function loadEmailLog() {
+  const body = document.getElementById("emailLogBody");
+  const summary = document.getElementById("emailLogSummary");
+  if (!body) return;
+
+  const dias = document.getElementById("emailLogDias")?.value ?? "30";
+  const tenantId = document.getElementById("emailLogTenant")?.value ?? "";
+
+  body.innerHTML = `<tr><td colspan="7" style="padding:24px;text-align:center;color:#64748b;">Carregando...</td></tr>`;
+  if (summary) summary.innerHTML = "";
+
+  try {
+    let path = `/api/v1/admin/email-log?dias=${dias}`;
+    if (tenantId) path += `&tenant_id=${tenantId}`;
+
+    const rows = await fetchAdmin(path);
+
+    if (!rows || !rows.length) {
+      body.innerHTML = `<tr><td colspan="7" style="padding:24px;text-align:center;color:#64748b;">Nenhum registro no período.</td></tr>`;
+      return;
+    }
+
+    const total = rows.length;
+    const enviados = rows.filter((r) => r.status === "enviado").length;
+    const erros = rows.filter((r) => r.status === "erro").length;
+
+    if (summary) {
+      summary.innerHTML = [
+        `<span style="background:#0f2a1a;color:#4ade80;border:1px solid #166534;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">✅ ${enviados} enviado(s)</span>`,
+        erros ? `<span style="background:#2d0a0a;color:#f87171;border:1px solid #7f1d1d;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">❌ ${erros} erro(s)</span>` : "",
+        `<span style="background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:20px;padding:4px 12px;font-size:12px;">Total: ${total}</span>`,
+      ].join("");
+    }
+
+    body.innerHTML = rows.map((r) => {
+      const statusChip = r.status === "enviado"
+        ? `<span style="background:#0f2a1a;color:#4ade80;border:1px solid #166534;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600;">✅ Enviado</span>`
+        : `<span style="background:#2d0a0a;color:#f87171;border:1px solid #7f1d1d;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600;" title="${r.erro_mensagem ?? ""}">❌ Erro</span>`;
+
+      const createdAt = r.created_at
+        ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(r.created_at))
+        : "-";
+
+      const dataRef = r.data_referencia ? isoToBr(r.data_referencia) : "-";
+      const tipo = EMAIL_LOG_TIPO_LABEL[r.tipo] ?? r.tipo ?? "-";
+
+      return `<tr style="border-bottom:1px solid #1e293b;">
+        <td style="padding:8px 12px;color:#94a3b8;white-space:nowrap;">${createdAt}</td>
+        <td style="padding:8px 12px;color:#e2e8f0;">${r.tenant_nome ?? "-"}</td>
+        <td style="padding:8px 12px;color:#e2e8f0;">${r.comprador_nome ?? "-"}</td>
+        <td style="padding:8px 12px;color:#94a3b8;">${tipo}</td>
+        <td style="padding:8px 12px;color:#94a3b8;white-space:nowrap;">${dataRef}</td>
+        <td style="padding:8px 12px;color:#94a3b8;font-size:12px;">${r.email_destino ?? "-"}</td>
+        <td style="padding:8px 12px;">${statusChip}</td>
+      </tr>`;
+    }).join("");
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="7" style="padding:24px;text-align:center;color:#f87171;">${err.message}</td></tr>`;
+  }
+}
+
+document.getElementById("emailLogRefreshButton")?.addEventListener("click", loadEmailLog);
+document.getElementById("emailLogDias")?.addEventListener("change", loadEmailLog);
+document.getElementById("emailLogTenant")?.addEventListener("change", loadEmailLog);
 
 document.getElementById("tenantForm").addEventListener("submit", criarTenant);
 document.getElementById("clienteForm").addEventListener("submit", salvarCliente);
