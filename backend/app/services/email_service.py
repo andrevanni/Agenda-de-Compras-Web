@@ -1,4 +1,5 @@
 import smtplib
+import ssl
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -7,8 +8,24 @@ from typing import Optional
 from app.core.config import settings
 
 
-def _build_transport() -> smtplib.SMTP_SSL:
-    smtp = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port)
+def _build_transport() -> smtplib.SMTP:
+    """
+    Tenta SMTPS (SSL direto, porta 465) primeiro.
+    Se falhar por incompatibilidade SSL, tenta STARTTLS (porta 587).
+    """
+    ctx = ssl.create_default_context()
+    try:
+        smtp = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=ctx)
+        smtp.login(settings.smtp_user, settings.smtp_password)
+        return smtp
+    except ssl.SSLError:
+        pass
+
+    # Fallback: STARTTLS
+    smtp = smtplib.SMTP(settings.smtp_host, 587)
+    smtp.ehlo()
+    smtp.starttls(context=ctx)
+    smtp.ehlo()
     smtp.login(settings.smtp_user, settings.smtp_password)
     return smtp
 
