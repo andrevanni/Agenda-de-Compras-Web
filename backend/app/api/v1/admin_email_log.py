@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -20,14 +21,16 @@ def listar_email_log(
 ):
     sb = get_supabase()
 
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=dias)).isoformat()
+
     query = (
         sb.table("relatorio_log")
         .select(
             "id,tenant_id,comprador_id,tipo,data_referencia,email_destino,status,erro_mensagem,created_at,"
             "tenants(nome),"
-            "compradores(nome)"
+            "compradores(nome_comprador)"
         )
-        .gte("created_at", f"now() - interval '{dias} days'")
+        .gte("created_at", cutoff)
         .order("created_at", desc=True)
         .limit(500)
     )
@@ -41,7 +44,7 @@ def listar_email_log(
     out = []
     for r in rows:
         tenant_nome = (r.get("tenants") or {}).get("nome") or r.get("tenant_id", "")
-        comprador_nome = (r.get("compradores") or {}).get("nome") or ""
+        comprador_nome = (r.get("compradores") or {}).get("nome_comprador") or ""
         out.append({
             "id": r.get("id"),
             "tenant_id": r.get("tenant_id"),
