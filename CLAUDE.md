@@ -66,10 +66,11 @@ Outros arquivos estáticos:
 Arquivo único `script.js` (não dividido). Painel administrativo:
 
 - Login com e-mail + senha via `POST /api/v1/admin/auth/login` → JWT em `localStorage['agenda_admin_jwt']`
-- Seções: Base Operacional (tenants), Clientes, Vigências, Admins, Ajuda, Conexão
+- Seções: Base Operacional (tenants), Clientes, Vigências, Admins, **Log de E-mails**, Ajuda, Conexão
 - `fetchAdmin()` envia JWT admin no header `Authorization: Bearer` (com fallback para `X-Admin-Token`)
 - Tenants ordenados **alfabeticamente** por `nome`
 - Cada card de tenant tem toggle **"Envio de relatório diário"** — PATCH imediato em `tenants.envio_relatorio_ativo`
+- **Log de E-mails**: seção com tabela de `relatorio_log` filtrada por período (7/30/90 dias) e base operacional; chips ✅/❌; `loadEmailLog()` em `script.js`
 
 ## storageKeys — portal cliente (`localStorage` / `sessionStorage`)
 
@@ -135,12 +136,13 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | `api/v1/admin_clientes.py` | `/api/v1/admin/clientes` | CRUD de clientes comerciais (usa SQLAlchemy + PostgreSQL direto) |
 | `api/v1/admin_licencas.py` | `/api/v1/admin/licencas` | CRUD de vigências/licenças (usa Supabase client) |
 | `api/v1/admin_compradores_invite.py` | `/api/v1/admin/compradores` | Envio de convite pelo admin |
+| `api/v1/admin_email_log.py` | `/api/v1/admin/email-log` | Log de relatórios enviados — consulta `relatorio_log` com join em tenants/compradores |
 | `api/v1/portal_compradores.py` | `/api/v1/portal/compradores` | Envio de convite pelo portal cliente (requer JWT) |
 | `api/v1/agenda.py` | `/api/v1/agenda` | Listar próximas/atrasadas, sugerir data, tratar ocorrência |
 | `api/v1/cron.py` | `/api/v1/cron` | Endpoint de cron — dispara relatórios diários |
 | `api/v1/redirect.py` | `/portal` | Redirect 302 para `FRONTEND_URL` (URL estável do instalador) |
 | `services/agenda_service.py` | — | Lógica de tratamento: cálculo de datas, parâmetros |
-| `services/email_service.py` | — | `send_html()` via SMTP SSL; suporta `attachments` (PDF) |
+| `services/email_service.py` | — | `send_html()` via SMTP — tenta SMTPS (porta 465) primeiro; fallback automático para STARTTLS (porta 587); suporta `attachments` (PDF) |
 | `services/relatorio_service.py` | — | Monta e envia relatório diário (HTML + PDF anexo) |
 | `services/pdf_service.py` | — | Gera PDF com ReportLab (padrão visual SFI) |
 | `services/admin_clientes_service.py` | — | Queries SQL de clientes (raw SQL com `sqlalchemy.text()`) |
@@ -164,6 +166,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - `GET/POST/PATCH/DELETE /api/v1/admin/clientes` — CRUD comercial
 - `GET/POST/PATCH/DELETE /api/v1/admin/licencas` — CRUD vigências
 - `POST /api/v1/admin/compradores/{id}/enviar-convite` — convite via e-mail
+- `GET /api/v1/admin/email-log?dias=30&tenant_id=` — histórico de relatórios enviados (relatorio_log)
 
 ### Portal cliente (JWT)
 - `POST /api/v1/portal/compradores/{id}/enviar-convite` — convite enviado pelo portal
@@ -324,7 +327,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache: `agenda-compras-v13` — bumpar ao alterar JS/CSS (Hard refresh não bypassa o SW no Chrome)
+- Cache: `agenda-compras-v14` — bumpar ao alterar JS/CSS (Hard refresh não bypassa o SW no Chrome)
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
 - Modal "Instale o app": detecta browser via `userAgent` e mostra instruções específicas (Edge / Chrome / iOS)
@@ -338,6 +341,8 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 3. E-mail enviado com dois CTAs: **"Criar minha senha"** (link 24h) + **"Baixar instalador do atalho"** (bat Windows)
 4. Comprador clica no link → `instalar.html` → define senha → JWT + `refresh_token` + role `buyer` + `loggedBuyerId` + `activeBuyerId` salvos em localStorage → redirect automático para o portal
 5. No portal, o comprador já aparece selecionado como ativo
+
+⚠️ **Convites não são registrados em log** — `relatorio_log` só guarda relatórios diários. Para verificar se um convite foi processado: checar `compradores.user_id` (preenchido na hora do envio) e `updated_at` no Supabase Auth → Users. Se o e-mail não chegou mas `user_id` está preenchido, o problema é de entrega (spam/Gmail Promoções).
 
 ## Instalador Windows (`frontend/instalar_atalho.bat`)
 
@@ -392,8 +397,7 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 ## Pendências
 
-- **`DATABASE_URL` no Vercel**: trocar para o pooler (us-west-2, porta 6543) — sem isso o cron e outros endpoints que usam SQLAlchemy retornam 500.
-- `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites).
-- `PORTAL_ADMIN_PASSWORD` precisa ser exatamente a senha de `andre@servicefarma.far.br` no Supabase Auth.
+- `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites): Supabase → Settings → API → Reset `service_role` key → atualizar no Vercel.
 - Logo do cliente no PDF: atualmente só aparece a logo Service Farma no rodapé. Para incluir a logo do cliente, é necessário adicionar campo `logo_url` na tabela `tenants` e armazenar URL pública (Supabase Storage).
-- `cron.py` tem código de debug ativo (`traceback` no response 500) — remover após validar o relatório.
+- Log de convites: convites enviados não são registrados em nenhuma tabela — considerar criar `convite_log` para rastreabilidade futura.
+- Ativar relatório para clientes reais (Grupo São Valentim e Grupo Velanes): apenas configuração operacional — toggle no Admin + checkboxes de notificação nos compradores.
