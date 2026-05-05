@@ -38,6 +38,12 @@ Routes (backend/app/api/v1/) → Services (backend/app/services/) → DB session
 - **Multi-tenancy**: todo registro tem `tenant_id`. Queries SEMPRE filtram por `tenant_id`. RLS no Supabase usa `USING (true)` — isolamento é via aplicação.
 - **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v13_*.sql`). Sem Alembic.
 
+## Regras de desenvolvimento (obrigatórias)
+
+- **Nunca alterar código de risco sem autorização explícita do usuário** — descrever o que será feito e aguardar confirmação antes de executar. Isso inclui: fluxo de autenticação, isolamento de tenant, sessionStorage/localStorage, qualquer arquivo que afete dados de clientes reais.
+- **Sempre bumpar o Service Worker** (`frontend/sw.js` — `agenda-compras-vN`) junto com qualquer commit que altere JS ou CSS do frontend. Sem bump, o browser serve cache antigo e as correções não chegam aos usuários.
+- **Ambiente de staging é prioridade máxima** — toda feature ou correção deve ser testada em staging antes de ir para produção (`main`). Ainda a implementar.
+
 ## Estrutura do frontend cliente (`frontend/`)
 
 Arquivos JS carregados em ordem no `index.html` — escopo global compartilhado (não são ES modules):
@@ -48,7 +54,7 @@ Arquivos JS carregados em ordem no `index.html` — escopo global compartilhado 
 | `script_utils.js` | `fetchSupabase()`, `fetchApi()`, `refreshJWT()`, `_store()`, utilitários de data/cálculo, `renderBuyers()`, `editBuyer()` |
 | `script_render.js` | Render tabelas, fornecedores, compradores, `saveBuyer()`, `renderCompromissos()`, `deleteCompromisso()` |
 | `script_forms.js` | Formulários (saveSupplier), importação CSV/Excel, exportação, `ensureBuyerSelection()`, `renderAuditDashboard()`, `loadEmailLog()` |
-| `script_data.js` | `loadPortalData()`, `loginBuyer()`, `bindEvents()`, configurações |
+| `script_data.js` | `loadPortalData()`, `loginBuyer()`, `bindEvents()`, configurações — login via modal salva `tenant_id` + recarrega `loadPortalData()` após autenticação |
 | `script_main.js` | `bootstrap()`, auth, calendário, categorias, PWA install, `refreshJWT` interval, `saveNewEvent()`, `deleteGenericEvent()` |
 
 Outros arquivos estáticos:
@@ -246,6 +252,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - Clicar em evento de **Agenda de Compras** no calendário abre o detalhe com as regras próprias (inalterado)
 - **PATCH** na ocorrência existente ao salvar em modo edição; **DELETE** com confirmação ao excluir
 - `saveNewEvent()` e `deleteGenericEvent()` em `script_main.js`; `newEventEditId` (hidden input) controla o modo
+- **Botão "Salvar Evento" desabilitado durante o POST** — evita duplo clique criando ocorrências duplicadas; reabilitado no `finally`
 - **Categoria**: "Agenda de Compras" excluída do dropdown
 - **Compradores**: checkboxes em grid; botões Todos/Nenhum; comprador logado pré-marcado na criação
 - **Multi-comprador**: cria uma ocorrência por comprador × data (só no modo criação)
