@@ -2,6 +2,7 @@
 Endpoint para enviar convite de acesso a compradores cadastrados.
 O comprador recebe um link do Supabase Auth → acessa /instalar → define senha → JWT.
 """
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +11,23 @@ from app.core.admin_auth import require_admin
 from app.core.config import settings
 from app.db.supabase_client import get_supabase
 from app.services.email_service import send_html
+
+
+def _log_convite(sb, tenant_id: str, comprador_id: str, email: str, status: str, erro: str | None = None) -> None:
+    try:
+        payload = {
+            "tenant_id": tenant_id,
+            "comprador_id": comprador_id,
+            "tipo": "convite",
+            "data_referencia": date.today().isoformat(),
+            "email_destino": email,
+            "status": status,
+        }
+        if erro:
+            payload["erro_mensagem"] = erro[:500]
+        sb.table("relatorio_log").insert(payload).execute()
+    except Exception:
+        pass
 
 router = APIRouter(
     prefix="/admin/compradores",
@@ -125,7 +143,9 @@ def enviar_convite(comprador_id: UUID) -> dict:
 
     try:
         send_html(to=[c["email"]], subject=f"Convite — Agenda de Compras {tenant_nome}", html=html)
+        _log_convite(sb, str(c["tenant_id"]), str(comprador_id), c["email"], "enviado")
     except Exception as e:
+        _log_convite(sb, str(c["tenant_id"]), str(comprador_id), c["email"], "erro", str(e))
         raise HTTPException(status_code=500, detail=f"Erro ao enviar e-mail: {e}")
 
     return {"ok": True, "enviado_para": c["email"]}
