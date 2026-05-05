@@ -2,13 +2,33 @@
 
 Sistema web multi-tenant SaaS para gestão de agenda de compras de farmácias.
 
-## Deploy (produção, push para `main` → deploy automático)
+## Deploy
+
+### Produção (`main` → deploy automático)
 
 | Projeto Vercel | URL | Pasta |
 |---|---|---|
 | agenda-compras-cliente | `https://agenda-compras-cliente.vercel.app` | `frontend/` |
 | agenda-compras-admin   | `https://agenda-compras-admin.vercel.app`   | `frontend_admin/` |
 | agenda-de-compras-api  | `https://agenda-de-compras-api.vercel.app`  | `backend/` |
+
+### Staging (`staging` → deploy automático em preview)
+
+| Projeto Vercel | URL | Pasta |
+|---|---|---|
+| agenda-compras-cliente | `https://agenda-compras-cliente-git-staging-andrevannis-projects.vercel.app` | `frontend/` |
+| agenda-compras-admin   | `https://agenda-compras-admin-git-staging-andrevannis-projects.vercel.app`   | `frontend_admin/` |
+| agenda-de-compras-api  | `https://agenda-de-compras-api-git-staging-andrevannis-projects.vercel.app`  | `backend/` |
+
+### Fluxo de trabalho
+
+```
+1. Desenvolver na branch staging
+2. Testar nas URLs de staging acima
+3. Quando aprovado: merge staging → main → produção automática
+```
+
+⚠️ **O staging usa o mesmo Supabase da produção** — não criar/deletar dados reais durante testes. Usar o tenant Service Farma (`c2f65634-b7e0-47f0-8937-94446540701a`) para testes.
 
 Supabase: `fnwsorhflueunqzkwsxu.supabase.co`
 
