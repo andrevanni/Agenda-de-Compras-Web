@@ -21,8 +21,8 @@ Supabase: `fnwsorhflueunqzkwsxu.supabase.co`
 | `SUPABASE_ANON_KEY` | ✅ | Chave pública do Supabase (publishable) |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Chave secreta do Supabase (admin) — ⚠️ rotacionar se exposta |
 | `ADMIN_API_TOKEN` | ✅ | Token legado para `X-Admin-Token` (fallback) |
-| `SMTP_PASSWORD` | ✅ | Senha SMTP de `comercial@servicefarma.far.br` (fallback — sistema usa Resend se `RESEND_API_KEY` configurado) |
-| `RESEND_API_KEY` | ⏳ | API Key do Resend.com — quando configurada, substitui o SMTP direto (melhor entrega no Gmail) |
+| `SMTP_PASSWORD` | ✅ | Senha SMTP de `comercial@servicefarma.far.br` (fallback quando `RESEND_API_KEY` não configurado) |
+| `RESEND_API_KEY` | ✅ | API Key do Resend.com — provider principal de e-mail (domínio `servicefarma.far.br` verificado em mai/2026) |
 | `PORTAL_ADMIN_EMAIL` | ✅ | `andre@servicefarma.far.br` (usado no "Abrir Portal") |
 | `PORTAL_ADMIN_PASSWORD` | ✅ | Senha Supabase Auth do `andre@servicefarma.far.br` |
 | `FRONTEND_URL` | ✅ | `https://agenda-compras-cliente.vercel.app` (usado no redirect `/portal` e e-mails) |
@@ -143,7 +143,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | `api/v1/cron.py` | `/api/v1/cron` | Endpoint de cron — dispara relatórios diários |
 | `api/v1/redirect.py` | `/portal` | Redirect 302 para `FRONTEND_URL` (URL estável do instalador) |
 | `services/agenda_service.py` | — | Lógica de tratamento: cálculo de datas, parâmetros |
-| `services/email_service.py` | — | `send_html()` via SMTP SMTPS porta 465 (mesmo padrão do QTQD); inclui `text/plain` automático via `_html_to_text()`; suporta `attachments` (PDF) |
+| `services/email_service.py` | — | `send_html()` — usa Resend se `RESEND_API_KEY` configurado, fallback para SMTP porta 465; inclui `text/plain` automático via `_html_to_text()`; suporta `attachments` (PDF) |
 | `services/relatorio_service.py` | — | Monta e envia relatório diário (HTML + PDF anexo) |
 | `services/pdf_service.py` | — | Gera PDF com ReportLab (padrão visual SFI) |
 | `services/admin_clientes_service.py` | — | Queries SQL de clientes (raw SQL com `sqlalchemy.text()`) |
@@ -401,5 +401,5 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 - `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites): Supabase → Settings → API → Reset `service_role` key → atualizar no Vercel.
 - Logo do cliente no PDF: atualmente só aparece a logo Service Farma no rodapé. Para incluir a logo do cliente, é necessário adicionar campo `logo_url` na tabela `tenants` e armazenar URL pública (Supabase Storage).
-- Resend.com: domínio `servicefarma.far.br` adicionado no painel Resend (mai/2026) — falta adicionar os 3 registros DNS no provedor de hospedagem (TXT `resend._domainkey`, MX `send`, TXT `send`) e criar `RESEND_API_KEY` no Vercel. Após isso, migrar `email_service.py` para usar Resend SDK.
+- Resend.com: integração concluída em mai/2026. Domínio `servicefarma.far.br` verificado. `RESEND_API_KEY` configurada no Vercel. `email_service.py` usa Resend como provider principal com fallback SMTP.
 - Ativar relatório para clientes reais (Grupo São Valentim e Grupo Velanes): apenas configuração operacional — toggle no Admin + checkboxes de notificação nos compradores.
