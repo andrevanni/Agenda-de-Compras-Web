@@ -586,6 +586,8 @@ async function saveNewEvent() {
     feedbackEl.classList.add("hidden");
   }
 
+  const saveBtn = document.getElementById("saveNewEventButton");
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Salvando..."; }
   try {
     if (editId) {
       // — EDIÇÃO: PATCH na ocorrência existente —
@@ -644,6 +646,8 @@ async function saveNewEvent() {
   } catch (err) {
     setFeedback(`Não foi possível salvar o evento: ${err.message}`, "error", feedbackEl);
     feedbackEl.classList.remove("hidden");
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Salvar Evento"; }
   }
 }
 
