@@ -728,6 +728,8 @@ async function bootstrap() {
   renderCategoriasTable();
   refreshCalendar();
   ensureBuyerLoginSession();
+  const overlay = document.getElementById("bootstrapOverlay");
+  if (overlay) overlay.remove();
   // Renova o JWT automaticamente a cada 50 min (expira em 60 min no Supabase)
   setInterval(refreshJWT, 50 * 60 * 1000);
 }
