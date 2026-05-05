@@ -21,7 +21,8 @@ Supabase: `fnwsorhflueunqzkwsxu.supabase.co`
 | `SUPABASE_ANON_KEY` | ✅ | Chave pública do Supabase (publishable) |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Chave secreta do Supabase (admin) — ⚠️ rotacionar se exposta |
 | `ADMIN_API_TOKEN` | ✅ | Token legado para `X-Admin-Token` (fallback) |
-| `SMTP_PASSWORD` | ✅ | Senha SMTP de `comercial@servicefarma.far.br` |
+| `SMTP_PASSWORD` | ✅ | Senha SMTP de `comercial@servicefarma.far.br` (fallback — sistema usa Resend se `RESEND_API_KEY` configurado) |
+| `RESEND_API_KEY` | ⏳ | API Key do Resend.com — quando configurada, substitui o SMTP direto (melhor entrega no Gmail) |
 | `PORTAL_ADMIN_EMAIL` | ✅ | `andre@servicefarma.far.br` (usado no "Abrir Portal") |
 | `PORTAL_ADMIN_PASSWORD` | ✅ | Senha Supabase Auth do `andre@servicefarma.far.br` |
 | `FRONTEND_URL` | ✅ | `https://agenda-compras-cliente.vercel.app` (usado no redirect `/portal` e e-mails) |
@@ -35,7 +36,7 @@ Routes (backend/app/api/v1/) → Services (backend/app/services/) → DB session
 
 - **Frontend cliente** chama Supabase REST direto via `fetchSupabase()`. FastAPI só para auth JWT e operações admin.
 - **Multi-tenancy**: todo registro tem `tenant_id`. Queries SEMPRE filtram por `tenant_id`. RLS no Supabase usa `USING (true)` — isolamento é via aplicação.
-- **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v12_*.sql`). Sem Alembic.
+- **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v13_*.sql`). Sem Alembic.
 
 ## Estrutura do frontend cliente (`frontend/`)
 
@@ -142,7 +143,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | `api/v1/cron.py` | `/api/v1/cron` | Endpoint de cron — dispara relatórios diários |
 | `api/v1/redirect.py` | `/portal` | Redirect 302 para `FRONTEND_URL` (URL estável do instalador) |
 | `services/agenda_service.py` | — | Lógica de tratamento: cálculo de datas, parâmetros |
-| `services/email_service.py` | — | `send_html()` via SMTP — tenta SMTPS (porta 465) primeiro; fallback automático para STARTTLS (porta 587); suporta `attachments` (PDF) |
+| `services/email_service.py` | — | `send_html()` via SMTP SMTPS porta 465 (mesmo padrão do QTQD); inclui `text/plain` automático via `_html_to_text()`; suporta `attachments` (PDF) |
 | `services/relatorio_service.py` | — | Monta e envia relatório diário (HTML + PDF anexo) |
 | `services/pdf_service.py` | — | Gera PDF com ReportLab (padrão visual SFI) |
 | `services/admin_clientes_service.py` | — | Queries SQL de clientes (raw SQL com `sqlalchemy.text()`) |
@@ -342,7 +343,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 4. Comprador clica no link → `instalar.html` → define senha → JWT + `refresh_token` + role `buyer` + `loggedBuyerId` + `activeBuyerId` salvos em localStorage → redirect automático para o portal
 5. No portal, o comprador já aparece selecionado como ativo
 
-⚠️ **Convites não são registrados em log** — `relatorio_log` só guarda relatórios diários. Para verificar se um convite foi processado: checar `compradores.user_id` (preenchido na hora do envio) e `updated_at` no Supabase Auth → Users. Se o e-mail não chegou mas `user_id` está preenchido, o problema é de entrega (spam/Gmail Promoções).
+**Convites são registrados em `relatorio_log`** com `tipo='convite'` — visíveis no Log de E-mails do painel admin. Para verificar se um convite foi processado: checar `compradores.user_id` (preenchido na hora do envio). Se o e-mail não chegou mas `user_id` está preenchido e o log mostra `enviado`, o problema é entrega (reputação do servidor SMTP / filtro Gmail).
 
 ## Instalador Windows (`frontend/instalar_atalho.bat`)
 
@@ -371,6 +372,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 | `schema_v10_gestor_notificacoes.sql` | Colunas `is_gestor`, `receber_auditoria`, `receber_agenda_proximo` em compradores; tabela `relatorio_log` |
 | `schema_v11_relatorio_flag.sql` | Campo `envio_relatorio_ativo` em tenants |
 | `schema_v12_audit_log.sql` | Tabela `audit_log` para eventos de fornecedor e comprador; RLS com `app.user_belongs_to_tenant` |
+| `schema_v13_relatorio_log_convite.sql` | Adiciona `'convite'` ao CHECK constraint do campo `tipo` em `relatorio_log` |
 
 ## DATABASE_URL — Conexão com Supabase (⚠️ crítico)
 
@@ -399,5 +401,5 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 - `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites): Supabase → Settings → API → Reset `service_role` key → atualizar no Vercel.
 - Logo do cliente no PDF: atualmente só aparece a logo Service Farma no rodapé. Para incluir a logo do cliente, é necessário adicionar campo `logo_url` na tabela `tenants` e armazenar URL pública (Supabase Storage).
-- Log de convites: convites enviados não são registrados em nenhuma tabela — considerar criar `convite_log` para rastreabilidade futura.
+- Resend.com: domínio `servicefarma.far.br` adicionado no painel Resend (mai/2026) — falta adicionar os 3 registros DNS no provedor de hospedagem (TXT `resend._domainkey`, MX `send`, TXT `send`) e criar `RESEND_API_KEY` no Vercel. Após isso, migrar `email_service.py` para usar Resend SDK.
 - Ativar relatório para clientes reais (Grupo São Valentim e Grupo Velanes): apenas configuração operacional — toggle no Admin + checkboxes de notificação nos compradores.
