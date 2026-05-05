@@ -323,8 +323,10 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 - `abrirPortal(tenantId)` no admin abre `window.open("", "_blank")` **antes** do `await` (evita popup blocker)
 - JWT e `tenant_id` gravados em `sessionStorage` da nova aba → `_store()` lê session primeiro
 - Cada aba tem sessionStorage independente — abrir Velanes não contamina a aba do SV
+- `loggedBuyerId`, `activeBuyerId` e `loggedPortalEmail` recebem `setItem("", "")` em sessionStorage (nunca `removeItem`) — evita fallthrough do `_store()` para localStorage com dados de sessão anterior
 - Feedback mostra nome do cliente: `"Gerando acesso ao portal de 'Grupo X'..."`
 - JWT do "Abrir Portal" cacheado 55 min em memória no backend (`_portal_jwt_cache`)
+- **Limpeza forçada de sessão**: acessar `/?limpar=1` limpa todo o localStorage/sessionStorage e redireciona para login (útil quando usuário herdou sessão errada de outro tenant)
 
 ## Service Worker e PWA
 
@@ -340,7 +342,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 1. Portal cliente → botão "Convite" → `POST /api/v1/portal/compradores/{id}/enviar-convite` com JWT
 2. Backend gera link Supabase Auth (`type=recovery` ou `type=invite`) com `redirect_to = {FRONTEND_URL}/instalar.html`; grava `user_id` + `app_metadata` no comprador
 3. E-mail enviado com dois CTAs: **"Criar minha senha"** (link 24h) + **"Baixar instalador do atalho"** (bat Windows)
-4. Comprador clica no link → `instalar.html` → define senha → JWT + `refresh_token` + role `buyer` + `loggedBuyerId` + `activeBuyerId` salvos em localStorage → redirect automático para o portal
+4. Comprador clica no link → `instalar.html` → define senha → **limpa todo o localStorage de sessão anterior** (evita contaminação de outro tenant) → JWT + `refresh_token` + role `buyer` + `loggedBuyerId` + `activeBuyerId` salvos em localStorage → redirect automático para o portal
 5. No portal, o comprador já aparece selecionado como ativo
 
 **Convites são registrados em `relatorio_log`** com `tipo='convite'` — visíveis no Log de E-mails do painel admin. Para verificar se um convite foi processado: checar `compradores.user_id` (preenchido na hora do envio). Se o e-mail não chegou mas `user_id` está preenchido e o log mostra `enviado`, o problema é entrega (reputação do servidor SMTP / filtro Gmail).
