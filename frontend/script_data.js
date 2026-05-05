@@ -239,7 +239,10 @@ function bindStaticEvents() {
   });
 
   activeBuyerSelect.addEventListener("change", () => {
-    localStorage.setItem(storageKeys.activeBuyerId, activeBuyerSelect.value);
+    if (getLoggedPortalRole() === "admin_portal")
+      sessionStorage.setItem(storageKeys.activeBuyerId, activeBuyerSelect.value);
+    else
+      localStorage.setItem(storageKeys.activeBuyerId, activeBuyerSelect.value);
     renderTables();
     refreshCalendar();
   });

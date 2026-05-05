@@ -698,7 +698,6 @@ async function bootstrap() {
     sessionStorage.setItem(storageKeys.loggedPortalRole, "admin_portal");
     // Grava '' em vez de removeItem — evita fallthrough para localStorage com dados de outra sessão
     sessionStorage.setItem(storageKeys.loggedBuyerId, "");
-    sessionStorage.setItem(storageKeys.activeBuyerId, "");
     sessionStorage.setItem(storageKeys.loggedPortalEmail, "");
     history.replaceState(null, "", window.location.pathname);
   }

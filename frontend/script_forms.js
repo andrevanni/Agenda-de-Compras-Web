@@ -345,8 +345,13 @@ async function importarArquivoFornecedores(file) {
 
 function ensureBuyerSelection() {
   const settings = getSettings();
+  const isAdminPortal = getLoggedPortalRole() === "admin_portal";
+  const setActive = (id) => {
+    if (isAdminPortal) sessionStorage.setItem(storageKeys.activeBuyerId, id);
+    else localStorage.setItem(storageKeys.activeBuyerId, id);
+  };
   if (getLoggedPortalRole() === "buyer" && settings.loggedBuyerId && state.buyers.some((buyer) => buyer.id === settings.loggedBuyerId)) {
-    localStorage.setItem(storageKeys.activeBuyerId, settings.loggedBuyerId);
+    setActive(settings.loggedBuyerId);
   } else if (getLoggedPortalRole() === "admin_client") {
     const adminBuyer = (settings.loggedBuyerId && state.buyers.some((buyer) => buyer.id === settings.loggedBuyerId))
       ? state.buyers.find((buyer) => buyer.id === settings.loggedBuyerId)
@@ -355,16 +360,16 @@ function ensureBuyerSelection() {
       localStorage.setItem(storageKeys.activeBuyerId, adminBuyer.id);
       localStorage.setItem(storageKeys.loggedBuyerId, adminBuyer.id);
     } else if (!settings.activeBuyerId && state.buyers.length) {
-      localStorage.setItem(storageKeys.activeBuyerId, state.buyers[0].id);
+      setActive(state.buyers[0].id);
     } else if (!settings.activeBuyerId && !state.buyers.length) {
-      localStorage.setItem(storageKeys.activeBuyerId, UNASSIGNED_BUYER_VALUE);
+      setActive(UNASSIGNED_BUYER_VALUE);
     }
   } else if (!settings.activeBuyerId && settings.loggedBuyerId && state.buyers.some((buyer) => buyer.id === settings.loggedBuyerId)) {
-    localStorage.setItem(storageKeys.activeBuyerId, settings.loggedBuyerId);
+    setActive(settings.loggedBuyerId);
   } else if (!settings.activeBuyerId && state.buyers.length) {
-    localStorage.setItem(storageKeys.activeBuyerId, state.buyers[0].id);
+    setActive(state.buyers[0].id);
   } else if (!settings.activeBuyerId && !state.buyers.length) {
-    localStorage.setItem(storageKeys.activeBuyerId, UNASSIGNED_BUYER_VALUE);
+    setActive(UNASSIGNED_BUYER_VALUE);
   }
 }
 
