@@ -722,14 +722,17 @@ async function bootstrap() {
   resetSupplierForm();
   showSection("calendario");
   await loadCategorias();
-  await loadPortalData({ silent: true });
-  ensureBuyerSelection();
-  renderTables();
-  renderCategoriasTable();
-  refreshCalendar();
-  ensureBuyerLoginSession();
-  const overlay = document.getElementById("bootstrapOverlay");
-  if (overlay) overlay.remove();
+  try {
+    await loadPortalData({ silent: true });
+    ensureBuyerSelection();
+    renderTables();
+    renderCategoriasTable();
+    refreshCalendar();
+    ensureBuyerLoginSession();
+  } finally {
+    const overlay = document.getElementById("bootstrapOverlay");
+    if (overlay) overlay.remove();
+  }
   // Renova o JWT automaticamente a cada 50 min (expira em 60 min no Supabase)
   setInterval(refreshJWT, 50 * 60 * 1000);
 }

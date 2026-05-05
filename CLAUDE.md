@@ -327,6 +327,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 - Feedback mostra nome do cliente: `"Gerando acesso ao portal de 'Grupo X'..."`
 - JWT do "Abrir Portal" cacheado 55 min em memória no backend (`_portal_jwt_cache`)
 - **Limpeza forçada de sessão**: acessar `/?limpar=1` limpa todo o localStorage/sessionStorage e redireciona para login (útil quando usuário herdou sessão errada de outro tenant)
+- **Overlay de carregamento**: `index.html` exibe tela preta "Carregando..." até `loadPortalData()` completar — impede flash de dados de sessão anterior; removido em `try/finally` no `bootstrap()` para nunca travar
 
 ## Service Worker e PWA
 
