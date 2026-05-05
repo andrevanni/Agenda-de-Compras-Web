@@ -559,21 +559,22 @@ async function loginBuyer() {
   if (apiBaseUrl) {
     try {
       const data = await fetchApi("/api/v1/auth/login", { body: { email, password } });
+      clearPortalSession();
       localStorage.setItem(storageKeys.jwt, data.access_token);
       if (data.refresh_token) localStorage.setItem(storageKeys.refreshToken, data.refresh_token);
-      clearPortalSession();
-      // Localiza o comprador pelo id retornado pela API
-      const buyerFromApi = state.buyers.find((b) => b.id === data.comprador_id) ??
-        state.buyers.find((b) => (b.email ?? "").toLowerCase() === email);
-      if (buyerFromApi) {
-        localStorage.setItem(storageKeys.loggedBuyerId, buyerFromApi.id);
-        localStorage.setItem(storageKeys.activeBuyerId, buyerFromApi.id);
+      if (data.tenant_id)    localStorage.setItem(storageKeys.tenantId, data.tenant_id);
+      if (data.comprador_id) {
+        localStorage.setItem(storageKeys.loggedBuyerId, data.comprador_id);
+        localStorage.setItem(storageKeys.activeBuyerId, data.comprador_id);
       }
       localStorage.setItem(storageKeys.loggedPortalRole, "buyer");
       localStorage.setItem(storageKeys.loggedPortalEmail, email);
       closeModal("buyerLoginModal");
+      await loadPortalData({ silent: true });
+      ensureBuyerSelection();
       updateBuyerCard();
       renderTables();
+      refreshCalendar();
       setFeedback("Comprador autenticado com sucesso.", "success");
       return;
     } catch {
