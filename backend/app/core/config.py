@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # URL do frontend (para links nos e-mails)
     frontend_url: str = "https://agenda-compras-cliente.vercel.app"
 
+    # Resend — substitui SMTP quando configurado (melhor entrega no Gmail)
+    resend_api_key: str = ""
+
     # Token secreto para o endpoint de cron — configure em CRON_SECRET no Vercel
     cron_secret: str = ""
 

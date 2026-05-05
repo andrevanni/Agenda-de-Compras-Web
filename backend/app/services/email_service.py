@@ -8,18 +8,6 @@ from typing import Optional
 from app.core.config import settings
 
 
-def _build_transport() -> smtplib.SMTP:
-    if settings.smtp_port == 465:
-        smtp = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port)
-    else:
-        smtp = smtplib.SMTP(settings.smtp_host, settings.smtp_port)
-        smtp.ehlo()
-        smtp.starttls()
-        smtp.ehlo()
-    smtp.login(settings.smtp_user, settings.smtp_password)
-    return smtp
-
-
 def _html_to_text(html: str) -> str:
     text = re.sub(r'<[^>]+>', ' ', html)
     text = re.sub(r'[ \t]+', ' ', text)
@@ -27,22 +15,30 @@ def _html_to_text(html: str) -> str:
     return text.strip()
 
 
-def send_html(
-    to: list[str],
-    subject: str,
-    html: str,
-    attachments: Optional[list[tuple[str, bytes]]] = None,
-) -> None:
-    """
-    Envia e-mail HTML com anexos opcionais.
-    attachments: lista de (filename, bytes) — ex.: [("relatorio.pdf", pdf_bytes)]
-    """
-    if not to:
-        return
+def _send_via_resend(to: list[str], subject: str, html: str, plain: str,
+                     attachments: Optional[list[tuple[str, bytes]]]) -> None:
+    import resend
+    resend.api_key = settings.resend_api_key
+    params: dict = {
+        "from": f"{settings.smtp_from_name} <{settings.smtp_user}>",
+        "to": to,
+        "subject": subject,
+        "html": html,
+        "text": plain,
+    }
+    if attachments:
+        params["attachments"] = [
+            {"filename": filename, "content": list(data)}
+            for filename, data in attachments
+        ]
+    resend.Emails.send(params)
+
+
+def _send_via_smtp(to: list[str], subject: str, html: str, plain: str,
+                   attachments: Optional[list[tuple[str, bytes]]]) -> None:
     if not settings.smtp_password:
         raise RuntimeError("SMTP_PASSWORD não configurado no servidor.")
 
-    plain = _html_to_text(html)
     alternative = MIMEMultipart("alternative")
     alternative.attach(MIMEText(plain, "plain", "utf-8"))
     alternative.attach(MIMEText(html, "html", "utf-8"))
@@ -61,5 +57,28 @@ def send_html(
     msg["From"]    = f"{settings.smtp_from_name} <{settings.smtp_user}>"
     msg["To"]      = ", ".join(to)
 
-    with _build_transport() as smtp:
+    if settings.smtp_port == 465:
+        smtp = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port)
+    else:
+        smtp = smtplib.SMTP(settings.smtp_host, settings.smtp_port)
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.ehlo()
+    smtp.login(settings.smtp_user, settings.smtp_password)
+    with smtp:
         smtp.sendmail(settings.smtp_user, to, msg.as_string())
+
+
+def send_html(
+    to: list[str],
+    subject: str,
+    html: str,
+    attachments: Optional[list[tuple[str, bytes]]] = None,
+) -> None:
+    if not to:
+        return
+    plain = _html_to_text(html)
+    if settings.resend_api_key:
+        _send_via_resend(to, subject, html, plain, attachments)
+    else:
+        _send_via_smtp(to, subject, html, plain, attachments)
