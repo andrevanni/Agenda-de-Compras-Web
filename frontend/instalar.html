@@ -273,6 +273,12 @@ function parseHash() {
         return;
       }
 
+      // Limpa sessão anterior antes de gravar — evita contaminação de outros tenants
+      ['agenda_jwt','agenda_refresh_token','agenda_cliente_tenant_id',
+       'agenda_cliente_logged_buyer_id','agenda_cliente_active_buyer_id',
+       'agenda_cliente_logged_portal_role','agenda_cliente_logged_portal_email',
+       'agenda_cliente_logo_url'].forEach(k => localStorage.removeItem(k));
+
       if (data.access_token) localStorage.setItem('agenda_jwt', data.access_token);
       if (data.refresh_token) localStorage.setItem('agenda_refresh_token', data.refresh_token);
       if (data.tenant_id)    localStorage.setItem('agenda_cliente_tenant_id', data.tenant_id);
