@@ -692,9 +692,25 @@ async function bootstrap() {
     sessionStorage.setItem(storageKeys.jwt, urlJwt);
     sessionStorage.setItem(storageKeys.tenantId, urlTenantId);
     sessionStorage.setItem(storageKeys.loggedPortalRole, "admin_portal");
-    sessionStorage.removeItem(storageKeys.loggedBuyerId);
-    sessionStorage.removeItem(storageKeys.activeBuyerId);
+    // Grava '' em vez de removeItem — evita fallthrough para localStorage com dados de outra sessão
+    sessionStorage.setItem(storageKeys.loggedBuyerId, "");
+    sessionStorage.setItem(storageKeys.activeBuyerId, "");
+    sessionStorage.setItem(storageKeys.loggedPortalEmail, "");
     history.replaceState(null, "", window.location.pathname);
+  }
+
+  // Limpeza forçada de sessão — ?limpar=1 na URL
+  if (new URLSearchParams(window.location.search).get("limpar") === "1") {
+    [storageKeys.jwt, storageKeys.refreshToken, storageKeys.tenantId,
+     storageKeys.loggedBuyerId, storageKeys.activeBuyerId,
+     storageKeys.loggedPortalRole, storageKeys.loggedPortalEmail,
+     "agenda_cliente_logo_url"].forEach(k => {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    });
+    history.replaceState(null, "", window.location.pathname);
+    window.location.href = window.location.pathname;
+    return;
   }
 
   applyTheme();
