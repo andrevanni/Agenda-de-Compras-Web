@@ -1,3 +1,4 @@
+import re
 import smtplib
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -19,6 +20,13 @@ def _build_transport() -> smtplib.SMTP:
     return smtp
 
 
+def _html_to_text(html: str) -> str:
+    text = re.sub(r'<[^>]+>', ' ', html)
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
 def send_html(
     to: list[str],
     subject: str,
@@ -34,18 +42,20 @@ def send_html(
     if not settings.smtp_password:
         raise RuntimeError("SMTP_PASSWORD não configurado no servidor.")
 
+    plain = _html_to_text(html)
+    alternative = MIMEMultipart("alternative")
+    alternative.attach(MIMEText(plain, "plain", "utf-8"))
+    alternative.attach(MIMEText(html, "html", "utf-8"))
+
     if attachments:
         msg: MIMEMultipart = MIMEMultipart("mixed")
-        html_part = MIMEMultipart("alternative")
-        html_part.attach(MIMEText(html, "html", "utf-8"))
-        msg.attach(html_part)
+        msg.attach(alternative)
         for filename, data in attachments:
             part = MIMEApplication(data, Name=filename)
             part["Content-Disposition"] = f'attachment; filename="{filename}"'
             msg.attach(part)
     else:
-        msg = MIMEMultipart("alternative")
-        msg.attach(MIMEText(html, "html", "utf-8"))
+        msg = alternative
 
     msg["Subject"] = subject
     msg["From"]    = f"{settings.smtp_from_name} <{settings.smtp_user}>"
