@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.db.supabase_client import get_supabase
 from app.services.email_service import send_html
 from app.services.pdf_service import build_relatorio_pdf
 
@@ -592,12 +593,9 @@ def enviar_relatorios_tenant(
 
     # Cópias para admins inscritos neste tenant
     try:
-        admin_emails = [
-            r[0] for r in db.execute(
-                text("SELECT admin_email FROM admin_report_subscriptions WHERE tenant_id = cast(:tid as uuid)"),
-                {"tid": tenant_id},
-            ).fetchall()
-        ]
+        sb = get_supabase()
+        resp = sb.table("admin_report_subscriptions").select("admin_email").eq("tenant_id", tenant_id).execute()
+        admin_emails = [r["admin_email"] for r in (resp.data or [])]
         if admin_emails:
             html_admin = _build_html_email(
                 nome_comprador="Administrador",

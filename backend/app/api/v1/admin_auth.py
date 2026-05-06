@@ -250,9 +250,7 @@ def set_report_subscriptions(payload: ReportSubscriptionsRequest) -> dict:
         sb.table("admin_report_subscriptions").delete().eq("admin_email", payload.admin_email).execute()
         if payload.tenant_ids:
             rows = [{"admin_email": payload.admin_email, "tenant_id": tid} for tid in payload.tenant_ids]
-            resp = sb.table("admin_report_subscriptions").insert(rows).execute()
-            if not resp.data:
-                raise HTTPException(status_code=500, detail="Insert retornou sem dados — verifique permissões da tabela.")
+            sb.table("admin_report_subscriptions").insert(rows).execute()
     except HTTPException:
         raise
     except Exception as e:
