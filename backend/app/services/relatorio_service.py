@@ -589,6 +589,61 @@ def enviar_relatorios_tenant(
             _log_envio(db, tenant_id, c["id"], tipo, data_ref, c["email"], "erro", str(exc)[:500])
             errors += 1
 
+    # Cópias para admins inscritos neste tenant
+    try:
+        admin_emails = [
+            r[0] for r in db.execute(
+                text("SELECT admin_email FROM admin_report_subscriptions WHERE tenant_id = cast(:tid as uuid)"),
+                {"tid": tenant_id},
+            ).fetchall()
+        ]
+        if admin_emails:
+            html_admin = _build_html_email(
+                nome_comprador="Administrador",
+                is_gestor=True,
+                data_ref=data_ref,
+                proximo_dia=proximo_dia,
+                kpis_mes_atual=kpis_mes_atual_geral,
+                kpis_mes_anterior=kpis_mes_ant_geral,
+                itens_atrasados=atrasados_geral,
+                agenda_compras_rows=agenda_compras_geral,
+                outros_compromissos_rows=outros_compromissos_geral,
+                auditoria_rows=auditoria_geral,
+                tenant_name=tenant_name,
+            )
+            subject_admin = f"Agenda de Compras — Relatório {_fmt(data_ref)}"
+            pdf_admin: Optional[bytes] = None
+            try:
+                pdf_admin = build_relatorio_pdf(
+                    nome_comprador="Administrador",
+                    is_gestor=True,
+                    data_ref=data_ref,
+                    proximo_dia=proximo_dia,
+                    kpis_mes_atual=kpis_mes_atual_geral,
+                    kpis_mes_anterior=kpis_mes_ant_geral,
+                    itens_atrasados=atrasados_geral,
+                    agenda_compras_rows=agenda_compras_geral,
+                    outros_compromissos_rows=outros_compromissos_geral,
+                    auditoria_rows=auditoria_geral,
+                    tenant_name=tenant_name,
+                )
+            except Exception:
+                pdf_admin = None
+            attachments_admin = (
+                [(f"relatorio_{_fmt(data_ref).replace('/', '-')}.pdf", pdf_admin)]
+                if pdf_admin else None
+            )
+            for admin_email in admin_emails:
+                try:
+                    send_html([admin_email], subject_admin, html_admin, attachments=attachments_admin)
+                    _log_envio(db, tenant_id, None, "admin_copia", data_ref, admin_email, "enviado")
+                    sent += 1
+                except Exception as exc:
+                    _log_envio(db, tenant_id, None, "admin_copia", data_ref, admin_email, "erro", str(exc)[:500])
+                    errors += 1
+    except Exception:
+        pass  # Nunca bloquear o fluxo principal de envio para compradores
+
     return {
         "tenant_id": tenant_id,
         "data_ref": str(data_ref),

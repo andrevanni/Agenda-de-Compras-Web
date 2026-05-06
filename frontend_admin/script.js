@@ -920,18 +920,19 @@ async function loadAdmins() {
       const isSelf = a.email === getSettings().adminEmail;
       const isMasterUser = a.email === MASTER_EMAIL;
       const tag = isMasterUser ? "<span style='font-size:11px;background:#1e3a5f;color:#93c5fd;padding:2px 8px;border-radius:4px;margin-left:6px;'>master</span>" : "";
-      const actions = isMaster() && !isMasterUser ? `
-        <div style="display:flex;gap:8px;margin-top:10px;">
+      const masterActions = isMaster() && !isMasterUser ? `
           <button class="secondary-button" style="font-size:12px;padding:5px 12px;" onclick="revogarAdmin('${a.id}','${a.email}')">Revogar acesso</button>
-          <button class="secondary-button" style="font-size:12px;padding:5px 12px;color:#f87171;border-color:#7f1d1d;" onclick="excluirAdmin('${a.id}','${a.email}')">Excluir</button>
-        </div>` : "";
+          <button class="secondary-button" style="font-size:12px;padding:5px 12px;color:#f87171;border-color:#7f1d1d;" onclick="excluirAdmin('${a.id}','${a.email}')">Excluir</button>` : "";
       const lastLogin = a.last_sign_in_at && a.last_sign_in_at !== "None"
         ? `Último login: ${new Date(a.last_sign_in_at).toLocaleDateString("pt-BR")}`
         : "Nunca acessou";
       return `<div class="card-item">
         <strong>${a.email}${tag}${isSelf ? " <span style='font-size:11px;color:#64748b;'>(você)</span>" : ""}</strong>
         <p class="small-copy">${lastLogin}</p>
-        ${actions}
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button class="secondary-button" style="font-size:12px;padding:5px 12px;" onclick="editAdminReportSubs('${a.id}','${a.email}')">📧 Relatórios</button>
+          ${masterActions}
+        </div>
       </div>`;
     }).join("");
   } catch (err) {
@@ -958,6 +959,85 @@ async function excluirAdmin(userId, email) {
     loadAdmins();
   } catch (err) {
     setFeedback(`Erro: ${err.message}`, "error");
+  }
+}
+
+async function editAdminReportSubs(userId, adminEmail) {
+  const existing = document.getElementById("reportSubsModal");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "reportSubsModal";
+  overlay.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center;";
+
+  const modal = document.createElement("div");
+  modal.style.cssText = "background:#1e293b;border-radius:12px;padding:28px;width:440px;max-width:92vw;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);";
+  modal.innerHTML = `
+    <h3 style="margin:0 0 6px;font-size:15px;color:#f1f5f9;">📧 Relatórios — ${adminEmail}</h3>
+    <p style="margin:0 0 18px;font-size:12px;color:#64748b;">Selecione os clientes cujos relatórios diários este admin receberá por e-mail.</p>
+    <div id="reportSubsLoading" style="color:#64748b;font-size:13px;padding:8px 0;">Carregando...</div>
+    <div id="reportSubsList" style="display:none;"></div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button class="secondary-button" style="font-size:13px;padding:7px 16px;" onclick="document.getElementById('reportSubsModal').remove()">Cancelar</button>
+      <button id="reportSubsSave" class="secondary-button" style="font-size:13px;padding:7px 16px;display:none;background:#2563eb;color:#fff;border-color:#2563eb;" onclick="saveAdminReportSubs('${userId}','${adminEmail}')">Salvar</button>
+    </div>`;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+  try {
+    const currentSubs = await fetchAdmin(`/api/v1/admin/auth/admins/${userId}/report-subscriptions`);
+    const subSet = new Set(currentSubs || []);
+    const loadingEl = document.getElementById("reportSubsLoading");
+    const listEl = document.getElementById("reportSubsList");
+    const saveBtn = document.getElementById("reportSubsSave");
+
+    if (!tenants.length) {
+      loadingEl.textContent = "Nenhuma base operacional encontrada. Carregue o painel primeiro.";
+      return;
+    }
+
+    listEl.innerHTML = tenants.map((t) => `
+      <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;margin-bottom:3px;"
+             onmouseover="this.style.background='#334155'" onmouseout="this.style.background=''">
+        <input type="checkbox" value="${t.id}" ${subSet.has(t.id) ? "checked" : ""}
+               style="width:15px;height:15px;accent-color:#2563eb;cursor:pointer;">
+        <span style="font-size:13px;color:#f1f5f9;">${t.nome ?? t.id}</span>
+      </label>`).join("");
+
+    loadingEl.style.display = "none";
+    listEl.style.display = "block";
+    saveBtn.style.display = "";
+  } catch (err) {
+    const loadingEl = document.getElementById("reportSubsLoading");
+    if (loadingEl) loadingEl.textContent = `Erro: ${err.message}`;
+  }
+}
+
+async function saveAdminReportSubs(userId, adminEmail) {
+  const saveBtn = document.getElementById("reportSubsSave");
+  const tenantIds = Array.from(
+    document.querySelectorAll("#reportSubsList input[type=checkbox]:checked")
+  ).map((c) => c.value);
+
+  saveBtn.textContent = "Salvando...";
+  saveBtn.disabled = true;
+
+  try {
+    await fetchAdmin(`/api/v1/admin/auth/admins/${userId}/report-subscriptions`, {
+      method: "PUT",
+      body: { tenant_ids: tenantIds },
+    });
+    document.getElementById("reportSubsModal").remove();
+    const label = tenantIds.length
+      ? `${tenantIds.length} cliente(s) selecionado(s) para ${adminEmail}.`
+      : `Inscrições removidas para ${adminEmail}.`;
+    setFeedback(label, "success", true);
+  } catch (err) {
+    setFeedback(`Erro ao salvar: ${err.message}`, "error");
+    saveBtn.textContent = "Salvar";
+    saveBtn.disabled = false;
   }
 }
 
@@ -990,6 +1070,8 @@ const EMAIL_LOG_TIPO_LABEL = {
   auditoria: "Auditoria",
   agenda_proximo: "Agenda próximo dia",
   consolidado_gestor: "Consolidado gestor",
+  convite: "Convite",
+  admin_copia: "Cópia Admin",
 };
 
 async function loadEmailLog() {
