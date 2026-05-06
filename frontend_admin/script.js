@@ -987,7 +987,7 @@ async function editAdminReportSubs(userId, adminEmail) {
   overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
 
   try {
-    const currentSubs = await fetchAdmin(`/api/v1/admin/auth/admins/${userId}/report-subscriptions`);
+    const currentSubs = await fetchAdmin(`/api/v1/admin/auth/report-subscriptions?admin_email=${encodeURIComponent(adminEmail)}`);
     const subSet = new Set(currentSubs || []);
     const loadingEl = document.getElementById("reportSubsLoading");
     const listEl = document.getElementById("reportSubsList");
@@ -1025,9 +1025,9 @@ async function saveAdminReportSubs(userId, adminEmail) {
   saveBtn.disabled = true;
 
   try {
-    await fetchAdmin(`/api/v1/admin/auth/admins/${userId}/report-subscriptions`, {
+    await fetchAdmin(`/api/v1/admin/auth/report-subscriptions`, {
       method: "PUT",
-      body: { tenant_ids: tenantIds },
+      body: { admin_email: adminEmail, tenant_ids: tenantIds },
     });
     document.getElementById("reportSubsModal").remove();
     const label = tenantIds.length

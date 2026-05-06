@@ -29,6 +29,7 @@ class ConvidarAdminRequest(BaseModel):
 
 
 class ReportSubscriptionsRequest(BaseModel):
+    admin_email: str
     tenant_ids: list[str]
 
 
@@ -233,37 +234,25 @@ def convidar_admin(payload: ConvidarAdminRequest) -> dict:
     return {"ok": True, "enviado_para": payload.email}
 
 
-def _get_admin_email(user_id: str) -> str:
-    sb = get_supabase()
-    try:
-        user_resp = sb.auth.admin.get_user_by_id(user_id)
-        return user_resp.user.email
-    except Exception:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
-
-
-@router.get("/admins/{user_id}/report-subscriptions", dependencies=[Depends(require_admin)])
-def get_report_subscriptions(user_id: str, db: Session = Depends(get_db_session)) -> list:
+@router.get("/report-subscriptions", dependencies=[Depends(require_admin)])
+def get_report_subscriptions(admin_email: str, db: Session = Depends(get_db_session)) -> list:
     """Retorna os tenant_ids para os quais este admin recebe cópia do relatório diário."""
-    email = _get_admin_email(user_id)
     rows = db.execute(
         text("SELECT tenant_id::text FROM admin_report_subscriptions WHERE admin_email = :email"),
-        {"email": email},
+        {"email": admin_email},
     ).fetchall()
     return [r[0] for r in rows]
 
 
-@router.put("/admins/{user_id}/report-subscriptions", dependencies=[Depends(require_admin)])
+@router.put("/report-subscriptions", dependencies=[Depends(require_admin)])
 def set_report_subscriptions(
-    user_id: str,
     payload: ReportSubscriptionsRequest,
     db: Session = Depends(get_db_session),
 ) -> dict:
     """Salva a lista de tenant_ids que este admin quer receber por e-mail."""
-    email = _get_admin_email(user_id)
     db.execute(
         text("DELETE FROM admin_report_subscriptions WHERE admin_email = :email"),
-        {"email": email},
+        {"email": payload.admin_email},
     )
     for tid in payload.tenant_ids:
         db.execute(
@@ -271,7 +260,7 @@ def set_report_subscriptions(
                 "INSERT INTO admin_report_subscriptions (admin_email, tenant_id)"
                 " VALUES (:email, cast(:tid as uuid)) ON CONFLICT DO NOTHING"
             ),
-            {"email": email, "tid": tid},
+            {"email": payload.admin_email, "tid": tid},
         )
     db.commit()
-    return {"ok": True, "email": email, "tenant_ids": payload.tenant_ids}
+    return {"ok": True, "email": payload.admin_email, "tenant_ids": payload.tenant_ids}
