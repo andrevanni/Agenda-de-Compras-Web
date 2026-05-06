@@ -30,9 +30,14 @@ def _verificar_auth(
         raise HTTPException(status_code=401, detail="Token de cron inválido.")
 
 
-def _executar(db: Session, tenant_id: Optional[str], data_ref: Optional[date]) -> dict:
+def _executar(
+    db: Session,
+    tenant_id: Optional[str],
+    data_ref: Optional[date],
+    admin_only: bool = False,
+) -> dict:
     if tenant_id:
-        return enviar_relatorios_tenant(db, tenant_id, data_ref)
+        return enviar_relatorios_tenant(db, tenant_id, data_ref, admin_only=admin_only)
     return enviar_relatorios_todos_tenants(db, data_ref)
 
 
@@ -51,8 +56,10 @@ def cron_relatorio_diario_get(
 def cron_relatorio_diario_post(
     data_ref: Optional[date] = Query(default=None),
     tenant_id: Optional[str] = Query(default=None),
+    admin_only: bool = Query(default=False),
     _: None = Depends(_verificar_auth),
     db: Session = Depends(get_db_session),
 ) -> dict:
-    """Chamado manualmente via POST com header X-Cron-Secret."""
-    return _executar(db, tenant_id, data_ref)
+    """Chamado manualmente via POST com header X-Cron-Secret.
+    admin_only=true envia apenas para admins inscritos, sem disparar e-mails aos compradores."""
+    return _executar(db, tenant_id, data_ref, admin_only=admin_only)

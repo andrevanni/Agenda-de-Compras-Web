@@ -479,6 +479,7 @@ def enviar_relatorios_tenant(
     db: Session,
     tenant_id: str,
     data_ref: Optional[date] = None,
+    admin_only: bool = False,
 ) -> dict:
     from datetime import datetime
     if data_ref is None:
@@ -525,7 +526,7 @@ def enviar_relatorios_tenant(
     sent = 0
     errors = 0
 
-    for c in compradores:
+    for c in ([] if admin_only else compradores):
         is_gestor = bool(c["is_gestor"])
 
         if is_gestor:
