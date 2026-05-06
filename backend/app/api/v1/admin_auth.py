@@ -4,12 +4,9 @@ from urllib.error import HTTPError
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 from app.core.admin_auth import require_admin, require_master_admin
 from app.core.config import settings
-from app.db.session import get_db_session
 from app.db.supabase_client import get_supabase
 from app.services.email_service import send_html
 
@@ -235,32 +232,25 @@ def convidar_admin(payload: ConvidarAdminRequest) -> dict:
 
 
 @router.get("/report-subscriptions", dependencies=[Depends(require_admin)])
-def get_report_subscriptions(admin_email: str, db: Session = Depends(get_db_session)) -> list:
+def get_report_subscriptions(admin_email: str) -> list:
     """Retorna os tenant_ids para os quais este admin recebe cópia do relatório diário."""
-    rows = db.execute(
-        text("SELECT tenant_id::text FROM admin_report_subscriptions WHERE admin_email = :email"),
-        {"email": admin_email},
-    ).fetchall()
-    return [r[0] for r in rows]
+    sb = get_supabase()
+    try:
+        resp = sb.table("admin_report_subscriptions").select("tenant_id").eq("admin_email", admin_email).execute()
+        return [r["tenant_id"] for r in (resp.data or [])]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.put("/report-subscriptions", dependencies=[Depends(require_admin)])
-def set_report_subscriptions(
-    payload: ReportSubscriptionsRequest,
-    db: Session = Depends(get_db_session),
-) -> dict:
+def set_report_subscriptions(payload: ReportSubscriptionsRequest) -> dict:
     """Salva a lista de tenant_ids que este admin quer receber por e-mail."""
-    db.execute(
-        text("DELETE FROM admin_report_subscriptions WHERE admin_email = :email"),
-        {"email": payload.admin_email},
-    )
-    for tid in payload.tenant_ids:
-        db.execute(
-            text(
-                "INSERT INTO admin_report_subscriptions (admin_email, tenant_id)"
-                " VALUES (:email, cast(:tid as uuid)) ON CONFLICT DO NOTHING"
-            ),
-            {"email": payload.admin_email, "tid": tid},
-        )
-    db.commit()
+    sb = get_supabase()
+    try:
+        sb.table("admin_report_subscriptions").delete().eq("admin_email", payload.admin_email).execute()
+        if payload.tenant_ids:
+            rows = [{"admin_email": payload.admin_email, "tenant_id": tid} for tid in payload.tenant_ids]
+            sb.table("admin_report_subscriptions").insert(rows).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     return {"ok": True, "email": payload.admin_email, "tenant_ids": payload.tenant_ids}
