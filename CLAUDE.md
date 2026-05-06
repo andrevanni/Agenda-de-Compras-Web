@@ -56,7 +56,7 @@ Routes (backend/app/api/v1/) → Services (backend/app/services/) → DB session
 
 - **Frontend cliente** chama Supabase REST direto via `fetchSupabase()`. FastAPI só para auth JWT e operações admin.
 - **Multi-tenancy**: todo registro tem `tenant_id`. Queries SEMPRE filtram por `tenant_id`. RLS no Supabase usa `USING (true)` — isolamento é via aplicação.
-- **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v13_*.sql`). Sem Alembic.
+- **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v14_*.sql`). Sem Alembic.
 
 ## Regras de desenvolvimento (obrigatórias)
 
@@ -94,6 +94,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 
 - Login com e-mail + senha via `POST /api/v1/admin/auth/login` → JWT em `localStorage['agenda_admin_jwt']`
 - Seções: Base Operacional (tenants), Clientes, Vigências, Admins, **Log de E-mails**, Ajuda, Conexão
+- **Admins — inscrições de relatório**: cada card de admin tem botão **📧 Relatórios** → modal com checklist de tenants; admin inscrito recebe cópia consolidada (gestor) do relatório diário daquele tenant; qualquer admin pode gerenciar suas próprias inscrições; `editAdminReportSubs()` / `saveAdminReportSubs()` em `script.js`
 - `fetchAdmin()` envia JWT admin no header `Authorization: Bearer` (com fallback para `X-Admin-Token`)
 - Tenants ordenados **alfabeticamente** por `nome`
 - Cada card de tenant tem toggle **"Envio de relatório diário"** — PATCH imediato em `tenants.envio_relatorio_ativo`
@@ -162,6 +163,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | `api/v1/admin_portal.py` | `/api/v1/admin` | `POST /abrir-portal/{tenant_id}` — JWT cacheado 55 min |
 | `api/v1/admin_clientes.py` | `/api/v1/admin/clientes` | CRUD de clientes comerciais (usa SQLAlchemy + PostgreSQL direto) |
 | `api/v1/admin_licencas.py` | `/api/v1/admin/licencas` | CRUD de vigências/licenças (usa Supabase client) |
+| `api/v1/admin_auth.py` | `/api/v1/admin/auth/report-subscriptions` | GET/PUT inscrições de relatório por admin (usa Supabase client) |
 | `api/v1/admin_compradores_invite.py` | `/api/v1/admin/compradores` | Envio de convite pelo admin |
 | `api/v1/admin_email_log.py` | `/api/v1/admin/email-log` | Log de relatórios enviados — consulta `relatorio_log` com join em tenants/compradores |
 | `api/v1/portal_compradores.py` | `/api/v1/portal/compradores` | Envio de convite pelo portal cliente (requer JWT) |
@@ -194,6 +196,8 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - `GET/POST/PATCH/DELETE /api/v1/admin/licencas` — CRUD vigências
 - `POST /api/v1/admin/compradores/{id}/enviar-convite` — convite via e-mail
 - `GET /api/v1/admin/email-log?dias=30&tenant_id=` — histórico de relatórios enviados (relatorio_log)
+- `GET /api/v1/admin/auth/report-subscriptions?admin_email=` — lista tenant_ids que o admin recebe por e-mail
+- `PUT /api/v1/admin/auth/report-subscriptions` — salva inscrições `{admin_email, tenant_ids[]}`
 
 ### Portal cliente (JWT)
 - `POST /api/v1/portal/compradores/{id}/enviar-convite` — convite enviado pelo portal
@@ -206,7 +210,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 
 ### Cron (header `X-Cron-Secret` ou `Authorization: Bearer {CRON_SECRET}`)
 - `GET /api/v1/cron/relatorio-diario` — chamado pelo Vercel Cron (00:00 UTC = 21:00 BRT, seg-sex)
-- `POST /api/v1/cron/relatorio-diario` — chamada manual; aceita `?tenant_id=` e `?data_ref=`
+- `POST /api/v1/cron/relatorio-diario` — chamada manual; aceita `?tenant_id=`, `?data_ref=` e `?admin_only=true` (envia só para admins inscritos, sem disparar compradores)
 
 ### Redirect (público)
 - `GET /portal` — redirect 302 para `FRONTEND_URL`
@@ -214,11 +218,19 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 ## Relatório Diário por E-mail
 
 ### Fluxo
-1. Vercel Cron dispara `GET /api/v1/cron/relatorio-diario` toda noite às 21h BRT (seg-sex)
+1. Vercel Cron dispara `GET /api/v1/cron/relatorio-diario` toda noite às **21h BRT** (00:00 UTC, seg-sex)
 2. `relatorio_service.py` busca tenants com `envio_relatorio_ativo = true`
 3. Para cada tenant, busca compradores com `receber_auditoria = true` ou `receber_agenda_proximo = true`
 4. Monta HTML rico + gera PDF com ReportLab (`pdf_service.py`)
 5. Envia e-mail via SMTP com PDF anexo; registra em `relatorio_log`
+6. Após compradores, busca admins inscritos em `admin_report_subscriptions` e envia cópia consolidada (gestor) para cada um; registra em `relatorio_log` com `tipo='admin_copia'`
+
+### Inscrições de relatório para admins
+- Tabela `admin_report_subscriptions(admin_email, tenant_id)` — criada em `schema_v14`
+- Admin se inscreve via Painel Admin → Admins → botão **📧 Relatórios** → checklist de tenants
+- Cópia enviada sempre no nível gestor (dados consolidados de todos os compradores do tenant)
+- Teste sem afetar compradores: `POST /api/v1/cron/relatorio-diario?tenant_id=X&admin_only=true` com `X-Cron-Secret`
+- ⚠️ Ao criar a tabela via SQL, rodar `GRANT ALL ON admin_report_subscriptions TO authenticated, anon, service_role;` para garantir acesso via Supabase client
 
 ### Estrutura do PDF (6 seções — reestruturado em mai/2026)
 1. **Cabeçalho** (hero band): tenant, destinatário, data
@@ -403,6 +415,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 | `schema_v11_relatorio_flag.sql` | Campo `envio_relatorio_ativo` em tenants |
 | `schema_v12_audit_log.sql` | Tabela `audit_log` para eventos de fornecedor e comprador; RLS com `app.user_belongs_to_tenant` |
 | `schema_v13_relatorio_log_convite.sql` | Adiciona `'convite'` ao CHECK constraint do campo `tipo` em `relatorio_log` |
+| `schema_v14_admin_report_subscriptions.sql` | Tabela `admin_report_subscriptions(admin_email, tenant_id)` para inscrições de relatório por admin; adiciona `'admin_copia'` ao CHECK constraint de `relatorio_log.tipo` |
 
 ## DATABASE_URL — Conexão com Supabase (⚠️ crítico)
 
