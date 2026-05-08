@@ -992,7 +992,7 @@ textarea::placeholder {
 
 .audit-filter-bar {
   display: grid;
-  grid-template-columns: 220px 180px 180px 1fr;
+  grid-template-columns: 220px 180px 180px 1fr 1fr;
   gap: 12px;
   align-items: end;
   margin-bottom: 16px;

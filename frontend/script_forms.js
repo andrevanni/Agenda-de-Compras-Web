@@ -751,6 +751,18 @@ function _populateAuditBuyerFilter() {
     state.buyers.map((b) => `<option value="${b.id}"${b.id === current ? " selected" : ""}>${b.nome_comprador}</option>`).join("");
 }
 
+function _populateAuditSupplierFilter() {
+  const sel = document.getElementById("auditSupplierFilter");
+  if (!sel) return;
+  const current = sel.value;
+  const usedIds = new Set(state.auditOccurrences.map((o) => o.fornecedor_id).filter(Boolean));
+  const suppliers = state.suppliers
+    .filter((s) => usedIds.has(s.id))
+    .sort((a, b) => a.nome_fornecedor.localeCompare(b.nome_fornecedor));
+  sel.innerHTML = '<option value="">Todos</option>' +
+    suppliers.map((s) => `<option value="${s.id}"${s.id === current ? " selected" : ""}>${s.nome_fornecedor}</option>`).join("");
+}
+
 function exportAuditToExcel(entries, range) {
   if (!entries.length) { setFeedback("Nenhum dado para exportar.", "warning"); return; }
   const rows = entries.map((e) => ({
@@ -793,10 +805,13 @@ function renderAuditDashboard() {
   const buyerGroups = document.getElementById("auditBuyerGroups");
   syncAuditPeriodInputs();
   _populateAuditBuyerFilter();
+  _populateAuditSupplierFilter();
   const range = getAuditRange();
   const filterBuyerId = document.getElementById("auditBuyerFilter")?.value ?? "";
+  const filterSupplierId = document.getElementById("auditSupplierFilter")?.value ?? "";
 
   const allEntries = state.auditOccurrences
+    .filter((raw) => !filterSupplierId || raw.fornecedor_id === filterSupplierId)
     .map(classifyAuditEvent)
     .filter((entry) => entry.status !== "PENDENTE" || entry.meta)
     .filter((entry) => {
@@ -967,8 +982,9 @@ function renderAuditDashboard() {
   // Bind export button
   document.getElementById("exportAuditButton")?.addEventListener("click", () => exportAuditToExcel(entries, range), { once: true });
 
-  // Bind buyer filter change
+  // Bind filter changes
   document.getElementById("auditBuyerFilter")?.addEventListener("change", renderAuditDashboard, { once: true });
+  document.getElementById("auditSupplierFilter")?.addEventListener("change", renderAuditDashboard, { once: true });
 }
 
 function refreshSupplierSuggestion() {
