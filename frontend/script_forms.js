@@ -706,7 +706,7 @@ function _renderAuditCharts(entries) {
         labels: ["Cumpridas", "Postergadas", "Antecipadas"],
         datasets: [{ data: [metrics.cumpridas, metrics.postergadas, metrics.antecipadas], backgroundColor: ["#10b981", "#ef4444", "#f59e0b"], borderWidth: 2 }],
       },
-      options: { plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } }, cutout: "60%" },
+      options: { responsive: false, plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } }, cutout: "60%" },
     });
   }
 
