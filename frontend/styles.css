@@ -955,6 +955,11 @@ textarea::placeholder {
   align-items: stretch;
 }
 
+.audit-chart-bar-box canvas {
+  height: 220px !important;
+  width: 100% !important;
+}
+
 .audit-chart-label {
   font-size: 12px;
   font-weight: 600;

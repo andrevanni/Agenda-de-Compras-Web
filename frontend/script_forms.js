@@ -734,7 +734,8 @@ function _renderAuditCharts(entries) {
       },
       options: {
         indexAxis: "y",
-        responsive: false,
+        responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } },
         scales: { x: { stacked: true, ticks: { precision: 0 } }, y: { stacked: true } },
       },
