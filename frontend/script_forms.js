@@ -751,16 +751,20 @@ function _populateAuditBuyerFilter() {
     state.buyers.map((b) => `<option value="${b.id}"${b.id === current ? " selected" : ""}>${b.nome_comprador}</option>`).join("");
 }
 
-function _populateAuditSupplierFilter() {
+function _populateAuditSupplierFilter(filterBuyerId = "") {
   const sel = document.getElementById("auditSupplierFilter");
   if (!sel) return;
   const current = sel.value;
-  const usedIds = new Set(state.auditOccurrences.map((o) => o.fornecedor_id).filter(Boolean));
+  const base = filterBuyerId
+    ? state.auditOccurrences.filter((o) => o.comprador_id === filterBuyerId)
+    : state.auditOccurrences;
+  const usedIds = new Set(base.map((o) => o.fornecedor_id).filter(Boolean));
   const suppliers = state.suppliers
     .filter((s) => usedIds.has(s.id))
     .sort((a, b) => a.nome_fornecedor.localeCompare(b.nome_fornecedor));
+  const validCurrent = suppliers.some((s) => s.id === current) ? current : "";
   sel.innerHTML = '<option value="">Todos</option>' +
-    suppliers.map((s) => `<option value="${s.id}"${s.id === current ? " selected" : ""}>${s.nome_fornecedor}</option>`).join("");
+    suppliers.map((s) => `<option value="${s.id}"${s.id === validCurrent ? " selected" : ""}>${s.nome_fornecedor}</option>`).join("");
 }
 
 function exportAuditToExcel(entries, range) {
@@ -805,9 +809,9 @@ function renderAuditDashboard() {
   const buyerGroups = document.getElementById("auditBuyerGroups");
   syncAuditPeriodInputs();
   _populateAuditBuyerFilter();
-  _populateAuditSupplierFilter();
-  const range = getAuditRange();
   const filterBuyerId = document.getElementById("auditBuyerFilter")?.value ?? "";
+  _populateAuditSupplierFilter(filterBuyerId);
+  const range = getAuditRange();
   const filterSupplierId = document.getElementById("auditSupplierFilter")?.value ?? "";
 
   const allEntries = state.auditOccurrences
