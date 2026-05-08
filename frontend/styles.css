@@ -919,6 +919,39 @@ textarea::placeholder {
   max-width: 620px;
 }
 
+.audit-charts-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.audit-chart-box {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.audit-chart-bar-box {
+  flex: 1;
+  min-width: 260px;
+  align-items: stretch;
+}
+
+.audit-chart-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 10px;
+  align-self: flex-start;
+}
+
 .audit-modal-card {
   max-width: min(1320px, calc(100vw - 28px));
 }
