@@ -446,3 +446,36 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 - Logo do cliente no PDF: atualmente só aparece a logo Service Farma no rodapé. Para incluir a logo do cliente, é necessário adicionar campo `logo_url` na tabela `tenants` e armazenar URL pública (Supabase Storage).
 - Resend.com: integração concluída em mai/2026. Domínio `servicefarma.far.br` verificado. `RESEND_API_KEY` configurada no Vercel. `email_service.py` usa Resend como provider principal com fallback SMTP.
 - Ativar relatório para clientes reais (Grupo São Valentim e Grupo Velanes): apenas configuração operacional — toggle no Admin + checkboxes de notificação nos compradores.
+- **`defaultSettings.tenantId` hardcoded como Service Farma** (`script_state.js` linha 47): qualquer usuário que abra o portal sem `localStorage` configurado vê a agenda da Service Farma por padrão. Corrigir para `""`. Pendente aprovação.
+
+## Caso em investigação — Elias (Drogaria SV) — mai/2026
+
+**Sintoma:** Elias abre o portal e vê a agenda da Service Farma em vez da Drogaria SV.
+
+**Histórico:**
+1. Elias foi cadastrado com e-mail `elias@servicefarma.far.br` — nunca recebia o convite (e-mail enviado, não entregue)
+2. Admin alterou o e-mail no cadastro para `eliasmoreiraalves.jr@gmail.com` e enviou novo convite
+3. Elias recebeu o convite pelo Gmail, clicou no link, passou pelo `instalar.html` e definiu senha
+4. Portal abriu exibindo a agenda da **Service Farma** em vez da Drogaria SV
+
+**Dados confirmados no banco (mai/2026):**
+
+| Campo | Valor |
+|---|---|
+| `compradores.id` | `67e2920e-2cf6-4e81-9304-92c82abb2ed3` |
+| `compradores.email` | `eliasmoreiraalves.jr@gmail.com` |
+| `compradores.user_id` | `a5de2a85-248a-4cbf-a64c-6db3eb4f69a1` |
+| `compradores.tenant_id` | `f0d557c6-9dd9-4e80-96e0-2094da4a40ff` (Drogaria SV ✓) |
+| Auth user antigo (`elias@servicefarma.far.br`) | `d1856c97-4e3e-478e-83c0-557834abbf36` — não linkado a nenhum comprador |
+
+- Só existe **um** comprador com o Gmail em toda a base — na Drogaria SV ✓
+- O `user_id = a5de2a85...` também está linkado **somente** ao comprador da Drogaria SV ✓
+- Pelo código, o fluxo `instalar.html` → `definir-senha` deveria retornar Drogaria SV e gravar corretamente no `localStorage`
+
+**Causa raiz não confirmada** — todos os dados estão corretos; comportamento não foi possível reproduzir remotamente. A hipótese mais provável é que o `localStorage` ficou com o `tenant_id` errado da Service Farma (possivelmente do `defaultSettings.tenantId` hardcoded, caso `definir-senha` tenha falhado silenciosamente por algum motivo pontual).
+
+**Workaround para quando Elias retornar:**
+1. Acessar `https://agenda-compras-cliente.vercel.app/?limpar=1`
+2. Fazer login com `eliasmoreiraalves.jr@gmail.com` + senha definida no convite
+3. O backend vai retornar o `tenant_id` da Drogaria SV via `user_id = a5de2a85...` ✓
+4. Se ainda mostrar Service Farma: abrir DevTools (F12) → Application → Local Storage → verificar `agenda_cliente_tenant_id` imediatamente após o login para identificar se o problema está no backend ou no frontend
