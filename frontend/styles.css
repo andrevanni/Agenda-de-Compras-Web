@@ -919,6 +919,19 @@ textarea::placeholder {
   max-width: 620px;
 }
 
+.audit-modal-card #auditSummaryGrid {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 160px));
+}
+
+.audit-modal-card .kpi-card strong {
+  font-size: 20px;
+}
+
+.audit-modal-card .kpi-card {
+  min-height: 48px;
+  padding: 10px 12px;
+}
+
 .audit-charts-row {
   display: flex;
   gap: 20px;
