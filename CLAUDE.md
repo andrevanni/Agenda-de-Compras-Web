@@ -209,7 +209,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - `POST /api/v1/agenda/{id}/tratar`
 
 ### Cron (header `X-Cron-Secret` ou `Authorization: Bearer {CRON_SECRET}`)
-- `GET /api/v1/cron/relatorio-diario` — chamado pelo Vercel Cron (00:00 UTC = 21:00 BRT, seg-sex)
+- `GET /api/v1/cron/relatorio-diario` — chamado pelo Vercel Cron (00:00 UTC = 21:00 BRT, seg-sex); schedule `0 0 * * 2-6` UTC
 - `POST /api/v1/cron/relatorio-diario` — chamada manual; aceita `?tenant_id=`, `?data_ref=` e `?admin_only=true` (envia só para admins inscritos, sem disparar compradores)
 
 ### Redirect (público)
@@ -218,7 +218,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 ## Relatório Diário por E-mail
 
 ### Fluxo
-1. Vercel Cron dispara `GET /api/v1/cron/relatorio-diario` toda noite às **21h BRT** (00:00 UTC, seg-sex)
+1. Vercel Cron dispara `GET /api/v1/cron/relatorio-diario` toda noite às **21h BRT** (00:00 UTC, seg-sex) — schedule `0 0 * * 2-6` UTC (ter–sáb UTC = seg–sex BRT)
 2. `relatorio_service.py` busca tenants com `envio_relatorio_ativo = true`
 3. Para cada tenant, busca compradores com `receber_auditoria = true` ou `receber_agenda_proximo = true`
 4. Monta HTML rico + gera PDF com ReportLab (`pdf_service.py`)
@@ -447,6 +447,7 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 - Resend.com: integração concluída em mai/2026. Domínio `servicefarma.far.br` verificado. `RESEND_API_KEY` configurada no Vercel. `email_service.py` usa Resend como provider principal com fallback SMTP.
 - Ativar relatório para clientes reais (Grupo São Valentim e Grupo Velanes): apenas configuração operacional — toggle no Admin + checkboxes de notificação nos compradores.
 - **`defaultSettings.tenantId` hardcoded como Service Farma** (`script_state.js` linha 47): qualquer usuário que abra o portal sem `localStorage` configurado vê a agenda da Service Farma por padrão. Corrigir para `""`. Pendente aprovação.
+- **Relatório semanal aos domingos**: avaliar envio de um e-mail extra todo domingo com auditoria consolidada da semana anterior (seg–sex). Destinatários: gestores e admins inscritos. Requer nova query agregada no `relatorio_service.py`, nova seção no HTML/PDF e novo tipo no `relatorio_log`. Não urgente.
 
 ## Caso em investigação — Elias (Drogaria SV) — mai/2026
 
