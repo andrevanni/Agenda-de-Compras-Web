@@ -57,6 +57,7 @@ Routes (backend/app/api/v1/) → Services (backend/app/services/) → DB session
 - **Frontend cliente** chama Supabase REST direto via `fetchSupabase()`. FastAPI só para auth JWT e operações admin.
 - **Multi-tenancy**: todo registro tem `tenant_id`. Queries SEMPRE filtram por `tenant_id`. RLS no Supabase usa `USING (true)` — isolamento é via aplicação.
 - **Migrations**: scripts SQL versionados em `backend/db/` (`schema_v1.sql` → `schema_v14_*.sql`). Sem Alembic.
+- **CORS**: `CORSMiddleware` em `main.py` com `allow_origins=["*"]`, `allow_credentials=False` — correto para APIs que usam Bearer token (não cookies). `backend/vercel.json` também adiciona headers CORS via `"headers"` top-level como camada dupla de garantia. Não usar `allow_credentials=True` com `allow_origins` específicos — conflita com os headers do Vercel e bloqueia o preflight.
 
 ## Regras de desenvolvimento (obrigatórias)
 
@@ -81,6 +82,7 @@ Outros arquivos estáticos:
 
 | Arquivo | Descrição |
 |---|---|
+| `vercel.json` | Configuração Vercel: `buildCommand: null`, `outputDirectory: "."`, `framework: null` — força deploy como site estático |
 | `sw.js` | Service Worker v13 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
@@ -89,6 +91,8 @@ Outros arquivos estáticos:
 | `instalar_atalho.ps1` | Versão estendida do instalador (com download de ícone) |
 
 ## Estrutura do frontend admin (`frontend_admin/`)
+
+`vercel.json` presente: `buildCommand: null`, `outputDirectory: "."`, `framework: null` — força deploy como site estático.
 
 Arquivo único `script.js` (não dividido). Painel administrativo:
 
@@ -449,17 +453,16 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 - **`defaultSettings.tenantId` hardcoded como Service Farma** (`script_state.js` linha 47): qualquer usuário que abra o portal sem `localStorage` configurado vê a agenda da Service Farma por padrão. Corrigir para `""`. Pendente aprovação.
 - **Relatório semanal aos domingos**: avaliar envio de um e-mail extra todo domingo com auditoria consolidada da semana anterior (seg–sex). Destinatários: gestores e admins inscritos. Requer nova query agregada no `relatorio_service.py`, nova seção no HTML/PDF e novo tipo no `relatorio_log`. Não urgente.
 
-## Caso em investigação — Elias (Drogaria SV) — mai/2026
-
-**Sintoma:** Elias abre o portal e vê a agenda da Service Farma em vez da Drogaria SV.
+## Caso Elias (Drogaria SV) — mai/2026
 
 **Histórico:**
-1. Elias foi cadastrado com e-mail `elias@servicefarma.far.br` — nunca recebia o convite (e-mail enviado, não entregue)
-2. Admin alterou o e-mail no cadastro para `eliasmoreiraalves.jr@gmail.com` e enviou novo convite
-3. Elias recebeu o convite pelo Gmail, clicou no link, passou pelo `instalar.html` e definiu senha
-4. Portal abriu exibindo a agenda da **Service Farma** em vez da Drogaria SV
+1. Elias cadastrado com `elias@servicefarma.far.br` — convite não chegava
+2. E-mail alterado para `eliasmoreiraalves.jr@gmail.com`; convite enviado e recebido
+3. Elias definiu senha pelo `instalar.html`, mas portal abriu mostrando Service Farma em vez da Drogaria SV
+4. Causa raiz: provavelmente `defaultSettings.tenantId` hardcoded na Service Farma + falha silenciosa no `definir-senha`
+5. **Segundo convite enviado em 11/mai/2026** (Elias esqueceu a senha) — fluxo `instalar.html` limpa localStorage automaticamente e deve gravar o tenant correto
 
-**Dados confirmados no banco (mai/2026):**
+**Dados confirmados no banco:**
 
 | Campo | Valor |
 |---|---|
@@ -467,16 +470,8 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 | `compradores.email` | `eliasmoreiraalves.jr@gmail.com` |
 | `compradores.user_id` | `a5de2a85-248a-4cbf-a64c-6db3eb4f69a1` |
 | `compradores.tenant_id` | `f0d557c6-9dd9-4e80-96e0-2094da4a40ff` (Drogaria SV ✓) |
-| Auth user antigo (`elias@servicefarma.far.br`) | `d1856c97-4e3e-478e-83c0-557834abbf36` — não linkado a nenhum comprador |
 
-- Só existe **um** comprador com o Gmail em toda a base — na Drogaria SV ✓
-- O `user_id = a5de2a85...` também está linkado **somente** ao comprador da Drogaria SV ✓
-- Pelo código, o fluxo `instalar.html` → `definir-senha` deveria retornar Drogaria SV e gravar corretamente no `localStorage`
-
-**Causa raiz não confirmada** — todos os dados estão corretos; comportamento não foi possível reproduzir remotamente. A hipótese mais provável é que o `localStorage` ficou com o `tenant_id` errado da Service Farma (possivelmente do `defaultSettings.tenantId` hardcoded, caso `definir-senha` tenha falhado silenciosamente por algum motivo pontual).
-
-**Workaround para quando Elias retornar:**
+**Se o problema persistir após o novo convite:**
 1. Acessar `https://agenda-compras-cliente.vercel.app/?limpar=1`
-2. Fazer login com `eliasmoreiraalves.jr@gmail.com` + senha definida no convite
-3. O backend vai retornar o `tenant_id` da Drogaria SV via `user_id = a5de2a85...` ✓
-4. Se ainda mostrar Service Farma: abrir DevTools (F12) → Application → Local Storage → verificar `agenda_cliente_tenant_id` imediatamente após o login para identificar se o problema está no backend ou no frontend
+2. Fazer login com `eliasmoreiraalves.jr@gmail.com` + senha nova
+3. Se ainda mostrar Service Farma: DevTools → Application → Local Storage → verificar `agenda_cliente_tenant_id` logo após o login
