@@ -5,7 +5,7 @@ from app.api.router import api_router
 from app.api.v1.redirect import router as redirect_router
 from app.core.config import settings
 
-app = FastAPI(title=settings.app_name, version="0.4.0")
+app = FastAPI(title=settings.app_name, version="0.4.1")
 
 app.add_middleware(
     CORSMiddleware,
