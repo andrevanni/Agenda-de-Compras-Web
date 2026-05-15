@@ -920,8 +920,7 @@ async function loadAdmins() {
   const panel = document.getElementById("adminConvitePanel");
   if (!list) return;
 
-  // Painel de convite só aparece para o master
-  if (panel) panel.style.display = isMaster() ? "" : "none";
+  if (panel) panel.style.display = "";
 
   list.innerHTML = "<p style='color:#64748b;font-size:13px;'>Carregando...</p>";
   try {
@@ -937,7 +936,7 @@ async function loadAdmins() {
       const isSelf = a.email === getSettings().adminEmail;
       const isMasterUser = a.email === MASTER_EMAIL;
       const tag = isMasterUser ? "<span style='font-size:11px;background:#1e3a5f;color:#93c5fd;padding:2px 8px;border-radius:4px;margin-left:6px;'>master</span>" : "";
-      const masterActions = isMaster() && !isMasterUser ? `
+      const masterActions = !isMasterUser ? `
           <button class="secondary-button" style="font-size:12px;padding:5px 12px;" onclick="revogarAdmin('${a.id}','${a.email}')">Revogar acesso</button>
           <button class="secondary-button" style="font-size:12px;padding:5px 12px;color:#f87171;border-color:#7f1d1d;" onclick="excluirAdmin('${a.id}','${a.email}')">Excluir</button>` : "";
       const lastLogin = a.last_sign_in_at && a.last_sign_in_at !== "None"
