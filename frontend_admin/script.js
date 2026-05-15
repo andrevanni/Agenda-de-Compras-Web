@@ -143,6 +143,15 @@ function hideLoginScreen() {
   const screen = document.getElementById("loginScreen");
   if (screen) screen.style.display = "none";
   document.querySelector(".page-shell").style.display = "";
+  if (!getSettings().adminEmail) {
+    const jwt = getSettings().adminJwt;
+    if (jwt) {
+      try {
+        const payload = JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (payload.email) localStorage.setItem(storageKeys.adminEmail, payload.email);
+      } catch {}
+    }
+  }
   const emailEl = document.getElementById("loggedAdminEmail");
   if (emailEl) emailEl.textContent = getSettings().adminEmail;
 }
