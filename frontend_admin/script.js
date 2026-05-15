@@ -139,18 +139,25 @@ function showLoginScreen(errorMsg = "") {
   }
 }
 
+function decodeJwtEmail(jwt) {
+  if (!jwt) return "";
+  try {
+    const b64 = jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded));
+    return payload.email || "";
+  } catch {
+    return "";
+  }
+}
+
 function hideLoginScreen() {
   const screen = document.getElementById("loginScreen");
   if (screen) screen.style.display = "none";
   document.querySelector(".page-shell").style.display = "";
   if (!getSettings().adminEmail) {
-    const jwt = getSettings().adminJwt;
-    if (jwt) {
-      try {
-        const payload = JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-        if (payload.email) localStorage.setItem(storageKeys.adminEmail, payload.email);
-      } catch {}
-    }
+    const email = decodeJwtEmail(getSettings().adminJwt);
+    if (email) localStorage.setItem(storageKeys.adminEmail, email);
   }
   const emailEl = document.getElementById("loggedAdminEmail");
   if (emailEl) emailEl.textContent = getSettings().adminEmail;
@@ -903,7 +910,8 @@ document.getElementById("toggleConnectionButton").addEventListener("click", () =
 const MASTER_EMAIL = "andre@servicefarma.far.br";
 
 function isMaster() {
-  return getSettings().adminEmail === MASTER_EMAIL;
+  const email = getSettings().adminEmail || decodeJwtEmail(getSettings().adminJwt);
+  return email === MASTER_EMAIL;
 }
 
 async function loadAdmins() {
