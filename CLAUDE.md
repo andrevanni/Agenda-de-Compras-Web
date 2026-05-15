@@ -339,6 +339,20 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 
 Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script_render.js` (`tratarAgendaAtual`) — manter sincronizados.
 
+## Incremento de parâmetro ao tratar agenda
+
+`incrementoTotal = Math.max(0, incrementoTratamentoBase) + incrementoAjuste`
+
+| Variável | Cálculo | Regra |
+|---|---|---|
+| `incrementoTratamentoBase` | `diffDays(data_prevista, hoje)` = `data_prevista − hoje` | Positivo = antecipado (conta); Negativo = atrasado (**não conta**) |
+| `incrementoAjuste` | `diffDays(dataEscolhida, dataSugerida)` | Sempre conta — positivo = postergou próxima data; negativo = antecipou |
+| `incrementoTotal` | `Math.max(0, base) + ajuste` | Aplicado ao `parametro_compra` e registrado no `observacao` da ocorrência |
+
+- **Atraso no tratamento não infla o parâmetro** — só o ajuste explícito da próxima data conta.
+- **Antecipação do tratamento conta**: agenda para amanhã tratada hoje → `base = +1` → parâmetro sobe 1 dia.
+- Lógica implementada em `script_render.js` (`openAgendaDetail`, `updateAgendaAdjustment`, `tratarAgendaAtual`).
+
 ## Feriados
 
 - Importação de feriados nacionais via BrasilAPI com timeout de 10s
@@ -377,7 +391,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v25` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
+- Cache cliente: `agenda-compras-v26` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
 - Cache admin: `agenda-admin-v10` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
