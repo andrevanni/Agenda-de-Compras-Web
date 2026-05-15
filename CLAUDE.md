@@ -62,8 +62,9 @@ Routes (backend/app/api/v1/) → Services (backend/app/services/) → DB session
 ## Regras de desenvolvimento (obrigatórias)
 
 - **Nunca alterar código de risco sem autorização explícita do usuário** — descrever o que será feito e aguardar confirmação antes de executar. Isso inclui: fluxo de autenticação, isolamento de tenant, sessionStorage/localStorage, qualquer arquivo que afete dados de clientes reais.
-- **Sempre bumpar o Service Worker** (`frontend/sw.js` — `agenda-compras-vN`) junto com qualquer commit que altere JS ou CSS do frontend. Sem bump, o browser serve cache antigo e as correções não chegam aos usuários.
+- **Sempre bumpar o Service Worker** (`frontend/sw.js` — `agenda-compras-vN`) junto com qualquer commit que altere JS ou CSS do frontend. Idem para `frontend_admin/sw.js` (`agenda-admin-vN`). Sem bump, o browser serve cache antigo e as correções não chegam aos usuários.
 - **Ambiente de staging é prioridade máxima** — toda feature ou correção deve ser testada em staging antes de ir para produção (`main`). Ainda a implementar.
+- **Variáveis CSS inexistentes no `frontend/styles.css`**: `--surface-alt`, `--border` e `--card-bg` não estão definidas — usar `--panel-soft`, `--line` e `--panel` respectivamente. Usar fallback hardcoded claro (ex.: `#f8fafc`) nessas variáveis causa texto ilegível no tema escuro.
 
 ## Estrutura do frontend cliente (`frontend/`)
 
@@ -83,7 +84,7 @@ Outros arquivos estáticos:
 | Arquivo | Descrição |
 |---|---|
 | `vercel.json` | Configuração Vercel: `buildCommand: null`, `outputDirectory: "."`, `framework: null` — força deploy como site estático |
-| `sw.js` | Service Worker v13 — cache dos assets, registrado em `index.html` e `instalar.html` |
+| `sw.js` | Service Worker v25 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
 | `instalar.html` | Página de primeiro acesso: define senha → loga → mostra guia de instalação |
@@ -99,6 +100,8 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - Login com e-mail + senha via `POST /api/v1/admin/auth/login` → JWT em `localStorage['agenda_admin_jwt']`
 - Seções: Base Operacional (tenants), Clientes, Vigências, Admins, **Log de E-mails**, Ajuda, Conexão
 - **Admins — inscrições de relatório**: cada card de admin tem botão **📧 Relatórios** → modal com checklist de tenants; admin inscrito recebe cópia consolidada (gestor) do relatório diário daquele tenant; qualquer admin pode gerenciar suas próprias inscrições; `editAdminReportSubs()` / `saveAdminReportSubs()` em `script.js`
+- **Admins — gestão (Convidar/Revogar/Excluir)**: controles sempre visíveis para qualquer admin autenticado; autorização master-only (`MASTER_EMAIL = andre@servicefarma.far.br`) aplicada exclusivamente no backend (`require_master_admin`). Não usar guarda frontend para visibilidade desses controles.
+- **SW admin**: `frontend_admin/sw.js` — `agenda-admin-v10`; bumpar junto com qualquer alteração de JS/CSS do painel admin
 - `fetchAdmin()` envia JWT admin no header `Authorization: Bearer` (com fallback para `X-Admin-Token`)
 - Tenants ordenados **alfabeticamente** por `nome`
 - Cada card de tenant tem toggle **"Envio de relatório diário"** — PATCH imediato em `tenants.envio_relatorio_ativo`
@@ -374,7 +377,8 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache: `agenda-compras-v14` — bumpar ao alterar JS/CSS (Hard refresh não bypassa o SW no Chrome)
+- Cache cliente: `agenda-compras-v25` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
+- Cache admin: `agenda-admin-v10` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
 - Modal "Instale o app": detecta browser via `userAgent` e mostra instruções específicas (Edge / Chrome / iOS)
@@ -448,7 +452,6 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 - `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites): Supabase → Settings → API → Reset `service_role` key → atualizar no Vercel.
 - Logo do cliente no PDF: atualmente só aparece a logo Service Farma no rodapé. Para incluir a logo do cliente, é necessário adicionar campo `logo_url` na tabela `tenants` e armazenar URL pública (Supabase Storage).
-- Resend.com: integração concluída em mai/2026. Domínio `servicefarma.far.br` verificado. `RESEND_API_KEY` configurada no Vercel. `email_service.py` usa Resend como provider principal com fallback SMTP.
 - Ativar relatório para clientes reais (Grupo São Valentim e Grupo Velanes): apenas configuração operacional — toggle no Admin + checkboxes de notificação nos compradores.
 - **`defaultSettings.tenantId` hardcoded como Service Farma** (`script_state.js` linha 47): qualquer usuário que abra o portal sem `localStorage` configurado vê a agenda da Service Farma por padrão. Corrigir para `""`. Pendente aprovação.
 - **Relatório semanal aos domingos**: avaliar envio de um e-mail extra todo domingo com auditoria consolidada da semana anterior (seg–sex). Destinatários: gestores e admins inscritos. Requer nova query agregada no `relatorio_service.py`, nova seção no HTML/PDF e novo tipo no `relatorio_log`. Não urgente.
