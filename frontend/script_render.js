@@ -296,10 +296,11 @@ function openAgendaDetail(occurrenceId) {
   document.getElementById("proximaDataInput").value = isoToBr(suggestedDate);
   document.getElementById("agendaObservacao").value = "Tratado pela tela";
   document.getElementById("agendaNota").value = row.nota ?? "";
+  const incrementoBaseFiltrado = Math.max(0, incrementoTratamentoBase);
   document.getElementById("incrementoTratamento").textContent = formatIncrement(incrementoTratamentoBase);
   document.getElementById("incrementoAjusteProxima").textContent = "+0 dia(s)";
-  document.getElementById("incrementoParametroTotal").textContent = formatIncrement(incrementoTratamentoBase);
-  document.getElementById("novoParametro").textContent = String(supplier.parametro_compra + incrementoTratamentoBase);
+  document.getElementById("incrementoParametroTotal").textContent = formatIncrement(incrementoBaseFiltrado);
+  document.getElementById("novoParametro").textContent = String(supplier.parametro_compra + incrementoBaseFiltrado);
 
   // Reset justificativa
   const justField = document.getElementById("agendaJustificativa");
@@ -352,7 +353,7 @@ function updateAgendaAdjustment() {
   const chosenDate = brToIso(document.getElementById("proximaDataInput").value);
   const incrementoTratamentoBase = diffDays(row.data_prevista, todayIso());
   const incrementoAjuste = chosenDate ? diffDays(chosenDate, suggestedDate) : 0;
-  const incrementoTotal = incrementoTratamentoBase + incrementoAjuste;
+  const incrementoTotal = Math.max(0, incrementoTratamentoBase) + incrementoAjuste;
   document.getElementById("incrementoTratamento").textContent = formatIncrement(incrementoTratamentoBase);
   document.getElementById("incrementoAjusteProxima").textContent = formatIncrement(incrementoAjuste);
   document.getElementById("incrementoParametroTotal").textContent = formatIncrement(incrementoTotal);
@@ -364,10 +365,10 @@ function updateAuditSummary(row, supplier, incrementoTratamentoBase, incrementoA
   const list = document.getElementById("agendaAuditItems");
   if (!list) return;
   const items = [];
-  if (incrementoTratamentoBase > 0) {
-    items.push(`Agenda tratada com <strong>${incrementoTratamentoBase} dia(s) de atraso</strong>`);
-  } else if (incrementoTratamentoBase < 0) {
-    items.push(`Agenda tratada com <strong>${Math.abs(incrementoTratamentoBase)} dia(s) de antecedência</strong>`);
+  if (incrementoTratamentoBase < 0) {
+    items.push(`Agenda tratada com <strong>${Math.abs(incrementoTratamentoBase)} dia(s) de atraso</strong>`);
+  } else if (incrementoTratamentoBase > 0) {
+    items.push(`Agenda tratada com <strong>${incrementoTratamentoBase} dia(s) de antecedência</strong>`);
   } else {
     items.push("Agenda cumprida no prazo");
   }
@@ -435,7 +436,7 @@ async function tratarAgendaAtual() {
     const suggestedDate = calculateSuggestedDate(row.data_prevista, supplier.frequencia_revisao, supplier.dias_compra);
     const incrementoTratamentoBase = diffDays(row.data_prevista, todayIso());
     const incrementoAjuste = diffDays(chosenDate, suggestedDate);
-    const incrementoTotal = incrementoTratamentoBase + incrementoAjuste;
+    const incrementoTotal = Math.max(0, incrementoTratamentoBase) + incrementoAjuste;
     const observacaoAuditoria = JSON.stringify({
       type: "agenda_treatment",
       note: observation,
