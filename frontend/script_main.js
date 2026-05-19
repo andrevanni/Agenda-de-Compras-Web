@@ -328,16 +328,18 @@ async function loadCategorias() {
     const rows = await fetchSupabase(
       `/rest/v1/categorias_agenda?select=id,nome,cor,icone,ativo&tenant_id=eq.${settings.tenantId}&ativo=eq.true&order=nome.asc`
     );
-    if (rows && rows.length > 0) {
-      state.categorias = rows;
-    } else {
-      // Tenant sem categorias: cria "Agenda de Compras" automaticamente — categoria fundamental do sistema
+    const existing = rows ?? [];
+    const hasAgendaCompras = existing.some((r) => r.nome === "Agenda de Compras");
+    if (!hasAgendaCompras) {
+      // "Agenda de Compras" é categoria fundamental — cria automaticamente se não existir
       const created = await fetchSupabase("/rest/v1/categorias_agenda?on_conflict=tenant_id,nome", {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=representation" },
         body: { tenant_id: settings.tenantId, nome: "Agenda de Compras", cor: "#F59E0B", ativo: true },
       });
-      state.categorias = created ?? [];
+      state.categorias = [...existing, ...(created ?? [])];
+    } else {
+      state.categorias = existing;
     }
   } catch {
     state.categorias = [
