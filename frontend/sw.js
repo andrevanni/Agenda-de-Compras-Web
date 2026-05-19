@@ -1,4 +1,4 @@
-const CACHE = 'agenda-compras-v28';
+const CACHE = 'agenda-compras-v29';
 const ASSETS = [
   '/',
   '/index.html',
@@ -28,6 +28,8 @@ self.addEventListener('activate', event => {
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
+    .then(() => self.clients.matchAll({ type: 'window' }))
+    .then(clients => Promise.all(clients.map(client => client.navigate(client.url))))
   );
 });
 
