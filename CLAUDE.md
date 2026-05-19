@@ -65,6 +65,9 @@ Routes (backend/app/api/v1/) → Services (backend/app/services/) → DB session
 - **Sempre bumpar o Service Worker** (`frontend/sw.js` — `agenda-compras-vN`) junto com qualquer commit que altere JS ou CSS do frontend. Idem para `frontend_admin/sw.js` (`agenda-admin-vN`). Sem bump, o browser serve cache antigo e as correções não chegam aos usuários.
 - **Ambiente de staging é prioridade máxima** — toda feature ou correção deve ser testada em staging antes de ir para produção (`main`). Ainda a implementar.
 - **Variáveis CSS inexistentes no `frontend/styles.css`**: `--surface-alt`, `--border` e `--card-bg` não estão definidas — usar `--panel-soft`, `--line` e `--panel` respectivamente. Usar fallback hardcoded claro (ex.: `#f8fafc`) nessas variáveis causa texto ilegível no tema escuro.
+- **`id` duplicado no HTML causa feedback invisível**: nunca reutilizar o mesmo `id` em mais de um elemento — `document.getElementById` retorna sempre o primeiro, mesmo que o segundo seja o visível (ex.: elemento dentro de modal). Bug real: `importPreviewBox` duplicado fazia feedback da importação aparecer fora do modal.
+- **`loadCategorias` cria "Agenda de Compras" automaticamente**: se o tenant não tiver nenhuma categoria no banco, `loadCategorias` insere a categoria "Agenda de Compras" (cor `#F59E0B`) via upsert. Essa é a categoria fundamental do sistema — todos os fornecedores são associados a ela. Nunca remover esse comportamento.
+- **`backfillMissingPendingOccurrences` só processa `missingCategoria` com UUID real**: IDs mock (ex.: `"cat-compras"` do fallback catch) não têm FK válida no banco e causariam loop infinito de GETs sem PATCH efetivo a cada carregamento. A função valida o formato UUID antes de incluir fornecedores sem `categoria_id` no backfill.
 
 ## Estrutura do frontend cliente (`frontend/`)
 
@@ -84,7 +87,7 @@ Outros arquivos estáticos:
 | Arquivo | Descrição |
 |---|---|
 | `vercel.json` | Configuração Vercel: `buildCommand: null`, `outputDirectory: "."`, `framework: null` — força deploy como site estático |
-| `sw.js` | Service Worker v27 — cache dos assets, registrado em `index.html` e `instalar.html` |
+| `sw.js` | Service Worker v31 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
 | `instalar.html` | Página de primeiro acesso: define senha → loga → mostra guia de instalação |
@@ -391,12 +394,14 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v27` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
+- Cache cliente: `agenda-compras-v31` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
 - Cache admin: `agenda-admin-v10` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
 - Modal "Instale o app": detecta browser via `userAgent` e mostra instruções específicas (Edge / Chrome / iOS)
 - `showPwaInstallModal()` exposta globalmente — chamada pelo botão "📲 Reinstalar Atalho" na sidebar
+- **SW auto-reload**: ao ativar nova versão, `clients.matchAll()` + `client.navigate()` recarrega todas as abas abertas automaticamente — clientes recebem atualizações sem precisar de F5 ou `/?limpar=1`
+- **Bug corrigido (mai/2026)**: `response.clone()` no handler `fetch` do SW deve ser chamado **de forma síncrona** antes de qualquer `.then()` assíncrono — chamar após `caches.open()` causa "Response body is already used" e pode servir assets corrompidos
 - `beforeinstallprompt` capturado em `script_main.js`: abre modal automaticamente se `agenda_pwa_installed` não estiver no localStorage
 
 ## Fluxo de convite de comprador
