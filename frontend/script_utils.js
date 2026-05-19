@@ -552,18 +552,23 @@ async function ensurePendingOccurrenceForSupplier(supplier) {
 
 async function backfillMissingPendingOccurrences(suppliers, agendaRows) {
   const pendingBySupplier = new Set((agendaRows ?? []).map((row) => row.fornecedor_id));
-  const missingCategoria = new Set(
-    (agendaRows ?? []).filter((row) => row.fornecedor_id && !row.categoria_id).map((row) => row.fornecedor_id)
-  );
-  let createdCount = 0;
+  const categoriaId = categoriaAgendaComprasId();
+  // Só inclui missingCategoria se houver um UUID real no banco — IDs mock ("cat-compras")
+  // não têm FK válida e causariam loop infinito de GETs sem PATCH efetivo
+  const hasRealCategoriaId = categoriaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(categoriaId));
+  const missingCategoria = hasRealCategoriaId
+    ? new Set((agendaRows ?? []).filter((row) => row.fornecedor_id && !row.categoria_id).map((row) => row.fornecedor_id))
+    : new Set();
 
-  for (const supplier of suppliers) {
-    if (pendingBySupplier.has(supplier.id) && !missingCategoria.has(supplier.id)) continue;
-    const result = await ensurePendingOccurrenceForSupplier(supplier);
-    if (result.created) {
-      createdCount += 1;
-      pendingBySupplier.add(supplier.id);
-    }
+  const toProcess = suppliers.filter((s) => !pendingBySupplier.has(s.id) || missingCategoria.has(s.id));
+  if (!toProcess.length) return 0;
+
+  let createdCount = 0;
+  for (let i = 0; i < toProcess.length; i += 5) {
+    const results = await Promise.allSettled(
+      toProcess.slice(i, i + 5).map((s) => ensurePendingOccurrenceForSupplier(s))
+    );
+    createdCount += results.filter((r) => r.status === "fulfilled" && r.value.created).length;
   }
 
   return createdCount;
