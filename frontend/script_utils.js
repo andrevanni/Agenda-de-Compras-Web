@@ -553,24 +553,30 @@ async function ensurePendingOccurrenceForSupplier(supplier) {
 async function backfillMissingPendingOccurrences(suppliers, agendaRows) {
   const pendingBySupplier = new Set((agendaRows ?? []).map((row) => row.fornecedor_id));
   const categoriaId = categoriaAgendaComprasId();
-  // Só inclui missingCategoria se houver um UUID real no banco — IDs mock ("cat-compras")
-  // não têm FK válida e causariam loop infinito de GETs sem PATCH efetivo
   const hasRealCategoriaId = categoriaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(categoriaId));
-  const missingCategoria = hasRealCategoriaId
-    ? new Set((agendaRows ?? []).filter((row) => row.fornecedor_id && !row.categoria_id).map((row) => row.fornecedor_id))
-    : new Set();
 
-  const toProcess = suppliers.filter((s) => !pendingBySupplier.has(s.id) || missingCategoria.has(s.id));
-  if (!toProcess.length) return 0;
+  // Batch PATCH único para todas as ocorrências sem categoria_id — evita N chamadas sequenciais
+  if (hasRealCategoriaId) {
+    const hasMissing = (agendaRows ?? []).some((row) => row.fornecedor_id && !row.categoria_id);
+    if (hasMissing) {
+      await fetchSupabase(
+        `/rest/v1/agenda_ocorrencias?tenant_id=eq.${getSettings().tenantId}&status=eq.PENDENTE&fornecedor_id=not.is.null&categoria_id=is.null`,
+        { method: "PATCH", headers: { Prefer: "return=minimal" }, body: { categoria_id: categoriaId } }
+      );
+    }
+  }
+
+  // Cria ocorrências para fornecedores que não têm nenhuma pendente
+  const toCreate = suppliers.filter((s) => !pendingBySupplier.has(s.id));
+  if (!toCreate.length) return 0;
 
   let createdCount = 0;
-  for (let i = 0; i < toProcess.length; i += 5) {
+  for (let i = 0; i < toCreate.length; i += 5) {
     const results = await Promise.allSettled(
-      toProcess.slice(i, i + 5).map((s) => ensurePendingOccurrenceForSupplier(s))
+      toCreate.slice(i, i + 5).map((s) => ensurePendingOccurrenceForSupplier(s))
     );
     createdCount += results.filter((r) => r.status === "fulfilled" && r.value.created).length;
   }
-
   return createdCount;
 }
 
