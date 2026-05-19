@@ -87,7 +87,7 @@ Outros arquivos estáticos:
 | Arquivo | Descrição |
 |---|---|
 | `vercel.json` | Configuração Vercel: `buildCommand: null`, `outputDirectory: "."`, `framework: null` — força deploy como site estático |
-| `sw.js` | Service Worker v31 — cache dos assets, registrado em `index.html` e `instalar.html` |
+| `sw.js` | Service Worker v34 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
 | `instalar.html` | Página de primeiro acesso: define senha → loga → mostra guia de instalação |
@@ -394,13 +394,13 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v31` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
+- Cache cliente: `agenda-compras-v34` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
 - Cache admin: `agenda-admin-v10` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
 - Modal "Instale o app": detecta browser via `userAgent` e mostra instruções específicas (Edge / Chrome / iOS)
 - `showPwaInstallModal()` exposta globalmente — chamada pelo botão "📲 Reinstalar Atalho" na sidebar
-- **SW auto-reload**: ao ativar nova versão, `clients.matchAll()` + `client.navigate()` recarrega todas as abas abertas automaticamente — clientes recebem atualizações sem precisar de F5 ou `/?limpar=1`
+- **Nunca usar `client.navigate()` no activate do SW**: causa perda de sessão no fluxo "Abrir Portal" — o JWT é gravado em sessionStorage durante o bootstrap, e um reload forçado pelo SW pode interromper esse processo antes da gravação completar. Usar apenas `skipWaiting` + `clients.claim`.
 - **Bug corrigido (mai/2026)**: `response.clone()` no handler `fetch` do SW deve ser chamado **de forma síncrona** antes de qualquer `.then()` assíncrono — chamar após `caches.open()` causa "Response body is already used" e pode servir assets corrompidos
 - `beforeinstallprompt` capturado em `script_main.js`: abre modal automaticamente se `agenda_pwa_installed` não estiver no localStorage
 
