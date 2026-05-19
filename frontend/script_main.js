@@ -328,12 +328,20 @@ async function loadCategorias() {
     const rows = await fetchSupabase(
       `/rest/v1/categorias_agenda?select=id,nome,cor,icone,ativo&tenant_id=eq.${settings.tenantId}&ativo=eq.true&order=nome.asc`
     );
-    state.categorias = rows ?? [];
+    if (rows && rows.length > 0) {
+      state.categorias = rows;
+    } else {
+      // Tenant sem categorias: cria "Agenda de Compras" automaticamente — categoria fundamental do sistema
+      const created = await fetchSupabase("/rest/v1/categorias_agenda?on_conflict=tenant_id,nome", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+        body: { tenant_id: settings.tenantId, nome: "Agenda de Compras", cor: "#F59E0B", ativo: true },
+      });
+      state.categorias = created ?? [];
+    }
   } catch {
     state.categorias = [
-      { id: "cat-compras",     nome: "Agenda de Compras", cor: "#F59E0B" },
-      { id: "cat-pessoal",     nome: "Pessoal",           cor: "#3B82F6" },
-      { id: "cat-operacional", nome: "Operacional",       cor: "#10B981" },
+      { id: "cat-compras", nome: "Agenda de Compras", cor: "#F59E0B" },
     ];
   }
 }
