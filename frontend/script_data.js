@@ -577,8 +577,9 @@ async function loginBuyer() {
       refreshCalendar();
       setFeedback("Comprador autenticado com sucesso.", "success");
       return;
-    } catch {
-      // Se a API falhar, cai no modo legado abaixo
+    } catch (error) {
+      setFeedback(error.message || "Não foi possível conectar ao servidor. Tente novamente.", "error", feedbackTarget);
+      return;
     }
   }
 

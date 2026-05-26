@@ -68,6 +68,7 @@ Routes (backend/app/api/v1/) → Services (backend/app/services/) → DB session
 - **`id` duplicado no HTML causa feedback invisível**: nunca reutilizar o mesmo `id` em mais de um elemento — `document.getElementById` retorna sempre o primeiro, mesmo que o segundo seja o visível (ex.: elemento dentro de modal). Bug real: `importPreviewBox` duplicado fazia feedback da importação aparecer fora do modal.
 - **`loadCategorias` cria "Agenda de Compras" automaticamente**: se o tenant não tiver nenhuma categoria no banco, `loadCategorias` insere a categoria "Agenda de Compras" (cor `#F59E0B`) via upsert. Essa é a categoria fundamental do sistema — todos os fornecedores são associados a ela. Nunca remover esse comportamento.
 - **`backfillMissingPendingOccurrences` só processa `missingCategoria` com UUID real**: IDs mock (ex.: `"cat-compras"` do fallback catch) não têm FK válida no banco e causariam loop infinito de GETs sem PATCH efetivo a cada carregamento. A função valida o formato UUID antes de incluir fornecedores sem `categoria_id` no backfill.
+- **`loginBuyer` exibe a mensagem real do backend em caso de erro** (`script_data.js` — `catch (error) { setFeedback(error.message ...) }`). Nunca trocar por `catch {}` silencioso: o "modo legado" (linhas 585-624, comparação de senha em texto plano) é vestígio pré-JWT e não funciona mais — engolir o erro fazia o usuário ver "Acesso não localizado" enganoso quando o motivo real era senha errada, comprador não cadastrado, API down, etc. Causou 1 semana de bloqueio da diretora da Drogaria SV (mai/2026). `fetchApi` já lança `Error(data.detail)` no `script_utils.js:77` — basta repassar `error.message`.
 
 ## Estrutura do frontend cliente (`frontend/`)
 
@@ -87,7 +88,7 @@ Outros arquivos estáticos:
 | Arquivo | Descrição |
 |---|---|
 | `vercel.json` | Configuração Vercel: `buildCommand: null`, `outputDirectory: "."`, `framework: null` — força deploy como site estático |
-| `sw.js` | Service Worker v34 — cache dos assets, registrado em `index.html` e `instalar.html` |
+| `sw.js` | Service Worker v35 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
 | `instalar.html` | Página de primeiro acesso: define senha → loga → mostra guia de instalação |
@@ -394,7 +395,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v34` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
+- Cache cliente: `agenda-compras-v35` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
 - Cache admin: `agenda-admin-v10` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
@@ -497,3 +498,35 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 1. Acessar `https://agenda-compras-cliente.vercel.app/?limpar=1`
 2. Fazer login com `eliasmoreiraalves.jr@gmail.com` + senha nova
 3. Se ainda mostrar Service Farma: DevTools → Application → Local Storage → verificar `agenda_cliente_tenant_id` logo após o login
+
+## Caso Raquel (Drogaria SV — diretora) — 26/mai/2026
+
+**Histórico:**
+1. Raquel cadastrada como gestora (`is_gestor=true`) com `radesquel@gmail.com` — convite enviado em 21/mai
+2. Dois convites disparados pelo sistema (`relatorio_log.status=enviado` em ambos), nenhum erro de entrega
+3. Login falhava sempre com "Acesso não localizado para este cliente" — diretora a 1 semana sem acesso, risco de perda do cliente
+4. **Causa raiz**: `auth.users.encrypted_password` vazio (`email_confirmed_at = NULL`, `last_sign_in_at = NULL`) — ela nunca completou `instalar.html`, OU completou mas a definição de senha falhou silenciosamente. O fluxo de convite gera o `auth.users` no momento do envio, mas a senha só é gravada quando o usuário conclui o `instalar.html`. Combinado com o bug do `catch {}` silencioso, ela via mensagem genérica em vez de "E-mail ou senha incorretos"
+5. **Resolução em 26/mai/2026**: senha gravada diretamente em `auth.users.encrypted_password` via `crypt(senha, gen_salt('bf', 10))` + `email_confirmed_at = now()` usando conexão pooler (acesso superuser do `postgres.fnwsorhflueunqzkwsxu`). Senha provisória `Raquel2026` — orientada a trocar pelo portal
+
+**Dados confirmados no banco:**
+
+| Campo | Valor |
+|---|---|
+| `compradores.id` | `7041571b-0369-4f27-ad7e-d88458c58905` |
+| `compradores.email` | `radesquel@gmail.com` |
+| `compradores.user_id` | `c4ca6535-61d2-4f0f-b3bb-fee1e2b88091` ✓ vinculado |
+| `compradores.tenant_id` | `f0d557c6-9dd9-4e80-96e0-2094da4a40ff` (Drogaria SV ✓) |
+| `compradores.is_gestor` | `true` |
+
+**Receita de definição de senha direta (quando convite não completa):**
+
+```python
+# Conectar via DATABASE_URL do .env (pooler Supabase com usuário postgres)
+UPDATE auth.users
+SET encrypted_password = crypt('{NOVA_SENHA}', gen_salt('bf', 10)),
+    email_confirmed_at = COALESCE(email_confirmed_at, now()),
+    updated_at = now()
+WHERE id = '{USER_ID}';
+```
+
+Equivalente à chamada `sb.auth.admin.update_user_by_id(user_id, {"password": senha, "email_confirm": True})` mas sem precisar de `SUPABASE_SERVICE_ROLE_KEY` — usa apenas o `DATABASE_URL`. `gen_salt('bf', 10)` casa com o cost factor padrão do Supabase Auth.
