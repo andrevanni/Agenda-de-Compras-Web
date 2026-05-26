@@ -88,7 +88,7 @@ Outros arquivos estáticos:
 | Arquivo | Descrição |
 |---|---|
 | `vercel.json` | Configuração Vercel: `buildCommand: null`, `outputDirectory: "."`, `framework: null` — força deploy como site estático |
-| `sw.js` | Service Worker v35 — cache dos assets, registrado em `index.html` e `instalar.html` |
+| `sw.js` | Service Worker v36 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
 | `instalar.html` | Página de primeiro acesso: define senha → loga → mostra guia de instalação |
@@ -301,6 +301,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - **Multi-comprador**: cria uma ocorrência por comprador × data (só no modo criação)
 - **Recorrência**: Diária, Semanal, Quinzenal, Mensal (só no modo criação)
 - **Duração padrão**: calculada via `addMinutesToTime()` com `getSettings().duracaoPadraoCompromissos`
+- **Nota é post-it (não replica)**: o campo `nota` do modal é gravado apenas na **1ª ocorrência** (1ª data × 1º comprador) da criação; as demais (recorrência ou multi-comprador) ficam com `nota=null`. Justificativa: o Painel de Notas é um post-it ad-hoc por ocorrência — replicar a nota em N ocorrências polui o painel (caso real: 105 cards duplicados em mai/2026, limpos via SQL retroativo). Para adicionar nota a uma ocorrência específica, abrir o evento no calendário e editar. Não confundir com `observacao` (que continua replicando — é a descrição do evento).
 
 ## Seção Compromissos (`id="compromissos"`)
 
@@ -395,7 +396,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v35` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
+- Cache cliente: `agenda-compras-v36` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
 - Cache admin: `agenda-admin-v10` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
@@ -470,10 +471,19 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 ## Pendências
 
+### Próxima sessão (prioridade máxima — combinado com usuário em 26/mai/2026)
+
+1. **Implementar fluxo de staging de verdade** — hoje a branch `staging` existe e tem URLs de preview na Vercel, mas usa o mesmo Supabase de produção (risco de contaminação). Toda alteração ainda vai direto para `main` por hábito. Decisões a tomar: (a) criar projeto Supabase separado para staging, OU (b) reservar tenant exclusivo de teste com variáveis de ambiente apontando para ele; e padronizar `staging` como destino obrigatório antes de `main` para qualquer feature/fix.
+
+2. **Corrigir `defaultSettings.tenantId` hardcoded como Service Farma** (`script_state.js` linha 47) — qualquer usuário que abra o portal sem `localStorage` configurado vê a agenda da Service Farma por padrão. Trocar para `""`. Suspeita-se que esse é o vetor comum dos casos Elias e Raquel (Drogaria SV) — o usuário definia senha pelo `instalar.html`, mas se houver qualquer falha de timing, o portal carregava com o tenant default em vez do tenant correto. Mudança pequena, mas toca em estado inicial — testar bem em staging antes.
+
+3. **Investigar falha silenciosa do `instalar.html` / `POST /auth/definir-senha`** — o caso Raquel revelou que o fluxo permite o usuário "concluir" o convite sem efetivamente gravar a senha em `auth.users.encrypted_password`. Hipóteses a verificar: (a) `sb.auth.admin.update_user_by_id` lançando exceção silenciada, (b) erro de rede no `fetch` do `instalar.html` interpretado como sucesso, (c) Supabase Auth retornando 200 mas sem persistir. Adicionar logging server-side no `definir-senha` e validação client-side antes de redirecionar. Bloqueou a diretora da Drogaria SV por 1 semana.
+
+### Outras pendências (sem urgência)
+
 - `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites): Supabase → Settings → API → Reset `service_role` key → atualizar no Vercel.
 - Logo do cliente no PDF: atualmente só aparece a logo Service Farma no rodapé. Para incluir a logo do cliente, é necessário adicionar campo `logo_url` na tabela `tenants` e armazenar URL pública (Supabase Storage).
 - Ativar relatório para clientes reais (Grupo São Valentim e Grupo Velanes): apenas configuração operacional — toggle no Admin + checkboxes de notificação nos compradores.
-- **`defaultSettings.tenantId` hardcoded como Service Farma** (`script_state.js` linha 47): qualquer usuário que abra o portal sem `localStorage` configurado vê a agenda da Service Farma por padrão. Corrigir para `""`. Pendente aprovação.
 - **Relatório semanal aos domingos**: avaliar envio de um e-mail extra todo domingo com auditoria consolidada da semana anterior (seg–sex). Destinatários: gestores e admins inscritos. Requer nova query agregada no `relatorio_service.py`, nova seção no HTML/PDF e novo tipo no `relatorio_log`. Não urgente.
 
 ## Caso Elias (Drogaria SV) — mai/2026

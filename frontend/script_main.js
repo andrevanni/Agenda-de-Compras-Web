@@ -453,7 +453,7 @@ function populateNewEventSelects() {
   const wrap = document.getElementById("newEventCompradoresWrap");
   if (wrap) {
     wrap.innerHTML = state.buyers.map((b) =>
-      `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:3px 0;">` +
+      `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:3px 0;color:var(--text);">` +
       `<input type="checkbox" name="ev_comprador" value="${b.id}"> ${b.nome_comprador}</label>`
     ).join("");
   }
@@ -633,13 +633,17 @@ async function saveNewEvent() {
       };
       const dates = recorrencia ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)] : [data];
       const buyerIds = compradores.length > 0 ? compradores : [null];
+      // Nota é post-it: grava apenas na 1ª ocorrência (1ª data × 1º comprador);
+      // demais ficam com nota=null para não poluir o Painel de Notas.
+      let isFirstOccurrence = true;
       for (const d of dates) {
         for (const buyerId of buyerIds) {
           await fetchSupabase("/rest/v1/agenda_ocorrencias", {
             method: "POST",
             headers: { Prefer: "return=minimal" },
-            body: { ...base, data_prevista: d, comprador_id: buyerId },
+            body: { ...base, data_prevista: d, comprador_id: buyerId, nota: isFirstOccurrence ? base.nota : null },
           });
+          isFirstOccurrence = false;
         }
       }
       const total = dates.length * buyerIds.length;
