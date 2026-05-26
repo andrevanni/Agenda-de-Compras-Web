@@ -769,15 +769,17 @@ async function persistSupplierNote(supplierId, noteText) {
 }
 
 async function logAuditEvent(evento) {
+  // Grava via backend (FastAPI usa SERVICE_ROLE e contorna RLS).
+  // INSERT direto no Supabase é bloqueado pela RLS quando o usuário é
+  // buyer sem entrada em tenant_users — causava logs invisíveis.
   try {
-    const { tenantId } = getSettings();
-    if (!tenantId) return;
-    await fetchSupabase("/rest/v1/audit_log", {
+    await fetchApi("/api/v1/portal/audit-log", {
       method: "POST",
-      headers: { Prefer: "return=minimal" },
-      body: { tenant_id: tenantId, ...evento },
+      body: evento,
     });
-  } catch { /* audit não deve bloquear operações principais */ }
+  } catch (err) {
+    console.warn("audit_log falhou:", err?.message ?? err);
+  }
 }
 
 async function deleteSupplier(supplierId) {
