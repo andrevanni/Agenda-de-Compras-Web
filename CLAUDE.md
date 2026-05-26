@@ -88,7 +88,7 @@ Outros arquivos estáticos:
 | Arquivo | Descrição |
 |---|---|
 | `vercel.json` | Configuração Vercel: `buildCommand: null`, `outputDirectory: "."`, `framework: null` — força deploy como site estático |
-| `sw.js` | Service Worker v36 — cache dos assets, registrado em `index.html` e `instalar.html` |
+| `sw.js` | Service Worker v37 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
 | `instalar.html` | Página de primeiro acesso: define senha → loga → mostra guia de instalação |
@@ -178,6 +178,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | `api/v1/admin_compradores_invite.py` | `/api/v1/admin/compradores` | Envio de convite pelo admin |
 | `api/v1/admin_email_log.py` | `/api/v1/admin/email-log` | Log de relatórios enviados — consulta `relatorio_log` com join em tenants/compradores |
 | `api/v1/portal_compradores.py` | `/api/v1/portal/compradores` | Envio de convite pelo portal cliente (requer JWT) |
+| `api/v1/portal_audit_log.py` | `/api/v1/portal/audit-log` | Grava evento em `audit_log` via SERVICE_ROLE — contorna RLS que bloqueava buyers |
 | `api/v1/agenda.py` | `/api/v1/agenda` | Listar próximas/atrasadas, sugerir data, tratar ocorrência |
 | `api/v1/cron.py` | `/api/v1/cron` | Endpoint de cron — dispara relatórios diários |
 | `api/v1/redirect.py` | `/portal` | Redirect 302 para `FRONTEND_URL` (URL estável do instalador) |
@@ -212,6 +213,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 
 ### Portal cliente (JWT)
 - `POST /api/v1/portal/compradores/{id}/enviar-convite` — convite enviado pelo portal
+- `POST /api/v1/portal/audit-log` — grava evento em `audit_log` (tenant_id derivado do JWT); usado por `logAuditEvent()` no frontend
 
 ### Agenda (JWT)
 - `GET /api/v1/agenda/proximas?tenant_id=&comprador_id=`
@@ -271,8 +273,13 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - **Escopo**: apenas Agenda de Compras + cadastro de Fornecedores + cadastro de Compradores
 - **Filtros**: período (30 dias / última semana / último mês / personalizado) + filtro por comprador
 - **KPIs de Agenda**: Eventos, Cumpridas, Postergadas, Aumentos, Reduções, Antecipadas
-- **Gráficos Chart.js**: doughnut (distribuição) + barra horizontal (por comprador) — CDN `chart.js@4.4.4`
-- **Recomendações**: análise por comprador (mais postergador), por fornecedor (mais ajustes), carteira sem dono
+- **Gráficos Chart.js** (CDN `chart.js@4.4.4`):
+  - Linha temporal (tendência diária do período — pulado se >90 dias)
+  - Doughnut (distribuição Cumpridas/Postergadas/Antecipadas)
+  - Barra horizontal por comprador
+  - Heatmap dia da semana (HTML/CSS puro, sem plugin)
+  - Top 5 fornecedores (ranking de postergadas/aumentos/reduções)
+- **Recomendações inteligentes** (seção rotulada `💡` — antes era "Inteligência artificial", renomeada em mai/2026 porque é heurística determinística, não IA real): resumo executivo, risco de atraso, comprador sobrecarregado, pressão/enxugar estoque, carteira sem dono, fornecedor com parâmetro instável (≥4 ajustes), parâmetro alto demais (>60% antecipadas), padrão semanal (atrasos concentrados num dia), execução fora da carteira
 - **Exportação Excel**: botão "📤 Exportar" via SheetJS — exporta entradas filtradas
 - **Seção "Eventos de Cadastro"**: tabela de `audit_log` filtrada por período — criações, exclusões e alterações de fornecedores e compradores com chips coloridos (verde/amarelo/vermelho)
 - **Justificativa**: ao tratar agenda, o modal exibe resumo dinâmico do que será auditado + botão "Sim/Não" para justificativa livre; texto gravado em `observacao.justificativa`; exibido em itálico roxo na tabela de auditoria
@@ -282,6 +289,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 ## Audit Log — eventos de cadastro (`audit_log`)
 
 - Tabela criada em `schema_v12_audit_log.sql`; RLS com `app.user_belongs_to_tenant(tenant_id)`
+- **Backend grava log** (desde mai/2026): `logAuditEvent()` em `script_utils.js` chama `POST /api/v1/portal/audit-log` (FastAPI usa SERVICE_ROLE e contorna a RLS). Antes era INSERT direto no Supabase REST e a RLS bloqueava silenciosamente quando o usuário era buyer (sem entrada em `tenant_users`), perdendo todos os logs de compradores.
 - **Fornecedores**: `logAuditEvent()` em `script_utils.js` chamado por `saveSupplier()` (criação + diff de campos) e `deleteSupplier()` (exclusão com snapshot)
 - **Compradores**: chamado por `saveBuyer()` (criação + diff nome/email) e `deleteBuyer()` (exclusão)
 - Campos logados: `tipo_objeto`, `objeto_id`, `objeto_nome`, `acao` (criacao/alteracao/exclusao), `campos_alterados` (jsonb com `{de, para}`), `executor_role`, `executor_nome`
@@ -396,7 +404,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v36` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
+- Cache cliente: `agenda-compras-v37` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
 - Cache admin: `agenda-admin-v10` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar

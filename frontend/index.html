@@ -995,6 +995,11 @@
 
         <div id="auditSummaryGrid" class="kpi-grid"></div>
 
+        <div class="audit-chart-box audit-chart-full">
+          <div class="audit-chart-label">Tend&ecirc;ncia di&aacute;ria no per&iacute;odo</div>
+          <canvas id="auditChartTimeline" height="160"></canvas>
+        </div>
+
         <div class="audit-charts-row">
           <div class="audit-chart-box">
             <div class="audit-chart-label">Distribui&ccedil;&atilde;o do per&iacute;odo</div>
@@ -1003,6 +1008,17 @@
           <div class="audit-chart-box audit-chart-bar-box">
             <div class="audit-chart-label">Eventos por comprador</div>
             <canvas id="auditChartBar" height="220"></canvas>
+          </div>
+        </div>
+
+        <div class="audit-charts-row">
+          <div class="audit-chart-box">
+            <div class="audit-chart-label">Padr&atilde;o por dia da semana</div>
+            <div id="auditHeatmap" class="audit-heatmap"></div>
+          </div>
+          <div class="audit-chart-box audit-chart-bar-box">
+            <div class="audit-chart-label">Top 5 fornecedores</div>
+            <canvas id="auditChartTopFornecedores" height="220"></canvas>
           </div>
         </div>
 
@@ -1020,8 +1036,8 @@
           <section class="audit-block">
             <div class="section-title">
               <div>
-                <h3>Intelig&ecirc;ncia artificial</h3>
-                <p class="muted">Planos e recomenda&ccedil;&otilde;es geradas a partir do hist&oacute;rico de eventos.</p>
+                <h3>&#128161; Recomenda&ccedil;&otilde;es inteligentes</h3>
+                <p class="muted">An&aacute;lises autom&aacute;ticas baseadas em padr&otilde;es detectados no hist&oacute;rico de eventos.</p>
               </div>
             </div>
             <div id="auditAiAnalysis" class="audit-insights"></div>
