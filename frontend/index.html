@@ -557,39 +557,53 @@
               <details class="ajuda-item">
                 <summary>📋 Agenda de Compras — Como Tratar</summary>
                 <div class="ajuda-corpo">
-                  <h4>Fluxo de tratamento</h4>
+                  <h4>Fluxo de tratamento (passo a passo)</h4>
                   <ol>
                     <li>Acesse <strong>Agenda do Dia</strong> ou clique em um evento no <strong>Calend&aacute;rio</strong></li>
                     <li>Clique em <strong>Ver Detalhe</strong> para abrir a ficha do fornecedor</li>
                     <li>Revise a <strong>Pr&oacute;xima Data Sugerida</strong> — calculada automaticamente com base na frequ&ecirc;ncia e nos dias permitidos</li>
                     <li>Ajuste a data se necess&aacute;rio (o sistema avisa se cair fora dos dias configurados)</li>
-                    <li>Preencha a <strong>Observa&ccedil;&atilde;o</strong> e, opcionalmente, uma <strong>Nota</strong> para o Painel</li>
-                    <li>Responda <strong>&#128230; Deu pedido?</strong> (obrigat&oacute;rio)</li>
-                    <li>Clique em <strong>Tratar Agenda</strong></li>
+                    <li>Preencha a <strong>Observa&ccedil;&atilde;o</strong> e, opcionalmente, uma <strong>Nota</strong> (post-it que vai para o Painel de Notas)</li>
+                    <li>Se quiser justificar algum desvio, clique em <strong>Sim</strong> ao lado de "Deseja justificar?" e escreva o motivo</li>
+                    <li>Clique em <strong>Tratar Agenda</strong> &mdash; uma <strong>janela nova</strong> vai abrir perguntando "&#128230; Deu pedido?"</li>
+                    <li>Responda na janela (veja detalhes abaixo) e clique em <strong>&#10004; Confirmar e Tratar Agenda</strong></li>
                   </ol>
 
-                  <h4>&#128230; Deu pedido? (obrigat&oacute;rio)</h4>
-                  <p>Antes de tratar a agenda, responda se houve pedido ao fornecedor:</p>
-                  <ul>
-                    <li><strong>Sim</strong>: informe a <strong>quantidade total</strong> de itens pedidos (inteiro) e o <strong>valor total</strong> em reais (m&aacute;scara R$ autom&aacute;tica)</li>
-                    <li><strong>N&atilde;o</strong>: selecione o <strong>motivo</strong>:
-                      <ul>
-                        <li><em>N&atilde;o deu Pedido M&iacute;nimo</em> — o pedido n&atilde;o atingiu o m&iacute;nimo exigido pelo fornecedor</li>
-                        <li><em>Fornecedor n&atilde;o cumpriu a Agenda</em> — o fornecedor n&atilde;o atendeu ao contato/pedido</li>
-                        <li><em>Indefini&ccedil;&atilde;o Comercial nas Condi&ccedil;&otilde;es</em> — pre&ccedil;o, prazo ou condi&ccedil;&otilde;es em negocia&ccedil;&atilde;o</li>
-                        <li><em>Outros</em> — qualquer outro motivo (campo de detalhe opcional para descrever)</li>
-                      </ul>
-                    </li>
-                  </ul>
-                  <p class="ajuda-dica">&#128161; <strong>Por que &eacute; importante?</strong> Esses dados alimentam os KPIs <strong>Taxa de Pedido</strong> e <strong>Valor Total</strong> na Auditoria e no relat&oacute;rio di&aacute;rio enviado por e-mail. Permite identificar fornecedores problem&aacute;ticos, calcular volume total comprado por per&iacute;odo e justificar quedas de cobertura.</p>
+                  <h4>&#128230; Janela "Deu pedido?" (obrigat&oacute;rio)</h4>
+                  <p>Quando voc&ecirc; clica em <strong>Tratar Agenda</strong>, abre uma janela dedicada com dois bot&otilde;es grandes: <strong>&#10004; SIM</strong> (verde) e <strong>&#10006; N&Atilde;O</strong> (vermelho). Clique em um deles para responder. Sem essa resposta n&atilde;o &eacute; poss&iacute;vel finalizar o tratamento.</p>
 
-                  <p>O sistema marca a ocorr&ecirc;ncia atual como <strong>REALIZADA</strong> e cria automaticamente a pr&oacute;xima pend&ecirc;ncia.</p>
+                  <h5>Se voc&ecirc; clicar em &#10004; SIM</h5>
+                  <ul>
+                    <li><strong>Quantidade total</strong>: n&uacute;mero inteiro de itens pedidos (sem decimais)</li>
+                    <li><strong>Valor total (R$)</strong>: digite apenas os n&uacute;meros &mdash; a m&aacute;scara <strong>R$ X.XXX,XX</strong> &eacute; aplicada automaticamente enquanto voc&ecirc; digita</li>
+                  </ul>
+
+                  <h5>Se voc&ecirc; clicar em &#10006; N&Atilde;O</h5>
+                  <p>Selecione o <strong>motivo</strong> entre as op&ccedil;&otilde;es:</p>
+                  <ul>
+                    <li><em>N&atilde;o deu Pedido M&iacute;nimo</em> &mdash; o pedido n&atilde;o atingiu o m&iacute;nimo exigido pelo fornecedor</li>
+                    <li><em>Fornecedor n&atilde;o cumpriu a Agenda</em> &mdash; o fornecedor n&atilde;o atendeu ao contato/pedido</li>
+                    <li><em>Indefini&ccedil;&atilde;o Comercial nas Condi&ccedil;&otilde;es</em> &mdash; pre&ccedil;o, prazo ou condi&ccedil;&otilde;es em negocia&ccedil;&atilde;o</li>
+                    <li><em>Outros</em> &mdash; qualquer outro motivo</li>
+                  </ul>
+                  <p>O campo <strong>Detalhe</strong> &eacute; opcional &mdash; use para descrever melhor o motivo quando achar importante (especialmente em "Outros").</p>
+
+                  <h5>Bot&otilde;es da janela</h5>
+                  <ul>
+                    <li><strong>Voltar</strong>: fecha a janela sem tratar a agenda &mdash; voc&ecirc; pode rever os dados antes</li>
+                    <li><strong>&#10004; Confirmar e Tratar Agenda</strong>: valida os campos, fecha a janela e <strong>finaliza o tratamento</strong> (PATCH no banco)</li>
+                  </ul>
+
+                  <p class="ajuda-dica">&#128161; <strong>Por que essa pergunta &eacute; obrigat&oacute;ria?</strong> Os dados de pedido alimentam os indicadores <strong>Taxa de Pedido</strong> (% de agendas que viraram pedido) e <strong>Valor Total</strong> (R$ comprado no per&iacute;odo) na se&ccedil;&atilde;o Auditoria e no relat&oacute;rio di&aacute;rio por e-mail. Sem isso, o sistema n&atilde;o consegue identificar fornecedores problem&aacute;ticos, calcular volume comprado nem justificar quedas de cobertura.</p>
+
+                  <p>Depois da confirma&ccedil;&atilde;o, o sistema marca a ocorr&ecirc;ncia atual como <strong>REALIZADA</strong>, registra todos os dados (data, observa&ccedil;&atilde;o, nota, justificativa, pedido) e cria automaticamente a pr&oacute;xima pend&ecirc;ncia.</p>
 
                   <h4>Sugest&atilde;o de pr&oacute;xima data</h4>
                   <ul>
-                    <li><strong>Frequ&ecirc;ncia 1/2/4</strong>: data atual + intervalo fixo → ajusta para o pr&oacute;ximo dia permitido</li>
+                    <li><strong>Frequ&ecirc;ncia 1/2/4</strong>: data atual + intervalo fixo &rarr; ajusta para o pr&oacute;ximo dia permitido</li>
                     <li><strong>Frequ&ecirc;ncia 8/12</strong>: varre os dias futuros at&eacute; encontrar um dia permitido</li>
                   </ul>
+
                   <h4>Idempot&ecirc;ncia</h4>
                   <p>O sistema nunca cria duplicatas. Se j&aacute; existe uma pend&ecirc;ncia do mesmo fornecedor na pr&oacute;xima data calculada, nenhuma nova ocorr&ecirc;ncia &eacute; criada.</p>
                 </div>

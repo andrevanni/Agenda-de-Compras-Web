@@ -88,7 +88,7 @@ Outros arquivos estáticos:
 | Arquivo | Descrição |
 |---|---|
 | `vercel.json` | Configuração Vercel: `buildCommand: null`, `outputDirectory: "."`, `framework: null` — força deploy como site estático |
-| `sw.js` | Service Worker v40 — cache dos assets, registrado em `index.html` e `instalar.html` |
+| `sw.js` | Service Worker v41 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
 | `instalar.html` | Página de primeiro acesso: define senha → loga → mostra guia de instalação |
@@ -283,7 +283,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - **Exportação Excel**: botão "📤 Exportar" via SheetJS — exporta entradas filtradas
 - **Seção "Eventos de Cadastro"**: tabela de `audit_log` filtrada por período — criações, exclusões e alterações de fornecedores e compradores com chips coloridos (verde/amarelo/vermelho)
 - **Justificativa**: ao tratar agenda, o modal exibe resumo dinâmico do que será auditado + botão "Sim/Não" para justificativa livre; texto gravado em `observacao.justificativa`; exibido em itálico roxo na tabela de auditoria
-- **📦 Deu pedido? (obrigatório desde mai/2026)**: ao tratar agenda, o comprador DEVE responder se houve pedido. Sim → informa quantidade (inteiro) + valor (R$ com máscara automática). Não → seleciona motivo (`NAO_DEU_PEDIDO_MINIMO` / `FORNECEDOR_NAO_CUMPRIU` / `INDEFINICAO_COMERCIAL` / `OUTROS`) + detalhe opcional. Validação client-side bloqueia o botão "Tratar Agenda" e validação SQL (CHECK constraint) garante consistência no banco. Campos em colunas reais de `agenda_ocorrencias` (schema_v15), não em JSON. Aparece como coluna "Pedido" na auditoria por comprador, alimenta os KPIs "Taxa de pedido" e "Valor total", e vai para a exportação Excel + PDF do relatório diário.
+- **📦 Deu pedido? (obrigatório desde mai/2026 — modal dedicado)**: ao clicar em "Tratar Agenda" no modal de detalhe, abre um **modal separado** (`pedidoModal` em [frontend/index.html](frontend/index.html); funções `openPedidoModal`/`setupPedidoModalHandlers`/`confirmarPedidoEContinuar`/`getPedidoModalData` em [frontend/script_render.js](frontend/script_render.js)). O comprador escolhe entre **✓ SIM** (botão verde grande) ou **✗ NÃO** (vermelho grande). Sim → informa quantidade (inteiro) + valor (R$ com máscara automática). Não → seleciona motivo (`NAO_DEU_PEDIDO_MINIMO` / `FORNECEDOR_NAO_CUMPRIU` / `INDEFINICAO_COMERCIAL` / `OUTROS`) + detalhe opcional. Botão **"✓ Confirmar e Tratar Agenda"** no rodapé valida e dispara o PATCH em `agenda_ocorrencias` (chama `tratarAgendaAtual(pedido)` passando os dados como argumento — não há mais `getPedidoData` lendo do modal de detalhe). Validação client-side no `pedidoModal` + validação SQL (CHECK constraint do schema_v15) garantem consistência. Campos em colunas reais de `agenda_ocorrencias`, não em JSON. Aparece como coluna "Pedido" na auditoria por comprador, alimenta os KPIs "Taxa de pedido" e "Valor total", e vai para a exportação Excel + PDF do relatório diário. **Histórico de design (26/mai/2026)**: primeira versão era bloco inline no próprio modal de detalhe — gerou confusão visual (4 botões "Sim/Não" no mesmo modal, 2 do pedido + 2 da justificativa). Refatorado para modal dedicado a pedido do usuário.
 - `renderAuditDashboard()` em `script_forms.js`; `classifyAuditEvent()`, `aggregateAuditMetrics()`, `updateAuditSummary()` em `script_render.js`
 - `state.auditLogs` carregado em `loadPortalData()` (500 registros mais recentes de `audit_log`)
 
@@ -405,7 +405,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v40` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
+- Cache cliente: `agenda-compras-v41` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
 - Cache admin: `agenda-admin-v10` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
@@ -489,6 +489,7 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 - **Dashboard de Auditoria — 3 gráficos novos**: linha temporal (tendência diária), heatmap dia da semana (4 métricas × 7 dias com intensidade), Top 5 fornecedores (postergadas/aumentos/reduções). (Commit `5dd3f9b`)
 - **"Inteligência artificial" → "💡 Recomendações inteligentes"**: nome era enganoso (é heurística determinística, não IA). Heurísticas expandidas de 6 para 10 padrões. (Commit `5dd3f9b`)
 - **📦 "Deu pedido?" obrigatório no tratamento de agenda**: novo bloco no modal de "Tratar Agenda" que captura se houve pedido (Sim → quantidade + valor R$ com máscara automática; Não → motivo entre 4 opções + detalhe opcional). Validação client-side bloqueia o tratamento sem resposta. Dados gravados em colunas reais (`schema_v15_tratamento_pedido.sql` — migration rodada em 26/mai/2026). Auditoria ganha coluna "Pedido" + 2 KPIs novos (Taxa de pedido / Valor total). Exportação Excel ganha 5 colunas. PDF e email do relatório diário ganham 3ª linha de KPIs. Ajuda do portal cliente atualizada. Disparo de teste para `andre@servicefarma.far.br` (tenant SV) em 26/mai/2026 retornou `sent:1, errors:0`. (Commit `130154c`)
+- **📦 Refatoração: "Deu pedido?" vira modal dedicado** (26/mai/2026, ainda no mesmo dia): a primeira versão era bloco inline no modal de detalhe, mas gerava confusão visual (4 pares "Sim/Não" no mesmo modal — pedido + justificativa). Movido para `pedidoModal` separado que abre ao clicar "Tratar Agenda". Botões muito maiores (verde/vermelho), título grande "📦 Deu pedido?", rodapé com "Voltar" e "✓ Confirmar e Tratar Agenda". Também adicionado botão "✕ Fechar" grande no rodapé do `agendaDetailModal` (além do X do canto). (Commit `7d9b4c0`)
 
 ### Próxima sessão (prioridade máxima)
 
