@@ -479,20 +479,33 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 ## Pendências
 
-### Próxima sessão (prioridade máxima — combinado com usuário em 26/mai/2026)
+### Entregue em 26/mai/2026 (commits `a678580`, `010869c`, `5dd3f9b`)
 
-1. **Implementar fluxo de staging de verdade** — hoje a branch `staging` existe e tem URLs de preview na Vercel, mas usa o mesmo Supabase de produção (risco de contaminação). Toda alteração ainda vai direto para `main` por hábito. Decisões a tomar: (a) criar projeto Supabase separado para staging, OU (b) reservar tenant exclusivo de teste com variáveis de ambiente apontando para ele; e padronizar `staging` como destino obrigatório antes de `main` para qualquer feature/fix.
+- **Modal Novo Evento — tema claro**: grid de compradores ficava invisível por causa de variáveis CSS inexistentes (`--input-bg`, `--border-color`, `--text-muted`). Substituídas por `--panel-soft`/`--line`/`--text`/`--muted`. (Commit `a678580`)
+- **Nota como post-it**: `saveNewEvent` em `script_main.js` agora grava `nota` apenas na 1ª ocorrência (1ª data × 1º comprador) — antes replicava em todas as recorrências/multi-comprador, poluindo o Painel de Notas. SQL retroativo limpou 105 ocorrências afetadas (2 grupos: "Pedido geral de perfumaria" e "Pedido sugestão Gen"). (Commit `a678580`)
+- **Log de auditoria de buyer**: criado endpoint `POST /api/v1/portal/audit-log` no backend; `logAuditEvent` no frontend passa por ele em vez de POST direto ao Supabase. Antes, RLS da `audit_log` (que checa `tenant_users`) bloqueava silenciosamente todos os logs de buyers — ninguém percebia porque `catch {}` engolia. Afetava todos os tenants, não só o caso da Livia que motivou a investigação. (Commit `010869c`)
+- **Dashboard de Auditoria — 3 gráficos novos**: linha temporal (tendência diária), heatmap dia da semana (4 métricas × 7 dias com intensidade), Top 5 fornecedores (postergadas/aumentos/reduções). (Commit `5dd3f9b`)
+- **"Inteligência artificial" → "💡 Recomendações inteligentes"**: nome era enganoso (é heurística determinística, não IA). Heurísticas expandidas de 6 para 10 padrões. (Commit `5dd3f9b`)
 
-2. **Corrigir `defaultSettings.tenantId` hardcoded como Service Farma** (`script_state.js` linha 47) — qualquer usuário que abra o portal sem `localStorage` configurado vê a agenda da Service Farma por padrão. Trocar para `""`. Suspeita-se que esse é o vetor comum dos casos Elias e Raquel (Drogaria SV) — o usuário definia senha pelo `instalar.html`, mas se houver qualquer falha de timing, o portal carregava com o tenant default em vez do tenant correto. Mudança pequena, mas toca em estado inicial — testar bem em staging antes.
+### Próxima sessão (prioridade máxima)
 
-3. **Investigar falha silenciosa do `instalar.html` / `POST /auth/definir-senha`** — o caso Raquel revelou que o fluxo permite o usuário "concluir" o convite sem efetivamente gravar a senha em `auth.users.encrypted_password`. Hipóteses a verificar: (a) `sb.auth.admin.update_user_by_id` lançando exceção silenciada, (b) erro de rede no `fetch` do `instalar.html` interpretado como sucesso, (c) Supabase Auth retornando 200 mas sem persistir. Adicionar logging server-side no `definir-senha` e validação client-side antes de redirecionar. Bloqueou a diretora da Drogaria SV por 1 semana.
+1. **Justificativa de tratamento não aparece na coluna "Detalhe" da Auditoria por comprador**: usuário relatou em 26/mai/2026 que ao tratar agenda preenchendo a justificativa via botão "Sim" no modal, ela não é renderizada no detalhe da Auditoria. Código de render existe e parece correto ([script_forms.js:919-922](frontend/script_forms.js#L919-L922)) — lê `entry.meta?.justificativa`, classe `.audit-justificativa` existe. Diagnóstico precisa SQL: `SELECT id, observacao::jsonb -> 'justificativa' FROM agenda_ocorrencias WHERE status='REALIZADA' AND observacao::jsonb ? 'justificativa' ORDER BY data_realizacao DESC LIMIT 5;`. Se vazio → bug de gravação. Se preenchido → bug de render/parsing.
+
+2. **Implementar fluxo de staging de verdade** — branch `staging` está 22+ commits atrás de `main` desde 26/mai/2026 (SW v17 vs v37; falta vários fixes de SW, backfill, login, audit log, etc.). Toda alteração ainda vai direto para `main` por hábito. Sincronizar staging via `git merge main` num momento controlado, depois decidir: (a) criar projeto Supabase separado para staging, OU (b) reservar tenant exclusivo de teste com variáveis de ambiente apontando para ele; padronizar `staging` como destino obrigatório antes de `main`.
+
+3. **Corrigir `defaultSettings.tenantId` hardcoded como Service Farma** (`script_state.js` linha 47) — qualquer usuário que abra o portal sem `localStorage` configurado vê a agenda da Service Farma por padrão. Trocar para `""`. Suspeita-se que esse é o vetor comum dos casos Elias e Raquel (Drogaria SV). Mudança pequena, mas toca em estado inicial — testar bem em staging antes (depende do item 2).
+
+4. **Investigar falha silenciosa do `instalar.html` / `POST /auth/definir-senha`** — o caso Raquel revelou que o fluxo permite o usuário "concluir" o convite sem efetivamente gravar a senha em `auth.users.encrypted_password`. Hipóteses: (a) `sb.auth.admin.update_user_by_id` lançando exceção silenciada, (b) erro de rede interpretado como sucesso, (c) Supabase Auth retornando 200 sem persistir. Adicionar logging server-side e validação client-side antes de redirecionar.
+
+5. **`saveSupplier` — feedback inconsistente em falha parcial**: relato pontual em 26/mai/2026 (cadastro do fornecedor "MAM") de "erro mas fornecedor apareceu cadastrado". Não reproduzível depois. Refator defensivo arquivado: isolar passos secundários (`fornecedor_dias_compra`, `persistSupplierNote`, `ensurePendingOccurrenceForSupplier`) em try/catch internos que não propagam — mostrar warnings em vez de erro genérico, e chamar `loadPortalData()` sempre. Implementar quando o erro voltar a aparecer com mensagem capturada.
 
 ### Outras pendências (sem urgência)
 
-- `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites): Supabase → Settings → API → Reset `service_role` key → atualizar no Vercel.
+- `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites + agora o endpoint `/portal/audit-log`): Supabase → Settings → API → Reset `service_role` key → atualizar no Vercel.
 - Logo do cliente no PDF: atualmente só aparece a logo Service Farma no rodapé. Para incluir a logo do cliente, é necessário adicionar campo `logo_url` na tabela `tenants` e armazenar URL pública (Supabase Storage).
 - Ativar relatório para clientes reais (Grupo São Valentim e Grupo Velanes): apenas configuração operacional — toggle no Admin + checkboxes de notificação nos compradores.
 - **Relatório semanal aos domingos**: avaliar envio de um e-mail extra todo domingo com auditoria consolidada da semana anterior (seg–sex). Destinatários: gestores e admins inscritos. Requer nova query agregada no `relatorio_service.py`, nova seção no HTML/PDF e novo tipo no `relatorio_log`. Não urgente.
+- **Análise de IA real (Claude API) na Auditoria**: hoje é heurística. Considerar botão "🤖 Analisar com IA" (sob demanda, cacheado por dia/tenant) que chama Claude API para gerar insights em linguagem natural a partir dos `audit_log` e `agenda_ocorrencias` do período. Decidir pricing/limites antes (~$0.01-0.05 por chamada). Decisão adiada em 26/mai/2026.
 
 ## Caso Elias (Drogaria SV) — mai/2026
 
