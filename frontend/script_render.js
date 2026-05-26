@@ -346,55 +346,66 @@ function openAgendaDetail(occurrenceId) {
     simBtn?.classList.remove("justify-active");
   };
 
-  // Reset bloco "Deu pedido?"
-  resetPedidoBlock();
-  setupPedidoBlockHandlers();
-
   refreshAgendaSupplierNotesState(supplier.id);
   clearFeedback(agendaDetailFeedback);
   document.getElementById("agendaDetailModal").showModal();
   updateAgendaAdjustment();
 }
 
-function resetPedidoBlock() {
-  const simBtn = document.getElementById("pedidoSimBtn");
-  const naoBtn = document.getElementById("pedidoNaoBtn");
-  const simFields = document.getElementById("pedidoSimFields");
-  const naoFields = document.getElementById("pedidoNaoFields");
-  const qty = document.getElementById("pedidoQuantidade");
-  const val = document.getElementById("pedidoValor");
-  const motivo = document.getElementById("pedidoMotivo");
-  const detalhe = document.getElementById("pedidoDetalhe");
+function resetPedidoModal() {
+  const simBtn = document.getElementById("modalPedidoSimBtn");
+  const naoBtn = document.getElementById("modalPedidoNaoBtn");
+  const simFields = document.getElementById("modalPedidoSimFields");
+  const naoFields = document.getElementById("modalPedidoNaoFields");
+  const erro = document.getElementById("modalPedidoErro");
+  const qty = document.getElementById("modalPedidoQuantidade");
+  const val = document.getElementById("modalPedidoValor");
+  const motivo = document.getElementById("modalPedidoMotivo");
+  const detalhe = document.getElementById("modalPedidoDetalhe");
   simBtn?.classList.remove("justify-active");
   naoBtn?.classList.remove("justify-active");
   simFields?.classList.add("hidden");
   naoFields?.classList.add("hidden");
+  erro?.classList.add("hidden");
   if (qty) qty.value = "";
   if (val) val.value = "";
   if (motivo) motivo.value = "";
   if (detalhe) detalhe.value = "";
 }
 
-function setupPedidoBlockHandlers() {
-  const simBtn = document.getElementById("pedidoSimBtn");
-  const naoBtn = document.getElementById("pedidoNaoBtn");
-  const simFields = document.getElementById("pedidoSimFields");
-  const naoFields = document.getElementById("pedidoNaoFields");
-  const val = document.getElementById("pedidoValor");
+function openPedidoModal() {
+  // Validação prévia do modal de detalhe — chosenDate é necessário antes
+  const chosenDate = brToIso(document.getElementById("proximaDataInput").value);
+  if (!chosenDate) {
+    setFeedback("Informe a próxima data no formato DD/MM/AAAA antes de tratar.", "error", agendaDetailFeedback);
+    return;
+  }
+  resetPedidoModal();
+  setupPedidoModalHandlers();
+  document.getElementById("pedidoModal").showModal();
+}
+
+function setupPedidoModalHandlers() {
+  const simBtn = document.getElementById("modalPedidoSimBtn");
+  const naoBtn = document.getElementById("modalPedidoNaoBtn");
+  const simFields = document.getElementById("modalPedidoSimFields");
+  const naoFields = document.getElementById("modalPedidoNaoFields");
+  const val = document.getElementById("modalPedidoValor");
+  const confirmarBtn = document.getElementById("modalPedidoConfirmarBtn");
 
   if (simBtn) simBtn.onclick = () => {
     simBtn.classList.add("justify-active");
     naoBtn?.classList.remove("justify-active");
     simFields?.classList.remove("hidden");
     naoFields?.classList.add("hidden");
-    document.getElementById("pedidoQuantidade")?.focus();
+    document.getElementById("modalPedidoQuantidade")?.focus();
   };
   if (naoBtn) naoBtn.onclick = () => {
     naoBtn.classList.add("justify-active");
     simBtn?.classList.remove("justify-active");
     naoFields?.classList.remove("hidden");
     simFields?.classList.add("hidden");
-    document.getElementById("pedidoMotivo")?.focus();
+    document.getElementById("modalPedidoMotivo")?.focus();
   };
 
   // Máscara R$ no valor (formato brasileiro: R$ 1.234,56)
@@ -406,6 +417,57 @@ function setupPedidoBlockHandlers() {
       val.value = formatBRL(cents / 100);
     };
   }
+
+  if (confirmarBtn) confirmarBtn.onclick = confirmarPedidoEContinuar;
+}
+
+async function confirmarPedidoEContinuar() {
+  const pedido = getPedidoModalData();
+  const erro = document.getElementById("modalPedidoErro");
+
+  if (pedido.realizado === null) {
+    erro.textContent = "Selecione SIM ou NÃO antes de confirmar.";
+    erro.className = "msg error";
+    return;
+  }
+  if (pedido.realizado === true && (!pedido.quantidade || !pedido.valor)) {
+    erro.textContent = "Preencha quantidade e valor antes de confirmar.";
+    erro.className = "msg error";
+    return;
+  }
+  if (pedido.realizado === false && !pedido.motivo) {
+    erro.textContent = "Selecione o motivo antes de confirmar.";
+    erro.className = "msg error";
+    return;
+  }
+
+  erro?.classList.add("hidden");
+  document.getElementById("pedidoModal").close();
+  await tratarAgendaAtual(pedido);
+}
+
+function getPedidoModalData() {
+  const simBtn = document.getElementById("modalPedidoSimBtn");
+  const naoBtn = document.getElementById("modalPedidoNaoBtn");
+  const isSim = simBtn?.classList.contains("justify-active");
+  const isNao = naoBtn?.classList.contains("justify-active");
+  if (!isSim && !isNao) return { realizado: null };
+  if (isSim) {
+    const qty = parseInt(document.getElementById("modalPedidoQuantidade")?.value || "", 10);
+    const valor = parseBRL(document.getElementById("modalPedidoValor")?.value || "");
+    return {
+      realizado: true,
+      quantidade: Number.isFinite(qty) && qty > 0 ? qty : null,
+      valor: Number.isFinite(valor) && valor > 0 ? valor : null,
+    };
+  }
+  const motivo = document.getElementById("modalPedidoMotivo")?.value || "";
+  const detalhe = document.getElementById("modalPedidoDetalhe")?.value.trim() || null;
+  return {
+    realizado: false,
+    motivo: motivo || null,
+    detalhe,
+  };
 }
 
 function formatBRL(value) {
@@ -419,29 +481,6 @@ function parseBRL(text) {
   return parseInt(digits, 10) / 100;
 }
 
-function getPedidoData() {
-  const simBtn = document.getElementById("pedidoSimBtn");
-  const naoBtn = document.getElementById("pedidoNaoBtn");
-  const isSim = simBtn?.classList.contains("justify-active");
-  const isNao = naoBtn?.classList.contains("justify-active");
-  if (!isSim && !isNao) return { realizado: null };
-  if (isSim) {
-    const qty = parseInt(document.getElementById("pedidoQuantidade")?.value || "", 10);
-    const valor = parseBRL(document.getElementById("pedidoValor")?.value || "");
-    return {
-      realizado: true,
-      quantidade: Number.isFinite(qty) && qty > 0 ? qty : null,
-      valor: Number.isFinite(valor) && valor > 0 ? valor : null,
-    };
-  }
-  const motivo = document.getElementById("pedidoMotivo")?.value || "";
-  const detalhe = document.getElementById("pedidoDetalhe")?.value.trim() || null;
-  return {
-    realizado: false,
-    motivo: motivo || null,
-    detalhe,
-  };
-}
 
 function refreshAgendaSupplierNotesState(supplierId) {
   const noteText = getSupplierNote(supplierId).trim();
@@ -501,7 +540,7 @@ function updateAuditSummary(row, supplier, incrementoTratamentoBase, incrementoA
   list.innerHTML = items.map((i) => `<li>${i}</li>`).join("");
 }
 
-async function tratarAgendaAtual() {
+async function tratarAgendaAtual(pedido) {
   const row = occurrenceRows().find((item) => item.id === state.selectedOccurrenceId);
   if (!row) return;
   const supplier = row.supplier;
@@ -509,7 +548,6 @@ async function tratarAgendaAtual() {
   const chosenDate = brToIso(document.getElementById("proximaDataInput").value);
   const observation = document.getElementById("agendaObservacao").value.trim() || "Tratado pela tela";
   const justificativa = document.getElementById("agendaJustificativa")?.value.trim() || null;
-  const pedido = getPedidoData();
   const settings = getSettings();
 
   if (!chosenDate) {
@@ -517,16 +555,9 @@ async function tratarAgendaAtual() {
     return;
   }
 
-  if (pedido.realizado === null) {
-    setFeedback("Responda \"Deu pedido?\" (Sim ou N\u00e3o) antes de tratar.", "error", agendaDetailFeedback);
-    return;
-  }
-  if (pedido.realizado === true && (!pedido.quantidade || !pedido.valor)) {
-    setFeedback("Informe a quantidade total e o valor total do pedido.", "error", agendaDetailFeedback);
-    return;
-  }
-  if (pedido.realizado === false && !pedido.motivo) {
-    setFeedback("Selecione o motivo de n\u00e3o ter dado pedido.", "error", agendaDetailFeedback);
+  // pedido deve vir do pedidoModal (passado como argumento). Se n\u00e3o veio, abre o modal.
+  if (!pedido || pedido.realizado === null || pedido.realizado === undefined) {
+    openPedidoModal();
     return;
   }
 

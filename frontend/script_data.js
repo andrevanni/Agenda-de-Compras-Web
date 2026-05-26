@@ -353,7 +353,7 @@ function bindStaticEvents() {
   });
 
   document.getElementById("proximaDataInput").addEventListener("change", updateAgendaAdjustment);
-  document.getElementById("tratarAgendaButton").addEventListener("click", tratarAgendaAtual);
+  document.getElementById("tratarAgendaButton").addEventListener("click", openPedidoModal);
 
   // Calendário
   document.getElementById("newEventButton")?.addEventListener("click", () => openNewEventModal());

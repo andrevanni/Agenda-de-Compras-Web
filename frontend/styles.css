@@ -1276,42 +1276,122 @@ textarea::placeholder {
   gap: 8px;
 }
 
-.pedido-block {
-  border-left: 3px solid #2563eb;
+.audit-pedido-cell {
+  font-size: 12px;
+  white-space: nowrap;
 }
 
-.pedido-fields {
+/* === Modal "Deu pedido?" === */
+.pedido-modal .modal-card {
+  max-width: 520px;
+}
+
+.pedido-modal-body {
+  display: grid;
+  gap: 16px;
+  padding: 4px 0 8px;
+}
+
+.pedido-modal-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 6px;
+  gap: 12px;
 }
 
-.pedido-fields label {
+.pedido-modal-btn {
+  padding: 18px 12px;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .03em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform .12s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+}
+
+.pedido-modal-btn:hover {
+  transform: translateY(-1px);
+}
+
+.pedido-modal-btn-sim.justify-active {
+  background: #10b981;
+  border-color: #047857;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(16,185,129,.4);
+}
+
+.pedido-modal-btn-nao.justify-active {
+  background: #ef4444;
+  border-color: #b91c1c;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(239,68,68,.4);
+}
+
+.pedido-modal-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 14px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.pedido-modal-fields-stack {
+  grid-template-columns: 1fr;
+}
+
+.pedido-modal-fields label {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
 }
 
-.pedido-fields input,
-.pedido-fields select,
-.pedido-fields textarea {
+.pedido-modal-fields input,
+.pedido-modal-fields select,
+.pedido-modal-fields textarea {
   width: 100%;
   margin-top: 4px;
 }
 
-.pedido-fields > label:only-child {
-  grid-column: 1 / -1;
+.pedido-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
 }
 
-.pedido-fields-stack {
-  grid-template-columns: 1fr;
+#modalPedidoConfirmarBtn {
+  background: #10b981;
+  color: #fff;
+  font-weight: 700;
+  padding: 10px 20px;
 }
 
-.audit-pedido-cell {
-  font-size: 12px;
-  white-space: nowrap;
+#modalPedidoConfirmarBtn:hover {
+  background: #047857;
+}
+
+/* Botão de fechar inferior do detail modal */
+.detail-bottom-actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.detail-bottom-actions .btn {
+  min-width: 160px;
 }
 
 .audit-pre-treat-title {

@@ -829,36 +829,6 @@
                 <textarea id="agendaNota" rows="2" placeholder="Registre algo importante sobre este compromisso..."></textarea>
               </label>
 
-              <div id="agendaPedidoBlock" class="audit-pre-treat pedido-block">
-                <div class="audit-pre-treat-title">&#128230; Deu pedido?</div>
-                <div class="justify-row">
-                  <button type="button" id="pedidoSimBtn" class="btn btn-sm btn-outline">Sim</button>
-                  <button type="button" id="pedidoNaoBtn" class="btn btn-sm btn-outline">N&atilde;o</button>
-                </div>
-                <div id="pedidoSimFields" class="hidden pedido-fields">
-                  <label>Quantidade total<br>
-                    <input id="pedidoQuantidade" type="number" min="1" step="1" inputmode="numeric" placeholder="Ex.: 100">
-                  </label>
-                  <label>Valor total (R$)<br>
-                    <input id="pedidoValor" type="text" inputmode="decimal" placeholder="R$ 0,00">
-                  </label>
-                </div>
-                <div id="pedidoNaoFields" class="hidden pedido-fields pedido-fields-stack">
-                  <label>Motivo<br>
-                    <select id="pedidoMotivo">
-                      <option value="">Selecione...</option>
-                      <option value="NAO_DEU_PEDIDO_MINIMO">N&atilde;o deu Pedido M&iacute;nimo</option>
-                      <option value="FORNECEDOR_NAO_CUMPRIU">Fornecedor n&atilde;o cumpriu a Agenda</option>
-                      <option value="INDEFINICAO_COMERCIAL">Indefini&ccedil;&atilde;o Comercial nas Condi&ccedil;&otilde;es</option>
-                      <option value="OUTROS">Outros</option>
-                    </select>
-                  </label>
-                  <label>Detalhe (opcional)<br>
-                    <textarea id="pedidoDetalhe" rows="2" placeholder="Detalhe adicional..."></textarea>
-                  </label>
-                </div>
-              </div>
-
               <div id="agendaAuditSummary" class="audit-pre-treat">
                 <div class="audit-pre-treat-title">&#128203; O que ser&aacute; registrado na auditoria:</div>
                 <ul id="agendaAuditItems" class="audit-items-list"></ul>
@@ -887,6 +857,62 @@
 
         <div id="agendaDetailFeriadoWarning" class="msg hidden"></div>
         <div id="agendaDetailFeedback" class="msg hidden"></div>
+
+        <div class="detail-bottom-actions">
+          <button type="button" class="btn btn-outline" data-close-modal="agendaDetailModal">&#10005; Fechar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="pedidoModal" class="details-modal pedido-modal">
+      <form method="dialog" class="modal-card">
+        <button class="close-button" type="button" data-close-modal="pedidoModal" aria-label="Fechar">
+          <span class="close-glyph">&#10005;</span>
+        </button>
+        <div class="section-title">
+          <div>
+            <h2>&#128230; Deu pedido?</h2>
+            <p class="muted">Responda antes de tratar a agenda. <strong>Obrigat&oacute;rio.</strong></p>
+          </div>
+        </div>
+
+        <div class="pedido-modal-body">
+          <div class="pedido-modal-toggle">
+            <button type="button" id="modalPedidoSimBtn" class="pedido-modal-btn pedido-modal-btn-sim">&#10004; SIM</button>
+            <button type="button" id="modalPedidoNaoBtn" class="pedido-modal-btn pedido-modal-btn-nao">&#10006; N&Atilde;O</button>
+          </div>
+
+          <div id="modalPedidoSimFields" class="hidden pedido-modal-fields">
+            <label>Quantidade total<br>
+              <input id="modalPedidoQuantidade" type="number" min="1" step="1" inputmode="numeric" placeholder="Ex.: 100">
+            </label>
+            <label>Valor total (R$)<br>
+              <input id="modalPedidoValor" type="text" inputmode="decimal" placeholder="R$ 0,00">
+            </label>
+          </div>
+
+          <div id="modalPedidoNaoFields" class="hidden pedido-modal-fields pedido-modal-fields-stack">
+            <label>Motivo<br>
+              <select id="modalPedidoMotivo">
+                <option value="">Selecione...</option>
+                <option value="NAO_DEU_PEDIDO_MINIMO">N&atilde;o deu Pedido M&iacute;nimo</option>
+                <option value="FORNECEDOR_NAO_CUMPRIU">Fornecedor n&atilde;o cumpriu a Agenda</option>
+                <option value="INDEFINICAO_COMERCIAL">Indefini&ccedil;&atilde;o Comercial nas Condi&ccedil;&otilde;es</option>
+                <option value="OUTROS">Outros</option>
+              </select>
+            </label>
+            <label>Detalhe (opcional)<br>
+              <textarea id="modalPedidoDetalhe" rows="3" placeholder="Detalhe adicional..."></textarea>
+            </label>
+          </div>
+
+          <div id="modalPedidoErro" class="msg hidden" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="pedido-modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal="pedidoModal">Voltar</button>
+          <button type="button" id="modalPedidoConfirmarBtn" class="btn">&#10004; Confirmar e Tratar Agenda</button>
+        </div>
       </form>
     </dialog>
 
