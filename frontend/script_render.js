@@ -119,8 +119,20 @@ function classifyAuditEvent(entry) {
     resumo,
     meta,
     metrics,
+    pedidoRealizado: entry.pedido_realizado ?? null,
+    pedidoQuantidade: entry.pedido_quantidade ?? null,
+    pedidoValor: entry.pedido_valor != null ? Number(entry.pedido_valor) : null,
+    pedidoMotivoNao: entry.pedido_motivo_nao ?? null,
+    pedidoMotivoDetalhe: entry.pedido_motivo_detalhe ?? null,
   };
 }
+
+const PEDIDO_MOTIVO_LABEL = {
+  NAO_DEU_PEDIDO_MINIMO: "Não deu Pedido Mínimo",
+  FORNECEDOR_NAO_CUMPRIU: "Fornecedor não cumpriu a Agenda",
+  INDEFINICAO_COMERCIAL: "Indefinição Comercial nas Condições",
+  OUTROS: "Outros",
+};
 
 function aggregateAuditMetrics(entries) {
   return entries.reduce((acc, entry) => {
@@ -130,6 +142,13 @@ function aggregateAuditMetrics(entries) {
     acc.antecipadas += entry.metrics.antecipada;
     acc.aumentos += entry.metrics.aumentoParametro;
     acc.reducoes += entry.metrics.reducaoParametro;
+    if (entry.pedidoRealizado === true) {
+      acc.pedidosSim += 1;
+      acc.valorTotalPedidos += entry.pedidoValor || 0;
+      acc.quantidadeTotalPedidos += entry.pedidoQuantidade || 0;
+    } else if (entry.pedidoRealizado === false) {
+      acc.pedidosNao += 1;
+    }
     return acc;
   }, {
     total: 0,
@@ -138,6 +157,10 @@ function aggregateAuditMetrics(entries) {
     antecipadas: 0,
     aumentos: 0,
     reducoes: 0,
+    pedidosSim: 0,
+    pedidosNao: 0,
+    valorTotalPedidos: 0,
+    quantidadeTotalPedidos: 0,
   });
 }
 
@@ -323,10 +346,101 @@ function openAgendaDetail(occurrenceId) {
     simBtn?.classList.remove("justify-active");
   };
 
+  // Reset bloco "Deu pedido?"
+  resetPedidoBlock();
+  setupPedidoBlockHandlers();
+
   refreshAgendaSupplierNotesState(supplier.id);
   clearFeedback(agendaDetailFeedback);
   document.getElementById("agendaDetailModal").showModal();
   updateAgendaAdjustment();
+}
+
+function resetPedidoBlock() {
+  const simBtn = document.getElementById("pedidoSimBtn");
+  const naoBtn = document.getElementById("pedidoNaoBtn");
+  const simFields = document.getElementById("pedidoSimFields");
+  const naoFields = document.getElementById("pedidoNaoFields");
+  const qty = document.getElementById("pedidoQuantidade");
+  const val = document.getElementById("pedidoValor");
+  const motivo = document.getElementById("pedidoMotivo");
+  const detalhe = document.getElementById("pedidoDetalhe");
+  simBtn?.classList.remove("justify-active");
+  naoBtn?.classList.remove("justify-active");
+  simFields?.classList.add("hidden");
+  naoFields?.classList.add("hidden");
+  if (qty) qty.value = "";
+  if (val) val.value = "";
+  if (motivo) motivo.value = "";
+  if (detalhe) detalhe.value = "";
+}
+
+function setupPedidoBlockHandlers() {
+  const simBtn = document.getElementById("pedidoSimBtn");
+  const naoBtn = document.getElementById("pedidoNaoBtn");
+  const simFields = document.getElementById("pedidoSimFields");
+  const naoFields = document.getElementById("pedidoNaoFields");
+  const val = document.getElementById("pedidoValor");
+
+  if (simBtn) simBtn.onclick = () => {
+    simBtn.classList.add("justify-active");
+    naoBtn?.classList.remove("justify-active");
+    simFields?.classList.remove("hidden");
+    naoFields?.classList.add("hidden");
+    document.getElementById("pedidoQuantidade")?.focus();
+  };
+  if (naoBtn) naoBtn.onclick = () => {
+    naoBtn.classList.add("justify-active");
+    simBtn?.classList.remove("justify-active");
+    naoFields?.classList.remove("hidden");
+    simFields?.classList.add("hidden");
+    document.getElementById("pedidoMotivo")?.focus();
+  };
+
+  // Máscara R$ no valor (formato brasileiro: R$ 1.234,56)
+  if (val) {
+    val.oninput = () => {
+      const digits = val.value.replace(/\D/g, "");
+      if (!digits) { val.value = ""; return; }
+      const cents = parseInt(digits, 10);
+      val.value = formatBRL(cents / 100);
+    };
+  }
+}
+
+function formatBRL(value) {
+  return "R$ " + Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function parseBRL(text) {
+  if (!text) return null;
+  const digits = String(text).replace(/\D/g, "");
+  if (!digits) return null;
+  return parseInt(digits, 10) / 100;
+}
+
+function getPedidoData() {
+  const simBtn = document.getElementById("pedidoSimBtn");
+  const naoBtn = document.getElementById("pedidoNaoBtn");
+  const isSim = simBtn?.classList.contains("justify-active");
+  const isNao = naoBtn?.classList.contains("justify-active");
+  if (!isSim && !isNao) return { realizado: null };
+  if (isSim) {
+    const qty = parseInt(document.getElementById("pedidoQuantidade")?.value || "", 10);
+    const valor = parseBRL(document.getElementById("pedidoValor")?.value || "");
+    return {
+      realizado: true,
+      quantidade: Number.isFinite(qty) && qty > 0 ? qty : null,
+      valor: Number.isFinite(valor) && valor > 0 ? valor : null,
+    };
+  }
+  const motivo = document.getElementById("pedidoMotivo")?.value || "";
+  const detalhe = document.getElementById("pedidoDetalhe")?.value.trim() || null;
+  return {
+    realizado: false,
+    motivo: motivo || null,
+    detalhe,
+  };
 }
 
 function refreshAgendaSupplierNotesState(supplierId) {
@@ -395,10 +509,24 @@ async function tratarAgendaAtual() {
   const chosenDate = brToIso(document.getElementById("proximaDataInput").value);
   const observation = document.getElementById("agendaObservacao").value.trim() || "Tratado pela tela";
   const justificativa = document.getElementById("agendaJustificativa")?.value.trim() || null;
+  const pedido = getPedidoData();
   const settings = getSettings();
 
   if (!chosenDate) {
     setFeedback("Informe a pr\u00f3xima data no formato DD/MM/AAAA.", "error", agendaDetailFeedback);
+    return;
+  }
+
+  if (pedido.realizado === null) {
+    setFeedback("Responda \"Deu pedido?\" (Sim ou N\u00e3o) antes de tratar.", "error", agendaDetailFeedback);
+    return;
+  }
+  if (pedido.realizado === true && (!pedido.quantidade || !pedido.valor)) {
+    setFeedback("Informe a quantidade total e o valor total do pedido.", "error", agendaDetailFeedback);
+    return;
+  }
+  if (pedido.realizado === false && !pedido.motivo) {
+    setFeedback("Selecione o motivo de n\u00e3o ter dado pedido.", "error", agendaDetailFeedback);
     return;
   }
 
@@ -479,6 +607,11 @@ async function tratarAgendaAtual() {
         data_realizacao: todayIso(),
         observacao: observacaoAuditoria,
         nota: document.getElementById("agendaNota").value.trim() || null,
+        pedido_realizado: pedido.realizado,
+        pedido_quantidade: pedido.realizado === true ? pedido.quantidade : null,
+        pedido_valor: pedido.realizado === true ? pedido.valor : null,
+        pedido_motivo_nao: pedido.realizado === false ? pedido.motivo : null,
+        pedido_motivo_detalhe: pedido.realizado === false ? pedido.detalhe : null,
       },
     });
 

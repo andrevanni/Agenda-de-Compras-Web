@@ -1276,6 +1276,44 @@ textarea::placeholder {
   gap: 8px;
 }
 
+.pedido-block {
+  border-left: 3px solid #2563eb;
+}
+
+.pedido-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.pedido-fields label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pedido-fields input,
+.pedido-fields select,
+.pedido-fields textarea {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.pedido-fields > label:only-child {
+  grid-column: 1 / -1;
+}
+
+.pedido-fields-stack {
+  grid-template-columns: 1fr;
+}
+
+.audit-pedido-cell {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .audit-pre-treat-title {
   font-size: 12px;
   font-weight: 600;

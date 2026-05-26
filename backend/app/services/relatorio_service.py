@@ -87,7 +87,10 @@ def _kpis_query(db: Session, tenant_id: str, inicio: date, fim: date, comprador_
                       AND observacao IS NOT NULL
                       AND observacao::jsonb ? 'executado_fora_da_carteira'
                       AND (observacao::jsonb->>'executado_fora_da_carteira')::boolean = true
-                ) AS fora_carteira
+                ) AS fora_carteira,
+                COUNT(*) FILTER (WHERE pedido_realizado = TRUE) AS pedidos_sim,
+                COUNT(*) FILTER (WHERE pedido_realizado = FALSE) AS pedidos_nao,
+                COALESCE(SUM(pedido_valor) FILTER (WHERE pedido_realizado = TRUE), 0) AS valor_total_pedidos
             FROM agenda_ocorrencias
             WHERE tenant_id = cast(:tid as uuid)
               AND data_prevista BETWEEN :inicio AND :fim
@@ -97,8 +100,13 @@ def _kpis_query(db: Session, tenant_id: str, inicio: date, fim: date, comprador_
         params,
     ).mappings().first()
     empty = {"total": 0, "realizadas": 0, "adiadas": 0, "atrasadas": 0, "pendentes": 0,
-             "postergadas": 0, "antecipadas": 0, "param_aumentados": 0, "param_reduzidos": 0, "fora_carteira": 0}
-    return dict(row) if row else empty
+             "postergadas": 0, "antecipadas": 0, "param_aumentados": 0, "param_reduzidos": 0,
+             "fora_carteira": 0, "pedidos_sim": 0, "pedidos_nao": 0, "valor_total_pedidos": 0}
+    result = dict(row) if row else empty
+    # taxa_pedido = sim / (sim + nao) — calculada após query
+    respondidos = (result.get("pedidos_sim") or 0) + (result.get("pedidos_nao") or 0)
+    result["taxa_pedido"] = round((result.get("pedidos_sim", 0) / respondidos) * 100) if respondidos > 0 else None
+    return result
 
 
 def _get_itens_atrasados(
@@ -288,9 +296,19 @@ def _build_html_email(
             cell("Parâm. ↓", kpis.get("param_reduzidos", 0),  "#10b981"),
             cell("Fora carteira", kpis.get("fora_carteira", 0),    "#6b7280"),
         ])
+        taxa = kpis.get("taxa_pedido")
+        valor = kpis.get("valor_total_pedidos") or 0
+        valor_fmt = "R$ " + f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        row3 = "".join([
+            cell("Pedidos Sim", kpis.get("pedidos_sim", 0),                "#16a34a"),
+            cell("Pedidos Não", kpis.get("pedidos_nao", 0),                "#ef4444"),
+            cell("Taxa Pedido", f"{taxa}%" if taxa is not None else "—",   "#0ea5e9"),
+            cell("Valor Total", valor_fmt,                                 "#7c3aed"),
+        ])
         return (
             f'<p style="font-size:13px;font-weight:600;color:#1e293b;margin:20px 0 6px;">{label}</p>'
-            f'<table style="width:100%;border-spacing:5px;border-collapse:separate;"><tr>{row1}</tr><tr>{row2}</tr></table>'
+            f'<table style="width:100%;border-spacing:5px;border-collapse:separate;">'
+            f'<tr>{row1}</tr><tr>{row2}</tr><tr>{row3}</tr></table>'
         )
 
     def atrasados_section() -> str:

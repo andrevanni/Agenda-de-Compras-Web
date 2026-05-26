@@ -564,9 +564,27 @@
                     <li>Revise a <strong>Pr&oacute;xima Data Sugerida</strong> — calculada automaticamente com base na frequ&ecirc;ncia e nos dias permitidos</li>
                     <li>Ajuste a data se necess&aacute;rio (o sistema avisa se cair fora dos dias configurados)</li>
                     <li>Preencha a <strong>Observa&ccedil;&atilde;o</strong> e, opcionalmente, uma <strong>Nota</strong> para o Painel</li>
+                    <li>Responda <strong>&#128230; Deu pedido?</strong> (obrigat&oacute;rio)</li>
                     <li>Clique em <strong>Tratar Agenda</strong></li>
                   </ol>
+
+                  <h4>&#128230; Deu pedido? (obrigat&oacute;rio)</h4>
+                  <p>Antes de tratar a agenda, responda se houve pedido ao fornecedor:</p>
+                  <ul>
+                    <li><strong>Sim</strong>: informe a <strong>quantidade total</strong> de itens pedidos (inteiro) e o <strong>valor total</strong> em reais (m&aacute;scara R$ autom&aacute;tica)</li>
+                    <li><strong>N&atilde;o</strong>: selecione o <strong>motivo</strong>:
+                      <ul>
+                        <li><em>N&atilde;o deu Pedido M&iacute;nimo</em> — o pedido n&atilde;o atingiu o m&iacute;nimo exigido pelo fornecedor</li>
+                        <li><em>Fornecedor n&atilde;o cumpriu a Agenda</em> — o fornecedor n&atilde;o atendeu ao contato/pedido</li>
+                        <li><em>Indefini&ccedil;&atilde;o Comercial nas Condi&ccedil;&otilde;es</em> — pre&ccedil;o, prazo ou condi&ccedil;&otilde;es em negocia&ccedil;&atilde;o</li>
+                        <li><em>Outros</em> — qualquer outro motivo (campo de detalhe opcional para descrever)</li>
+                      </ul>
+                    </li>
+                  </ul>
+                  <p class="ajuda-dica">&#128161; <strong>Por que &eacute; importante?</strong> Esses dados alimentam os KPIs <strong>Taxa de Pedido</strong> e <strong>Valor Total</strong> na Auditoria e no relat&oacute;rio di&aacute;rio enviado por e-mail. Permite identificar fornecedores problem&aacute;ticos, calcular volume total comprado por per&iacute;odo e justificar quedas de cobertura.</p>
+
                   <p>O sistema marca a ocorr&ecirc;ncia atual como <strong>REALIZADA</strong> e cria automaticamente a pr&oacute;xima pend&ecirc;ncia.</p>
+
                   <h4>Sugest&atilde;o de pr&oacute;xima data</h4>
                   <ul>
                     <li><strong>Frequ&ecirc;ncia 1/2/4</strong>: data atual + intervalo fixo → ajusta para o pr&oacute;ximo dia permitido</li>
@@ -810,6 +828,36 @@
                 Nota (fixada no Painel)<br>
                 <textarea id="agendaNota" rows="2" placeholder="Registre algo importante sobre este compromisso..."></textarea>
               </label>
+
+              <div id="agendaPedidoBlock" class="audit-pre-treat pedido-block">
+                <div class="audit-pre-treat-title">&#128230; Deu pedido?</div>
+                <div class="justify-row">
+                  <button type="button" id="pedidoSimBtn" class="btn btn-sm btn-outline">Sim</button>
+                  <button type="button" id="pedidoNaoBtn" class="btn btn-sm btn-outline">N&atilde;o</button>
+                </div>
+                <div id="pedidoSimFields" class="hidden pedido-fields">
+                  <label>Quantidade total<br>
+                    <input id="pedidoQuantidade" type="number" min="1" step="1" inputmode="numeric" placeholder="Ex.: 100">
+                  </label>
+                  <label>Valor total (R$)<br>
+                    <input id="pedidoValor" type="text" inputmode="decimal" placeholder="R$ 0,00">
+                  </label>
+                </div>
+                <div id="pedidoNaoFields" class="hidden pedido-fields pedido-fields-stack">
+                  <label>Motivo<br>
+                    <select id="pedidoMotivo">
+                      <option value="">Selecione...</option>
+                      <option value="NAO_DEU_PEDIDO_MINIMO">N&atilde;o deu Pedido M&iacute;nimo</option>
+                      <option value="FORNECEDOR_NAO_CUMPRIU">Fornecedor n&atilde;o cumpriu a Agenda</option>
+                      <option value="INDEFINICAO_COMERCIAL">Indefini&ccedil;&atilde;o Comercial nas Condi&ccedil;&otilde;es</option>
+                      <option value="OUTROS">Outros</option>
+                    </select>
+                  </label>
+                  <label>Detalhe (opcional)<br>
+                    <textarea id="pedidoDetalhe" rows="2" placeholder="Detalhe adicional..."></textarea>
+                  </label>
+                </div>
+              </div>
 
               <div id="agendaAuditSummary" class="audit-pre-treat">
                 <div class="audit-pre-treat-title">&#128203; O que ser&aacute; registrado na auditoria:</div>

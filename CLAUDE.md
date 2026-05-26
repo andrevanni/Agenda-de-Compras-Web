@@ -88,7 +88,7 @@ Outros arquivos estáticos:
 | Arquivo | Descrição |
 |---|---|
 | `vercel.json` | Configuração Vercel: `buildCommand: null`, `outputDirectory: "."`, `framework: null` — força deploy como site estático |
-| `sw.js` | Service Worker v37 — cache dos assets, registrado em `index.html` e `instalar.html` |
+| `sw.js` | Service Worker v38 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
 | `instalar.html` | Página de primeiro acesso: define senha → loga → mostra guia de instalação |
@@ -283,6 +283,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - **Exportação Excel**: botão "📤 Exportar" via SheetJS — exporta entradas filtradas
 - **Seção "Eventos de Cadastro"**: tabela de `audit_log` filtrada por período — criações, exclusões e alterações de fornecedores e compradores com chips coloridos (verde/amarelo/vermelho)
 - **Justificativa**: ao tratar agenda, o modal exibe resumo dinâmico do que será auditado + botão "Sim/Não" para justificativa livre; texto gravado em `observacao.justificativa`; exibido em itálico roxo na tabela de auditoria
+- **📦 Deu pedido? (obrigatório desde mai/2026)**: ao tratar agenda, o comprador DEVE responder se houve pedido. Sim → informa quantidade (inteiro) + valor (R$ com máscara automática). Não → seleciona motivo (`NAO_DEU_PEDIDO_MINIMO` / `FORNECEDOR_NAO_CUMPRIU` / `INDEFINICAO_COMERCIAL` / `OUTROS`) + detalhe opcional. Validação client-side bloqueia o botão "Tratar Agenda" e validação SQL (CHECK constraint) garante consistência no banco. Campos em colunas reais de `agenda_ocorrencias` (schema_v15), não em JSON. Aparece como coluna "Pedido" na auditoria por comprador, alimenta os KPIs "Taxa de pedido" e "Valor total", e vai para a exportação Excel + PDF do relatório diário.
 - `renderAuditDashboard()` em `script_forms.js`; `classifyAuditEvent()`, `aggregateAuditMetrics()`, `updateAuditSummary()` em `script_render.js`
 - `state.auditLogs` carregado em `loadPortalData()` (500 registros mais recentes de `audit_log`)
 
@@ -404,7 +405,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v37` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
+- Cache cliente: `agenda-compras-v38` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
 - Cache admin: `agenda-admin-v10` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
@@ -453,6 +454,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 | `schema_v12_audit_log.sql` | Tabela `audit_log` para eventos de fornecedor e comprador; RLS com `app.user_belongs_to_tenant` |
 | `schema_v13_relatorio_log_convite.sql` | Adiciona `'convite'` ao CHECK constraint do campo `tipo` em `relatorio_log` |
 | `schema_v14_admin_report_subscriptions.sql` | Tabela `admin_report_subscriptions(admin_email, tenant_id)` para inscrições de relatório por admin; adiciona `'admin_copia'` ao CHECK constraint de `relatorio_log.tipo` |
+| `schema_v15_tratamento_pedido.sql` | Colunas `pedido_realizado` (bool), `pedido_quantidade` (int), `pedido_valor` (numeric), `pedido_motivo_nao` (CHECK), `pedido_motivo_detalhe` (text) em `agenda_ocorrencias`; CHECK de coerência (se Sim → qtd+valor obrigatórios; se Não → motivo obrigatório); índice por `(tenant_id, pedido_realizado)` |
 
 ## DATABASE_URL — Conexão com Supabase (⚠️ crítico)
 

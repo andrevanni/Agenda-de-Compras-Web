@@ -986,6 +986,22 @@ function _populateAuditSupplierFilter(filterBuyerId = "") {
     suppliers.map((s) => `<option value="${s.id}"${s.id === validCurrent ? " selected" : ""}>${s.nome_fornecedor}</option>`).join("");
 }
 
+function renderPedidoCell(entry) {
+  if (entry.pedidoRealizado === true) {
+    const qtd = entry.pedidoQuantidade ?? "—";
+    const val = entry.pedidoValor != null
+      ? "R$ " + entry.pedidoValor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : "—";
+    return `<span style="color:#10b981;font-weight:600">✅</span> ${qtd} un · <strong>${val}</strong>`;
+  }
+  if (entry.pedidoRealizado === false) {
+    const motivo = PEDIDO_MOTIVO_LABEL[entry.pedidoMotivoNao] ?? "Sem motivo";
+    const detalhe = entry.pedidoMotivoDetalhe ? ` <span class="muted" title="${entry.pedidoMotivoDetalhe.replace(/"/g, '&quot;')}">📝</span>` : "";
+    return `<span style="color:#ef4444;font-weight:600">❌</span> <span style="font-size:12px">${motivo}</span>${detalhe}`;
+  }
+  return `<span class="muted">—</span>`;
+}
+
 function exportAuditToExcel(entries, range) {
   if (!entries.length) { setFeedback("Nenhum dado para exportar.", "warning"); return; }
   const rows = entries.map((e) => ({
@@ -995,6 +1011,11 @@ function exportAuditToExcel(entries, range) {
     "Data ação": e.actionDate ? formatDate(e.actionDate) : "-",
     "Data prevista": e.plannedDate ? formatDate(e.plannedDate) : "-",
     "Tipo": e.tipo,
+    "Pedido": e.pedidoRealizado === true ? "Sim" : e.pedidoRealizado === false ? "Não" : "",
+    "Quantidade pedida": e.pedidoQuantidade ?? "",
+    "Valor pedido (R$)": e.pedidoValor ?? "",
+    "Motivo não pedido": PEDIDO_MOTIVO_LABEL[e.pedidoMotivoNao] ?? "",
+    "Detalhe motivo": e.pedidoMotivoDetalhe ?? "",
     "Δ Parâmetro (dias)": Number(e.meta?.incremento_parametro_dias ?? 0),
     "Δ Próxima data (dias)": Number(e.meta?.ajuste_proxima_data_dias ?? 0),
     "Detalhe": e.resumo,
@@ -1048,6 +1069,9 @@ function renderAuditDashboard() {
   const entries = filterBuyerId ? allEntries.filter((e) => e.buyerId === filterBuyerId) : allEntries;
 
   const metrics = aggregateAuditMetrics(entries);
+  const pedidosRespondidos = metrics.pedidosSim + metrics.pedidosNao;
+  const taxaPedido = pedidosRespondidos > 0 ? Math.round((metrics.pedidosSim / pedidosRespondidos) * 100) : null;
+  const valorTotalFmt = "R$ " + metrics.valorTotalPedidos.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   summaryGrid.innerHTML = [
     ["Eventos", metrics.total],
     ["Cumpridas", metrics.cumpridas],
@@ -1055,6 +1079,8 @@ function renderAuditDashboard() {
     ["Aumentos", metrics.aumentos],
     ["Reduções", metrics.reducoes],
     ["Antecipadas", metrics.antecipadas],
+    ["Taxa de pedido", taxaPedido === null ? "—" : `${taxaPedido}%`],
+    ["Valor total", valorTotalFmt],
   ].map(([label, value]) => `
     <div class="kpi-card">
       <span class="muted">${label}</span>
@@ -1127,6 +1153,7 @@ function renderAuditDashboard() {
                   <th>Data</th>
                   <th>Fornecedor</th>
                   <th>Evento</th>
+                  <th>Pedido</th>
                   <th>Δ Parâm.</th>
                   <th>Δ Data</th>
                   <th>Detalhe</th>
@@ -1147,6 +1174,7 @@ function renderAuditDashboard() {
                       <td>${entry.actionDate ? formatDate(entry.actionDate) : "-"}</td>
                       <td>${entry.supplierCode} — ${entry.supplierName}</td>
                       <td>${entry.tipo}</td>
+                      <td class="audit-pedido-cell">${renderPedidoCell(entry)}</td>
                       <td style="${dpColor};font-weight:600">${dp > 0 ? "+" : ""}${dp}d</td>
                       <td style="${ddColor};font-weight:600">${dd > 0 ? "+" : ""}${dd}d</td>
                       <td class="audit-event-note">${detalheHtml}</td>
