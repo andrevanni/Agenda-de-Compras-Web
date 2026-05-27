@@ -738,13 +738,24 @@ async function bootstrap() {
   resetBuyerForm();
   resetSupplierForm();
   showSection("calendario");
-  await loadCategorias();
-  await loadPortalData({ silent: true });
-  ensureBuyerSelection();
-  renderTables();
-  renderCategoriasTable();
-  refreshCalendar();
-  ensureBuyerLoginSession();
+
+  const hasJwt = !!_store(storageKeys.jwt);
+  const hasTenant = !!_store(storageKeys.tenantId);
+
+  if (hasJwt && hasTenant) {
+    await loadCategorias();
+    await loadPortalData({ silent: true });
+    ensureBuyerSelection();
+    renderTables();
+    renderCategoriasTable();
+    refreshCalendar();
+    ensureBuyerLoginSession();
+  } else {
+    if (hasTenant) {
+      await loadClientMetaOnly();
+    }
+    openBuyerLoginModal();
+  }
   // Renova o JWT automaticamente a cada 50 min (expira em 60 min no Supabase)
   setInterval(refreshJWT, 50 * 60 * 1000);
 }

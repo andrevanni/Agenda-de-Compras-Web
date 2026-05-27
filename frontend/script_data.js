@@ -1,3 +1,28 @@
+async function loadClientMetaOnly() {
+  const settings = getSettings();
+  if (!settings.tenantId) return;
+  try {
+    const [tenantRows, clientRows] = await Promise.all([
+      fetchSupabase(`/rest/v1/tenants?select=id,nome&id=eq.${settings.tenantId}&limit=1`),
+      fetchSupabase(`/rest/v1/clientes?select=id,nome_fantasia,razao_social,email_responsavel,observacoes&tenant_id=eq.${settings.tenantId}&limit=1`),
+    ]);
+    const clientRow = clientRows[0] ?? null;
+    const clientMeta = parseClientObservacoes(clientRow?.observacoes);
+    state.clientRecordId = clientRow?.id ?? null;
+    state.clientAdminEmail = clientRow?.email_responsavel ?? "";
+    state.tenantName = clientRow?.nome_fantasia ?? tenantRows[0]?.nome ?? "";
+    state.clientMeta = clientMeta;
+    if (state.clientAdminEmail) {
+      state.clientMeta.admin_email = state.clientAdminEmail;
+    }
+    if (tenantNameLabel) {
+      tenantNameLabel.textContent = state.tenantName;
+    }
+  } catch (error) {
+    // Falha silenciosa — login modal abre normalmente, admin_client primeiro acesso fica sem dica de UX
+  }
+}
+
 async function loadPortalData({ silent = false, preserveFeedback = false } = {}) {
   if (!silent) {
     setFeedback("Sincronizando o portal do cliente com o Supabase...", "info");
@@ -570,6 +595,7 @@ async function loginBuyer() {
       localStorage.setItem(storageKeys.loggedPortalRole, "buyer");
       localStorage.setItem(storageKeys.loggedPortalEmail, email);
       closeModal("buyerLoginModal");
+      await loadCategorias();
       await loadPortalData({ silent: true });
       ensureBuyerSelection();
       updateBuyerCard();

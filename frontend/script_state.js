@@ -44,7 +44,7 @@ const storageKeys = {
 const defaultSettings = {
   supabaseUrl: "https://fnwsorhflueunqzkwsxu.supabase.co",
   supabaseKey: "sb_publishable_ZvbYTFdj6maOJiJACFR5Zw_9xJrBuUB",
-  tenantId: "c2f65634-b7e0-47f0-8937-94446540701a",
+  tenantId: "",
   logoUrl: "assets/logo_alta.jpg",
   apiBaseUrl: "https://agenda-de-compras-api.vercel.app",
 };
