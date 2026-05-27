@@ -872,6 +872,7 @@ function showSection(section) {
   document.getElementById("adminsSection").classList.toggle("hidden", section !== "admins");
   document.getElementById("ajudaSection").classList.toggle("hidden", section !== "ajuda");
   document.getElementById("emaillogSection").classList.toggle("hidden", section !== "emaillog");
+  document.getElementById("versoesSection").classList.toggle("hidden", section !== "versoes");
   conexaoSection.classList.toggle("hidden", section !== "conexao");
 }
 
@@ -880,6 +881,7 @@ document.querySelectorAll("[data-section]").forEach((button) => {
     showSection(button.dataset.section);
     if (button.dataset.section === "admins") loadAdmins();
     if (button.dataset.section === "emaillog") loadEmailLog();
+    if (button.dataset.section === "versoes") loadVersoesAdmin();
   });
 });
 
@@ -1154,6 +1156,188 @@ async function loadEmailLog() {
 document.getElementById("emailLogRefreshButton")?.addEventListener("click", loadEmailLog);
 document.getElementById("emailLogDias")?.addEventListener("change", loadEmailLog);
 document.getElementById("emailLogTenant")?.addEventListener("change", loadEmailLog);
+
+// ============================================================
+// Notas de Versão — destinatários + disparo por email
+// ============================================================
+
+function escapeHtmlAdmin(text) {
+  const div = document.createElement("div");
+  div.textContent = text ?? "";
+  return div.innerHTML;
+}
+
+async function loadVersoesAdmin() {
+  await Promise.all([loadVersoesLista(), loadVersoesDestinatarios()]);
+}
+
+async function loadVersoesLista() {
+  const container = document.getElementById("versoesAdminLista");
+  if (!container) return;
+  container.innerHTML = `<p style="color:#64748b;padding:12px;">Carregando versões...</p>`;
+  try {
+    const versoes = await fetchAdmin("/api/v1/admin/versoes/list");
+    if (!versoes.length) {
+      container.innerHTML = `<p style="color:#64748b;padding:12px;">Nenhuma versão registrada no código.</p>`;
+      return;
+    }
+    container.innerHTML = versoes.map((v) => {
+      const notasHtml = (v.notas || []).map((n) => `<li style="margin-bottom:4px;line-height:1.45;color:#cbd5e1;">${escapeHtmlAdmin(n)}</li>`).join("");
+      return `
+        <article style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:14px 18px;">
+          <header style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-family:ui-monospace,monospace;font-size:14px;font-weight:700;color:#f1f5f9;background:#0f172a;padding:3px 10px;border-radius:5px;border:1px solid #334155;">${escapeHtmlAdmin(v.versao)}</span>
+              <span style="font-size:12px;color:#94a3b8;">${escapeHtmlAdmin(v.dataHora)}</span>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="secondary-button" type="button" data-disparar-versao="${escapeHtmlAdmin(v.versao)}">📨 Enviar email</button>
+              <button class="secondary-button" type="button" data-historico-versao="${escapeHtmlAdmin(v.versao)}">📋 Histórico</button>
+            </div>
+          </header>
+          <ul style="margin:0;padding-left:20px;">${notasHtml}</ul>
+          <div data-historico-container="${escapeHtmlAdmin(v.versao)}" style="margin-top:10px;"></div>
+        </article>
+      `;
+    }).join("");
+    container.querySelectorAll("[data-disparar-versao]").forEach((btn) => {
+      btn.addEventListener("click", () => dispararVersao(btn.dataset.dispararVersao, btn));
+    });
+    container.querySelectorAll("[data-historico-versao]").forEach((btn) => {
+      btn.addEventListener("click", () => toggleHistoricoVersao(btn.dataset.historicoVersao));
+    });
+  } catch (err) {
+    container.innerHTML = `<p style="color:#f87171;padding:12px;">Erro: ${err.message}</p>`;
+  }
+}
+
+async function loadVersoesDestinatarios() {
+  const container = document.getElementById("destinatariosLista");
+  if (!container) return;
+  container.innerHTML = `<p style="color:#64748b;padding:6px;">Carregando...</p>`;
+  try {
+    const dests = await fetchAdmin("/api/v1/admin/versoes/destinatarios");
+    if (!dests.length) {
+      container.innerHTML = `<p style="color:#64748b;padding:6px;font-size:13px;">Nenhum destinatário cadastrado ainda.</p>`;
+      return;
+    }
+    container.innerHTML = dests.map((d) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;cursor:pointer;">
+          <input type="checkbox" data-toggle-destinatario="${d.id}" ${d.ativo ? "checked" : ""}> Ativo
+        </label>
+        <strong style="color:#f1f5f9;font-size:13px;">${escapeHtmlAdmin(d.email)}</strong>
+        ${d.nome ? `<span style="color:#94a3b8;font-size:12px;">— ${escapeHtmlAdmin(d.nome)}</span>` : ""}
+        <button class="secondary-button" type="button" data-excluir-destinatario="${d.id}" style="margin-left:auto;padding:4px 10px;font-size:11px;">Excluir</button>
+      </div>
+    `).join("");
+    container.querySelectorAll("[data-toggle-destinatario]").forEach((cb) => {
+      cb.addEventListener("change", () => toggleDestinatarioAtivo(cb.dataset.toggleDestinatario, cb.checked));
+    });
+    container.querySelectorAll("[data-excluir-destinatario]").forEach((btn) => {
+      btn.addEventListener("click", () => excluirDestinatario(btn.dataset.excluirDestinatario));
+    });
+  } catch (err) {
+    container.innerHTML = `<p style="color:#f87171;padding:6px;">Erro: ${err.message}</p>`;
+  }
+}
+
+async function adicionarDestinatario() {
+  const emailEl = document.getElementById("novoDestinatarioEmail");
+  const nomeEl = document.getElementById("novoDestinatarioNome");
+  const email = (emailEl.value || "").trim();
+  const nome = (nomeEl.value || "").trim();
+  if (!email) { setFeedback("Informe um e-mail.", "error"); return; }
+  try {
+    await fetchAdmin("/api/v1/admin/versoes/destinatarios", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, nome: nome || null }),
+    });
+    emailEl.value = "";
+    nomeEl.value = "";
+    setFeedback("Destinatário cadastrado.", "success");
+    loadVersoesDestinatarios();
+  } catch (err) {
+    setFeedback(`Erro ao cadastrar: ${err.message}`, "error");
+  }
+}
+
+async function toggleDestinatarioAtivo(id, ativo) {
+  try {
+    await fetchAdmin(`/api/v1/admin/versoes/destinatarios/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ativo }),
+    });
+  } catch (err) {
+    setFeedback(`Erro: ${err.message}`, "error");
+    loadVersoesDestinatarios();
+  }
+}
+
+async function excluirDestinatario(id) {
+  if (!confirm("Excluir este destinatário?")) return;
+  try {
+    await fetchAdmin(`/api/v1/admin/versoes/destinatarios/${id}`, { method: "DELETE" });
+    setFeedback("Destinatário excluído.", "success");
+    loadVersoesDestinatarios();
+  } catch (err) {
+    setFeedback(`Erro: ${err.message}`, "error");
+  }
+}
+
+async function dispararVersao(versao, btn) {
+  if (!confirm(`Enviar o changelog da ${versao} para todos os destinatários ativos?`)) return;
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Enviando...";
+  try {
+    const r = await fetchAdmin(`/api/v1/admin/versoes/${encodeURIComponent(versao)}/disparar`, { method: "POST" });
+    setFeedback(`${versao}: enviados ${r.sent}, erros ${r.errors}.`, r.errors > 0 ? "warning" : "success");
+  } catch (err) {
+    setFeedback(`Erro ao disparar: ${err.message}`, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function toggleHistoricoVersao(versao) {
+  const container = document.querySelector(`[data-historico-container="${versao}"]`);
+  if (!container) return;
+  if (container.dataset.aberto === "1") {
+    container.innerHTML = "";
+    container.dataset.aberto = "0";
+    return;
+  }
+  container.innerHTML = `<p style="color:#64748b;font-size:12px;padding:6px;">Carregando histórico...</p>`;
+  container.dataset.aberto = "1";
+  try {
+    const envios = await fetchAdmin(`/api/v1/admin/versoes/${encodeURIComponent(versao)}/envios`);
+    if (!envios.length) {
+      container.innerHTML = `<p style="color:#64748b;font-size:12px;padding:6px;">Esta versão ainda não foi enviada para ninguém.</p>`;
+      return;
+    }
+    container.innerHTML = `
+      <div style="margin-top:8px;padding:10px;background:#0f172a;border-radius:6px;">
+        <div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Histórico de envios</div>
+        ${envios.map((e) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid #1e293b;font-size:12px;">
+            <span style="color:#cbd5e1;">${escapeHtmlAdmin(e.email_destino)}</span>
+            <span style="color:${e.status === "enviado" ? "#34d399" : "#f87171"};">${e.status === "enviado" ? "✅ enviado" : "❌ " + escapeHtmlAdmin(e.erro_mensagem || "erro")}</span>
+            <span style="color:#64748b;font-size:11px;">${new Date(e.enviado_em).toLocaleString("pt-BR")}</span>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  } catch (err) {
+    container.innerHTML = `<p style="color:#f87171;font-size:12px;padding:6px;">Erro: ${err.message}</p>`;
+  }
+}
+
+document.getElementById("novoDestinatarioBtn")?.addEventListener("click", adicionarDestinatario);
+document.getElementById("versoesRefreshButton")?.addEventListener("click", loadVersoesAdmin);
 
 document.getElementById("tenantForm").addEventListener("submit", criarTenant);
 document.getElementById("clienteForm").addEventListener("submit", salvarCliente);

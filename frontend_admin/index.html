@@ -77,6 +77,7 @@
         <button class="nav-link" data-section="vigencias">Vigências</button>
         <button class="nav-link" data-section="admins">Admins</button>
         <button class="nav-link" data-section="emaillog">Log de E-mails</button>
+        <button class="nav-link" data-section="versoes">Notas de Versão</button>
         <button class="nav-link" data-section="ajuda">Ajuda</button>
         <button class="nav-link" data-section="conexao">Conexão avançada</button>
       </nav>
@@ -589,6 +590,36 @@
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <section id="versoesSection" class="admin-section hidden">
+        <div class="board">
+          <div class="board-header">
+            <div>
+              <p class="eyebrow">Comunicação</p>
+              <h3>Notas de Versão</h3>
+              <p class="board-copy">Cadastre destinatários e envie o changelog de cada versão do sistema por e-mail. Reenvio é só clicar em "Enviar" de novo.</p>
+            </div>
+            <button id="versoesRefreshButton" class="secondary-button" type="button">Atualizar</button>
+          </div>
+
+          <h4 style="margin:20px 0 10px;font-size:13px;font-weight:700;color:#cbd5e1;text-transform:uppercase;letter-spacing:.05em;">Destinatários</h4>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-end;">
+            <label style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:220px;">
+              <span style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">E-mail</span>
+              <input id="novoDestinatarioEmail" type="email" placeholder="contato@exemplo.com" style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#f1f5f9;font-size:13px;">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px;">
+              <span style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Nome (opcional)</span>
+              <input id="novoDestinatarioNome" type="text" placeholder="Nome do contato" style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#f1f5f9;font-size:13px;">
+            </label>
+            <button id="novoDestinatarioBtn" class="secondary-button" type="button">+ Adicionar</button>
+          </div>
+          <div id="destinatariosLista" style="display:flex;flex-direction:column;gap:6px;margin-bottom:24px;"></div>
+
+          <h4 style="margin:24px 0 10px;font-size:13px;font-weight:700;color:#cbd5e1;text-transform:uppercase;letter-spacing:.05em;">Versões disponíveis</h4>
+          <div id="versoesAdminLista" style="display:flex;flex-direction:column;gap:14px;"></div>
         </div>
       </section>
 

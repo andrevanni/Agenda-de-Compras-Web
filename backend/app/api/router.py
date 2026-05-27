@@ -6,6 +6,7 @@ from app.api.v1.admin_compradores_invite import router as admin_compradores_invi
 from app.api.v1.admin_email_log import router as admin_email_log_router
 from app.api.v1.admin_licencas import router as admin_licencas_router
 from app.api.v1.admin_portal import router as admin_portal_router
+from app.api.v1.admin_versoes import router as admin_versoes_router
 from app.api.v1.agenda import router as agenda_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.cron import router as cron_router
@@ -20,6 +21,7 @@ api_router.include_router(admin_email_log_router)
 api_router.include_router(admin_compradores_invite_router)
 api_router.include_router(admin_licencas_router)
 api_router.include_router(admin_portal_router)
+api_router.include_router(admin_versoes_router)
 api_router.include_router(agenda_router)
 api_router.include_router(portal_compradores_router)
 api_router.include_router(portal_audit_log_router)

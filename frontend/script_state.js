@@ -121,6 +121,13 @@ const mockAgenda = [
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
   {
+    versao: "v51",
+    dataHora: "27/05/2026 — tarde",
+    notas: [
+      "Novo (painel admin): seção 'Notas de Versão' permite cadastrar destinatários e enviar o changelog de cada versão por email.",
+    ],
+  },
+  {
     versao: "v50",
     dataHora: "27/05/2026 — tarde",
     notas: [
