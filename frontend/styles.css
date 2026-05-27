@@ -1783,6 +1783,74 @@ body[data-theme="light"] .postit-note-shell textarea {
   opacity: 0.75;
 }
 
+/* Menu Versões */
+.versoes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+.versao-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+.versao-card-atual {
+  border-color: #16a34a;
+  box-shadow: 0 2px 8px rgba(22,163,74,.12);
+}
+.versao-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.versao-card-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.versao-card-tag {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--panel-soft);
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+}
+.versao-badge-atual {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #fff;
+  background: #16a34a;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.versao-card-data {
+  font-size: 12px;
+  color: var(--muted);
+}
+.versao-card-notas {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.versao-card-notas li {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
 .fc .fc-daygrid-event-dot {
   display: none;
 }

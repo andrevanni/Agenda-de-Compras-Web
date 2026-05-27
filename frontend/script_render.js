@@ -253,6 +253,37 @@ function showSection(sectionId) {
       initCalendar();
     }
   }
+  if (sectionId === "versoes") {
+    renderVersoes();
+  }
+}
+
+function renderVersoes() {
+  const container = document.getElementById("versoesLista");
+  if (!container) return;
+  if (typeof VERSOES === "undefined" || !VERSOES.length) {
+    container.innerHTML = `<p class="muted" style="padding:24px 0">Nenhuma versão registrada ainda.</p>`;
+    return;
+  }
+  container.innerHTML = VERSOES.map((v, idx) => {
+    const isLatest = idx === 0;
+    const badge = isLatest
+      ? `<span class="versao-badge-atual">Atual</span>`
+      : "";
+    const notas = (v.notas ?? []).map((n) => `<li>${escapeHtml(n)}</li>`).join("");
+    return `
+      <article class="versao-card${isLatest ? " versao-card-atual" : ""}">
+        <header class="versao-card-header">
+          <div class="versao-card-id">
+            <span class="versao-card-tag">${escapeHtml(v.versao)}</span>
+            ${badge}
+          </div>
+          <span class="versao-card-data">${escapeHtml(v.dataHora)}</span>
+        </header>
+        <ul class="versao-card-notas">${notas}</ul>
+      </article>
+    `;
+  }).join("");
 }
 
 function mapSupplier(item) {
