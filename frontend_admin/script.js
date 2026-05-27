@@ -1251,8 +1251,7 @@ async function adicionarDestinatario() {
   try {
     await fetchAdmin("/api/v1/admin/versoes/destinatarios", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, nome: nome || null }),
+      body: { email, nome: nome || null },
     });
     emailEl.value = "";
     nomeEl.value = "";
@@ -1267,8 +1266,7 @@ async function toggleDestinatarioAtivo(id, ativo) {
   try {
     await fetchAdmin(`/api/v1/admin/versoes/destinatarios/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ativo }),
+      body: { ativo },
     });
   } catch (err) {
     setFeedback(`Erro: ${err.message}`, "error");
