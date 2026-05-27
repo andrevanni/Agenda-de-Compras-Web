@@ -343,8 +343,9 @@
             </form>
 
             <h3>Fornecedores Cadastrados</h3>
-            <div style="margin-bottom:10px;">
-              <input id="fornecedorSearch" type="search" placeholder="Buscar por código ou nome..." style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#f1f5f9;font-size:14px;">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+              <input id="fornecedorSearch" type="search" placeholder="Buscar por código ou nome..." style="flex:1;min-width:200px;padding:8px 12px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#f1f5f9;font-size:14px;">
+              <button id="fornecedorToggleScope" class="btn btn-outline btn-sm" type="button" title="Alternar entre fornecedores do comprador e todos">Mostrar todos</button>
             </div>
             <div class="table-wrap">
               <table>

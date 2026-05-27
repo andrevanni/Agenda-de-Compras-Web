@@ -344,14 +344,38 @@ function tableRowForAgenda(row) {
   `;
 }
 
+let suppliersShowAll = false;
+
 function renderSuppliers() {
   const searchTerm = (document.getElementById("fornecedorSearch")?.value ?? "").toLowerCase().trim();
+  const { activeBuyerId } = getSettings();
+
+  let scoped = state.suppliers;
+  if (!suppliersShowAll) {
+    if (activeBuyerId === UNASSIGNED_BUYER_VALUE) {
+      scoped = state.suppliers.filter((s) => !s.comprador_id);
+    } else if (activeBuyerId) {
+      scoped = state.suppliers.filter((s) => s.comprador_id === activeBuyerId);
+    }
+  }
+
   const filtered = searchTerm
-    ? state.suppliers.filter((s) =>
+    ? scoped.filter((s) =>
         s.nome_fornecedor.toLowerCase().includes(searchTerm) ||
         String(s.codigo_fornecedor).toLowerCase().includes(searchTerm)
       )
-    : state.suppliers;
+    : scoped;
+
+  const toggleBtn = document.getElementById("fornecedorToggleScope");
+  if (toggleBtn) {
+    toggleBtn.textContent = suppliersShowAll ? "Mostrar só do comprador" : "Mostrar todos";
+  }
+
+  const emptyMsg = searchTerm
+    ? "Nenhum fornecedor encontrado."
+    : suppliersShowAll
+      ? "Sem fornecedores cadastrados."
+      : "Sem fornecedores cadastrados para este comprador.";
 
   document.getElementById("fornecedoresTable").innerHTML = filtered.length
     ? filtered.map((supplier) => `
@@ -372,7 +396,7 @@ function renderSuppliers() {
         </td>
       </tr>
     `).join("")
-    : `<tr><td colspan="8">${searchTerm ? "Nenhum fornecedor encontrado." : "Sem fornecedores cadastrados."}</td></tr>`;
+    : `<tr><td colspan="8">${emptyMsg}</td></tr>`;
 
   document.querySelectorAll("[data-edit-supplier]").forEach((button) => {
     button.addEventListener("click", () => editSupplier(button.dataset.editSupplier));

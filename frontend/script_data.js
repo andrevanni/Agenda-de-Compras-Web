@@ -363,6 +363,10 @@ function bindStaticEvents() {
   document.getElementById("exportarFornecedoresButton").addEventListener("click", exportarFornecedores);
   document.getElementById("gerarExcelButton").addEventListener("click", gerarExcelFornecedores);
   document.getElementById("fornecedorSearch").addEventListener("input", renderSuppliers);
+  document.getElementById("fornecedorToggleScope").addEventListener("click", () => {
+    suppliersShowAll = !suppliersShowAll;
+    renderSuppliers();
+  });
   document.getElementById("importFornecedoresButton").addEventListener("click", () => {
     document.getElementById("importFornecedorFile").click();
   });

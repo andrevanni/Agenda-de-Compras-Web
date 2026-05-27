@@ -9,6 +9,13 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v53",
+        "dataHora": "28/05/2026 — tarde",
+        "notas": [
+            "Fornecedores: a tela agora abre por padrão mostrando apenas os fornecedores do comprador ativo. Para ver a base completa, basta clicar em 'Mostrar todos' ao lado do campo de busca.",
+        ],
+    },
+    {
         "versao": "v52",
         "dataHora": "28/05/2026 — manhã",
         "notas": [
