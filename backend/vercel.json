@@ -5,11 +5,12 @@
       "schedule": "0 0 * * 2-6"
     }
   ],
-  "functions": {
-    "api/*.py": {
-      "maxDuration": 300
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python"
     }
-  },
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -20,7 +21,10 @@
       ]
     }
   ],
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api/index.py"
+    }
   ]
 }
