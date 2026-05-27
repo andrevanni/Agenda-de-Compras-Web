@@ -428,8 +428,9 @@ function parseSuppliersCsv(text) {
       return null;
     }
 
-    let safeEstoque = Number.isNaN(parametroEstoque) ? frequencia : parametroEstoque;
-    if (safeEstoque < frequencia) safeEstoque = frequencia;
+    const minimoEstoque = PARAMETRO_MINIMO_FREQUENCIA[frequencia] ?? frequencia;
+    let safeEstoque = Number.isNaN(parametroEstoque) ? minimoEstoque : parametroEstoque;
+    if (safeEstoque < minimoEstoque) safeEstoque = minimoEstoque;
     const safeLead = Number.isNaN(leadTime) || leadRaw === "" ? 1 : leadTime;
 
     return {
@@ -443,8 +444,8 @@ function parseSuppliersCsv(text) {
       comprador_id: buyer?.id ?? null,
       _dias_compra: diasCompra,
       _row_number: rowIndex + 2,
-      _import_warning: estoqueRaw !== "" && !Number.isNaN(parametroEstoque) && parametroEstoque < frequencia
-        ? `Fornecedor ${codigo}: parâmetro ajustado para ${frequencia} porque não pode ser menor que a frequência.`
+      _import_warning: estoqueRaw !== "" && !Number.isNaN(parametroEstoque) && parametroEstoque < minimoEstoque
+        ? `Fornecedor ${codigo}: parâmetro ajustado para ${minimoEstoque} dias (mínimo da frequência ${frequencia}).`
         : null,
     };
   }).filter(Boolean);
@@ -1251,6 +1252,29 @@ function refreshSupplierSuggestion() {
   }
   const suggested = calculateSuggestedDate(baseDate, frequency, days);
   sugestaoProximaData.textContent = suggested ? `${formatDate(suggested)} (${DIAS_LABEL[parseIsoToWeekdayName(suggested)]})` : "Não foi possível calcular.";
+}
+
+function updateParametroEstoqueHint() {
+  const freqInput = document.getElementById("fornecedorFrequencia");
+  const estoqueInput = document.getElementById("fornecedorParametroEstoque");
+  const hint = document.getElementById("fornecedorParametroEstoqueHint");
+  if (!freqInput || !estoqueInput || !hint) return;
+  const freq = Number(freqInput.value || 0);
+  if (!freq || !PARAMETRO_MINIMO_FREQUENCIA[freq]) {
+    hint.textContent = "";
+    estoqueInput.min = "0";
+    return;
+  }
+  const minimo = PARAMETRO_MINIMO_FREQUENCIA[freq];
+  estoqueInput.min = String(minimo);
+  const atual = Number(estoqueInput.value || 0);
+  if (atual && atual < minimo) {
+    hint.textContent = `Mínimo para frequência ${freq}: ${minimo} dias`;
+    hint.style.color = "#dc2626";
+  } else {
+    hint.textContent = `Mínimo para essa frequência: ${minimo} dias`;
+    hint.style.color = "var(--muted)";
+  }
 }
 
 async function synchronizePendingAgendaSeeds() {

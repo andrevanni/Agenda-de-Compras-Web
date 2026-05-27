@@ -313,7 +313,10 @@
                   <input id="fornecedorDataPrimeiroPedidoNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
                 </div>
               </label>
-              <label>Par&acirc;metro Estoque<br><input id="fornecedorParametroEstoque" name="parametro_estoque" type="number" min="0" value="0" required></label>
+              <label>Par&acirc;metro Estoque<br>
+                <input id="fornecedorParametroEstoque" name="parametro_estoque" type="number" min="0" value="0" required>
+                <small id="fornecedorParametroEstoqueHint" style="display:block;font-size:12px;margin-top:4px;color:var(--muted);"></small>
+              </label>
               <label>Lead Time Entrega<br><input id="fornecedorLeadTime" name="lead_time_entrega" type="number" min="0" value="0" required></label>
               <label>Comprador<br>
                 <select id="fornecedorComprador" name="comprador_id"></select>

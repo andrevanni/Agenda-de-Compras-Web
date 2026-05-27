@@ -601,6 +601,7 @@ function resetSupplierForm() {
   fornecedorCompradorSelect.value = "";
   renderSupplierDayCheckboxes([]);
   refreshSupplierSuggestion();
+  updateParametroEstoqueHint();
   updateSupplierNotesButton();
   clearFeedback();
   clearImportPreview();
@@ -634,6 +635,7 @@ function editSupplier(supplierId) {
   document.getElementById("fornecedorFormMode").textContent = `Editando ${supplier.nome_fornecedor}`;
   renderSupplierDayCheckboxes(supplier.dias_compra);
   refreshSupplierSuggestion();
+  updateParametroEstoqueHint();
   updateSupplierNotesButton();
 }
 

@@ -11,6 +11,7 @@ const DIAS_LABEL = {
 };
 const DIAS_POR_FREQUENCIA = { 1: 1, 2: 1, 4: 1, 8: 2, 12: 3 };
 const INTERVALO_DIAS_FREQUENCIA = { 1: 28, 2: 14, 4: 7 };
+const PARAMETRO_MINIMO_FREQUENCIA = { 1: 28, 2: 14, 4: 7, 8: 4, 12: 3 };
 const DEFAULT_DAYS_BY_FREQUENCY = {
   1: ["SEGUNDA"],
   2: ["SEGUNDA"],

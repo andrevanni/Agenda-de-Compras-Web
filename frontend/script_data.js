@@ -273,6 +273,8 @@ function bindStaticEvents() {
   });
 
   document.getElementById("fornecedorFrequencia").addEventListener("change", refreshSupplierSuggestion);
+  document.getElementById("fornecedorFrequencia").addEventListener("change", updateParametroEstoqueHint);
+  document.getElementById("fornecedorParametroEstoque").addEventListener("input", updateParametroEstoqueHint);
   document.getElementById("fornecedorDataPrimeiroPedido").addEventListener("change", refreshSupplierSuggestion);
   fornecedorCompradorSelect.addEventListener("change", refreshSupplierSuggestion);
   setupDatePickerField("fornecedorDataPrimeiroPedido", "fornecedorDataPrimeiroPedidoNative", "fornecedorDataPrimeiroPedidoPickerButton");

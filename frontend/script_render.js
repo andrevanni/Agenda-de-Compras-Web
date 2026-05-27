@@ -913,8 +913,9 @@ async function saveSupplier(event) {
     return;
   }
 
-  if (parametroEstoque < frequency) {
-    setFeedback("O parâmetro de estoque não pode ser menor que a frequência de revisão.", "error");
+  const minimoEstoque = PARAMETRO_MINIMO_FREQUENCIA[frequency] ?? frequency;
+  if (parametroEstoque < minimoEstoque) {
+    setFeedback(`O parâmetro de estoque para frequência ${frequency} não pode ser menor que ${minimoEstoque} dias.`, "error");
     return;
   }
 
