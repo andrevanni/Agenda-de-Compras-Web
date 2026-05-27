@@ -165,6 +165,33 @@ async function removeNota(occId) {
   }
 }
 
+async function saveAgendaNota() {
+  const occId = state.selectedOccurrenceId;
+  if (!occId) return;
+  const textarea = document.getElementById("agendaNota");
+  if (!textarea) return;
+  const novaNota = textarea.value.trim() || null;
+  const btn = document.getElementById("saveAgendaNotaButton");
+  const rotuloOriginal = btn?.innerHTML;
+  if (btn) { btn.disabled = true; btn.innerHTML = "Salvando..."; }
+  try {
+    const s = getSettings();
+    await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${occId}&tenant_id=eq.${s.tenantId}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: { nota: novaNota },
+    });
+    const occ = state.agenda.find((o) => o.id === occId) ?? state.auditOccurrences.find((o) => o.id === occId);
+    if (occ) occ.nota = novaNota;
+    renderPainel();
+    setFeedback(novaNota ? "Nota salva e fixada no Painel." : "Nota removida.", "success", agendaDetailFeedback);
+  } catch (err) {
+    setFeedback(`Não foi possível salvar a nota: ${err.message}`, "error", agendaDetailFeedback);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = rotuloOriginal ?? "&#128190; Salvar nota"; }
+  }
+}
+
 // ============================================================
 // CALENDÁRIO — FullCalendar
 // ============================================================

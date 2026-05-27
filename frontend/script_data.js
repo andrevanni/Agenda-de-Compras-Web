@@ -36,7 +36,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
       fetchSupabase(`/rest/v1/compradores?select=id,nome_comprador,telefone,email,foto_path,senha_hash,is_gestor,receber_auditoria,receber_agenda_proximo&tenant_id=eq.${settings.tenantId}&order=nome_comprador.asc`),
       fetchSupabase(`/rest/v1/fornecedores?select=id,codigo_fornecedor,nome_fornecedor,data_primeiro_pedido,frequencia_revisao,parametro_estoque,lead_time_entrega,parametro_compra,comprador_id,hora_inicio,hora_fim,compradores(nome_comprador),fornecedor_dias_compra(dia_semana)&tenant_id=eq.${settings.tenantId}&order=nome_fornecedor.asc`),
       fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota,serie_id&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`),
-      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,observacao,data_realizacao,created_at,updated_at,pedido_realizado,pedido_quantidade,pedido_valor,pedido_motivo_nao,pedido_motivo_detalhe&tenant_id=eq.${settings.tenantId}&status=in.(REALIZADA,ADIADA)&order=data_realizacao.desc.nullslast`),
+      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,observacao,data_realizacao,created_at,updated_at,nota,pedido_realizado,pedido_quantidade,pedido_valor,pedido_motivo_nao,pedido_motivo_detalhe&tenant_id=eq.${settings.tenantId}&status=in.(REALIZADA,ADIADA)&order=data_realizacao.desc.nullslast`),
       fetchSupabase(`/rest/v1/feriados?select=id,data,nome,tipo&tenant_id=eq.${settings.tenantId}&order=data.asc`),
       fetchSupabase(`/rest/v1/audit_log?select=id,tipo_objeto,objeto_id,objeto_nome,acao,campos_alterados,executor_role,executor_nome,comprador_id,created_at&tenant_id=eq.${settings.tenantId}&order=created_at.desc&limit=500`),
     ]);
@@ -381,6 +381,7 @@ function bindStaticEvents() {
 
   document.getElementById("proximaDataInput").addEventListener("change", updateAgendaAdjustment);
   document.getElementById("tratarAgendaButton").addEventListener("click", openPedidoModal);
+  document.getElementById("saveAgendaNotaButton")?.addEventListener("click", saveAgendaNota);
 
   // Calendário
   document.getElementById("newEventButton")?.addEventListener("click", () => openNewEventModal());
