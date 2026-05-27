@@ -132,6 +132,7 @@ const state = {
   auditLogs: [],
   categorias: [],
   feriados: [],
+  notasLivres: [],
   calendarInstance: null,
 };
 

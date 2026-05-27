@@ -85,15 +85,16 @@ function renderPainel() {
   if (!container) return;
 
   const { activeBuyerId } = getSettings();
+  const filtraPorComprador = activeBuyerId && activeBuyerId !== UNASSIGNED_BUYER_VALUE;
 
-  // Junta pendentes + realizadas que tenham nota preenchida
+  // (1) Notas-de-ocorrência: pendentes + realizadas com nota preenchida
   const allOccs = [...state.agenda, ...state.auditOccurrences];
   const seen = new Set();
   const withNota = allOccs.filter((occ) => {
     if (!occ.nota?.trim()) return false;
     if (seen.has(occ.id)) return false;
     seen.add(occ.id);
-    if (activeBuyerId && activeBuyerId !== UNASSIGNED_BUYER_VALUE) {
+    if (filtraPorComprador) {
       const supplier = supplierById(occ.fornecedor_id);
       const buyerMatch = supplier?.comprador_id === activeBuyerId || occ.comprador_id === activeBuyerId;
       if (!buyerMatch) return false;
@@ -101,53 +102,89 @@ function renderPainel() {
     return true;
   });
 
-  if (!withNota.length) {
-    container.innerHTML = `<p class="muted" style="padding:24px 0">Nenhuma nota fixada nos compromissos ainda. Abra um compromisso e adicione uma nota.</p>`;
+  // (2) Notas livres (tabela notas_painel)
+  const notasLivres = (state.notasLivres ?? []).filter((nota) => {
+    if (!filtraPorComprador) return true;
+    return nota.comprador_id === activeBuyerId;
+  });
+
+  if (!withNota.length && !notasLivres.length) {
+    container.innerHTML = `<p class="muted" style="padding:24px 0">Nenhuma nota no painel ainda. Clique em <strong>+ Nova nota</strong> ou abra um compromisso e adicione uma nota.</p>`;
     return;
   }
 
-  // Agrupa por comprador
+  // Agrupa tudo por comprador. Notas-de-ocorrência primeiro, livres depois.
   const groups = new Map();
+  const addToGroup = (key, buyer, payload) => {
+    if (!groups.has(key)) groups.set(key, { buyer, occorrencias: [], livres: [] });
+    payload(groups.get(key));
+  };
   for (const occ of withNota) {
     const supplier = supplierById(occ.fornecedor_id);
     const buyer = buyerById(occ.comprador_id ?? supplier?.comprador_id);
-    const key = buyer?.id ?? "sem-comprador";
-    if (!groups.has(key)) groups.set(key, { buyer, items: [] });
-    groups.get(key).items.push(occ);
+    addToGroup(buyer?.id ?? "sem-comprador", buyer, (g) => g.occorrencias.push(occ));
+  }
+  for (const nota of notasLivres) {
+    const buyer = buyerById(nota.comprador_id);
+    addToGroup(buyer?.id ?? "sem-comprador", buyer, (g) => g.livres.push(nota));
   }
 
-  container.innerHTML = Array.from(groups.values()).map(({ buyer, items }) => `
-    <div class="painel-grupo">
-      <div class="painel-grupo-header">
-        ${buyer ? `<div class="avatar avatar-sm avatar-placeholder">${buyerInitials(buyer.nome_comprador)}</div>` : ""}
-        <strong>${buyer?.nome_comprador ?? "Sem comprador"}</strong>
-        <span class="muted">${items.length} nota(s)</span>
+  container.innerHTML = Array.from(groups.values()).map(({ buyer, occorrencias, livres }) => {
+    const totalNotas = occorrencias.length + livres.length;
+    const cardsOcc = occorrencias.map((occ) => {
+      const supplier = supplierById(occ.fornecedor_id);
+      const cat = categoriaById(occ.categoria_id);
+      const titulo = occ.titulo || supplier?.nome_fornecedor || "Compromisso";
+      const cor = cat?.cor ?? "#F59E0B";
+      const hora = occ.hora_inicio ? ` · ${occ.hora_inicio.slice(0, 5)}` : "";
+      return `
+        <div class="postit-card" style="border-top: 4px solid ${cor}">
+          <div class="postit-card-header">
+            <span class="postit-card-titulo">${titulo}</span>
+            <span class="postit-card-data muted">${formatDate(occ.data_prevista)}${hora}</span>
+          </div>
+          <p class="postit-card-nota">${escapeHtml(occ.nota)}</p>
+          <button class="postit-card-remove muted" data-remove-nota="${occ.id}" title="Remover nota">&#10005;</button>
+        </div>
+      `;
+    }).join("");
+    const cardsLivres = livres.map((nota) => `
+      <div class="postit-card postit-card-livre" style="border-top: 4px solid #FBBF24">
+        <div class="postit-card-header">
+          <span class="postit-card-titulo">&#128204; Post-it</span>
+          <span class="postit-card-data muted">${formatDate(nota.updated_at?.slice(0, 10) ?? nota.created_at?.slice(0, 10))}</span>
+        </div>
+        <p class="postit-card-nota" data-edit-nota-livre="${nota.id}" title="Clique para editar">${escapeHtml(nota.texto)}</p>
+        <button class="postit-card-remove muted" data-remove-nota-livre="${nota.id}" title="Excluir post-it">&#10005;</button>
       </div>
-      <div class="painel-cards">
-        ${items.map((occ) => {
-          const supplier = supplierById(occ.fornecedor_id);
-          const cat = categoriaById(occ.categoria_id);
-          const titulo = occ.titulo || supplier?.nome_fornecedor || "Compromisso";
-          const cor = cat?.cor ?? "#F59E0B";
-          const hora = occ.hora_inicio ? ` · ${occ.hora_inicio.slice(0, 5)}` : "";
-          return `
-            <div class="postit-card" style="border-top: 4px solid ${cor}">
-              <div class="postit-card-header">
-                <span class="postit-card-titulo">${titulo}</span>
-                <span class="postit-card-data muted">${formatDate(occ.data_prevista)}${hora}</span>
-              </div>
-              <p class="postit-card-nota">${occ.nota}</p>
-              <button class="postit-card-remove muted" data-remove-nota="${occ.id}" title="Remover nota">&#10005;</button>
-            </div>
-          `;
-        }).join("")}
+    `).join("");
+    return `
+      <div class="painel-grupo">
+        <div class="painel-grupo-header">
+          ${buyer ? `<div class="avatar avatar-sm avatar-placeholder">${buyerInitials(buyer.nome_comprador)}</div>` : ""}
+          <strong>${buyer?.nome_comprador ?? "Sem comprador"}</strong>
+          <span class="muted">${totalNotas} nota(s)</span>
+        </div>
+        <div class="painel-cards">${cardsOcc}${cardsLivres}</div>
       </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 
   container.querySelectorAll("[data-remove-nota]").forEach((btn) => {
     btn.addEventListener("click", () => removeNota(btn.dataset.removeNota));
   });
+  container.querySelectorAll("[data-remove-nota-livre]").forEach((btn) => {
+    btn.addEventListener("click", () => deleteNotaLivre(btn.dataset.removeNotaLivre));
+  });
+  container.querySelectorAll("[data-edit-nota-livre]").forEach((el) => {
+    el.addEventListener("click", () => turnNotaLivreEditable(el));
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text ?? "";
+  return div.innerHTML;
 }
 
 async function removeNota(occId) {
@@ -162,6 +199,99 @@ async function removeNota(occId) {
     renderPainel();
   } catch (err) {
     setFeedback(`Não foi possível remover a nota: ${err.message}`, "error");
+  }
+}
+
+// ============================================================
+// Notas livres (post-its do Painel desvinculados de ocorrências)
+// ============================================================
+
+async function createNotaLivre() {
+  const texto = (window.prompt("Texto do post-it:") || "").trim();
+  if (!texto) return;
+  try {
+    const s = getSettings();
+    const compradorId = (s.activeBuyerId && s.activeBuyerId !== UNASSIGNED_BUYER_VALUE)
+      ? s.activeBuyerId
+      : (s.loggedBuyerId || null);
+    const rows = await fetchSupabase("/rest/v1/notas_painel", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: { tenant_id: s.tenantId, comprador_id: compradorId, texto },
+    });
+    const nova = Array.isArray(rows) ? rows[0] : rows;
+    if (nova) {
+      state.notasLivres.unshift(nova);
+      renderPainel();
+      setFeedback("Post-it criado e fixado no Painel.", "success");
+    }
+  } catch (err) {
+    setFeedback(`Não foi possível criar o post-it: ${err.message}`, "error");
+  }
+}
+
+function turnNotaLivreEditable(pEl) {
+  const id = pEl.dataset.editNotaLivre;
+  const textoAtual = state.notasLivres.find((n) => n.id === id)?.texto ?? "";
+  const textarea = document.createElement("textarea");
+  textarea.value = textoAtual;
+  textarea.className = "postit-edit-area";
+  textarea.style.cssText = "width:100%;min-height:80px;border:1px dashed var(--line);background:transparent;font:inherit;color:inherit;resize:vertical;outline:none;padding:6px;border-radius:4px;";
+  pEl.replaceWith(textarea);
+  textarea.focus();
+  textarea.select();
+  let handled = false;
+  const finish = async () => {
+    if (handled) return;
+    handled = true;
+    const novoTexto = textarea.value.trim();
+    if (!novoTexto) {
+      await deleteNotaLivre(id, true);
+      return;
+    }
+    if (novoTexto === textoAtual) {
+      renderPainel();
+      return;
+    }
+    await saveNotaLivreEdit(id, novoTexto);
+  };
+  textarea.addEventListener("blur", finish);
+  textarea.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { handled = true; renderPainel(); }
+    if (e.ctrlKey && e.key === "Enter") { e.preventDefault(); textarea.blur(); }
+  });
+}
+
+async function saveNotaLivreEdit(id, novoTexto) {
+  try {
+    const s = getSettings();
+    const nowIso = new Date().toISOString();
+    await fetchSupabase(`/rest/v1/notas_painel?id=eq.${id}&tenant_id=eq.${s.tenantId}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: { texto: novoTexto, updated_at: nowIso },
+    });
+    const nota = state.notasLivres.find((n) => n.id === id);
+    if (nota) { nota.texto = novoTexto; nota.updated_at = nowIso; }
+    renderPainel();
+  } catch (err) {
+    setFeedback(`Não foi possível salvar o post-it: ${err.message}`, "error");
+    renderPainel();
+  }
+}
+
+async function deleteNotaLivre(id, silent = false) {
+  if (!silent && !confirm("Excluir este post-it?")) return;
+  try {
+    const s = getSettings();
+    await fetchSupabase(`/rest/v1/notas_painel?id=eq.${id}&tenant_id=eq.${s.tenantId}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    });
+    state.notasLivres = state.notasLivres.filter((n) => n.id !== id);
+    renderPainel();
+  } catch (err) {
+    setFeedback(`Não foi possível excluir o post-it: ${err.message}`, "error");
   }
 }
 

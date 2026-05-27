@@ -30,7 +30,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
   const settings = getSettings();
   try {
     await detectSupplierNotesColumn();
-    const [tenantRows, clientRows, buyersRows, supplierRowsRaw, agendaRowsRaw, auditRows, feriadosRows, auditLogRows] = await Promise.all([
+    const [tenantRows, clientRows, buyersRows, supplierRowsRaw, agendaRowsRaw, auditRows, feriadosRows, auditLogRows, notasLivresRows] = await Promise.all([
       fetchSupabase(`/rest/v1/tenants?select=id,nome&id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/clientes?select=id,nome_fantasia,razao_social,email_responsavel,observacoes&tenant_id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/compradores?select=id,nome_comprador,telefone,email,foto_path,senha_hash,is_gestor,receber_auditoria,receber_agenda_proximo&tenant_id=eq.${settings.tenantId}&order=nome_comprador.asc`),
@@ -39,6 +39,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
       fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,observacao,data_realizacao,created_at,updated_at,nota,pedido_realizado,pedido_quantidade,pedido_valor,pedido_motivo_nao,pedido_motivo_detalhe&tenant_id=eq.${settings.tenantId}&status=in.(REALIZADA,ADIADA)&order=data_realizacao.desc.nullslast`),
       fetchSupabase(`/rest/v1/feriados?select=id,data,nome,tipo&tenant_id=eq.${settings.tenantId}&order=data.asc`),
       fetchSupabase(`/rest/v1/audit_log?select=id,tipo_objeto,objeto_id,objeto_nome,acao,campos_alterados,executor_role,executor_nome,comprador_id,created_at&tenant_id=eq.${settings.tenantId}&order=created_at.desc&limit=500`),
+      fetchSupabase(`/rest/v1/notas_painel?select=id,comprador_id,texto,created_at,updated_at&tenant_id=eq.${settings.tenantId}&order=updated_at.desc`),
     ]);
 
     const supplierRows = supplierRowsRaw.map(mapSupplier);
@@ -85,6 +86,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
     state.auditOccurrences = auditRows;
     state.auditLogs = auditLogRows ?? [];
     state.feriados = feriadosRows ?? [];
+    state.notasLivres = notasLivresRows ?? [];
 
     if (clientMeta.logo_url) {
       localStorage.setItem(storageKeys.logoUrl, clientMeta.logo_url);
@@ -382,6 +384,7 @@ function bindStaticEvents() {
   document.getElementById("proximaDataInput").addEventListener("change", updateAgendaAdjustment);
   document.getElementById("tratarAgendaButton").addEventListener("click", openPedidoModal);
   document.getElementById("saveAgendaNotaButton")?.addEventListener("click", saveAgendaNota);
+  document.getElementById("novaNotaLivreButton")?.addEventListener("click", createNotaLivre);
 
   // Calendário
   document.getElementById("newEventButton")?.addEventListener("click", () => openNewEventModal());

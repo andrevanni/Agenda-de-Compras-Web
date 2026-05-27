@@ -313,6 +313,17 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - **Duração padrão**: calculada via `addMinutesToTime()` com `getSettings().duracaoPadraoCompromissos`
 - **Nota é post-it (não replica)**: o campo `nota` do modal é gravado apenas na **1ª ocorrência** (1ª data × 1º comprador) da criação; as demais (recorrência ou multi-comprador) ficam com `nota=null`. Justificativa: o Painel de Notas é um post-it ad-hoc por ocorrência — replicar a nota em N ocorrências polui o painel (caso real: 105 cards duplicados em mai/2026, limpos via SQL retroativo). Para adicionar nota a uma ocorrência específica, abrir o evento no calendário e editar. Não confundir com `observacao` (que continua replicando — é a descrição do evento).
 
+## Painel de Notas (`#painel`)
+
+Duas fontes de post-it coexistem, agrupadas por comprador:
+
+1. **Nota-de-ocorrência** (`agenda_ocorrencias.nota`) — grudada num compromisso específico. Aparece no card com **título do fornecedor/evento + data + horário**. Some quando a ocorrência é tratada ou excluída. Criada/editada pelo modal de detalhe da Agenda de Compras (botão **💾 Salvar nota** salva sem precisar tratar — [script_main.js `saveAgendaNota`](frontend/script_main.js)) ou pelo modal de Novo Evento. Remoção: X no card → PATCH `nota=null` ([script_main.js `removeNota`](frontend/script_main.js)).
+2. **Nota livre** (`notas_painel`, [schema_v17](backend/db/schema_v17_notas_painel.sql)) — post-it autônomo, sem vínculo com agenda. Aparece com **📌 Post-it + data**. Persiste até ser excluída. Criada pelo botão **+ Nova nota** no header do painel (prompt simples), vinculada ao comprador ativo no momento da criação (fallback: comprador logado). Editada inline clicando no texto do card (textarea aparece; salva no `blur`, descarta com `Esc`, confirma com `Ctrl+Enter`; texto vazio = deleta automaticamente). Funções `createNotaLivre`, `turnNotaLivreEditable`, `saveNotaLivreEdit`, `deleteNotaLivre` em [script_main.js](frontend/script_main.js).
+
+Painel filtra pelo `activeBuyerId` (ambas as fontes). Renderização única em [`renderPainel`](frontend/script_main.js) — primeiro lista as notas-de-ocorrência do grupo, depois as livres. `state.notasLivres` carregado em `loadPortalData`.
+
+⚠️ Não confundir com a **Nota do Fornecedor** (`fornecedores.notas_relacionamento`, schema_v4) — essa é permanente, 1 por fornecedor, editada na tela de Fornecedores via `supplierNotesModal`. Não tem nada a ver com Painel de Notas.
+
 ## Seção Compromissos (`id="compromissos"`)
 
 - Menu **🗒️ Compromissos** na sidebar do portal cliente
@@ -462,6 +473,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | `schema_v14_admin_report_subscriptions.sql` | Tabela `admin_report_subscriptions(admin_email, tenant_id)` para inscrições de relatório por admin; adiciona `'admin_copia'` ao CHECK constraint de `relatorio_log.tipo` |
 | `schema_v15_tratamento_pedido.sql` | Colunas `pedido_realizado` (bool), `pedido_quantidade` (int), `pedido_valor` (numeric), `pedido_motivo_nao` (CHECK), `pedido_motivo_detalhe` (text) em `agenda_ocorrencias`; CHECK de coerência (se Sim → qtd+valor obrigatórios; se Não → motivo obrigatório); índice por `(tenant_id, pedido_realizado)` |
 | `schema_v16_serie_recorrencia.sql` | Coluna `serie_id` (UUID nullable) em `agenda_ocorrencias` para agrupar ocorrências criadas no mesmo "Novo Evento"; índice parcial `(tenant_id, serie_id) WHERE serie_id IS NOT NULL`. Usado pelo radio de escopo "Esta / Esta e as próximas / Toda a série" no modal de edição |
+| `schema_v17_notas_painel.sql` | Tabela `notas_painel(id, tenant_id, comprador_id, texto, created_at, updated_at)` para post-its livres no Painel de Notas, desvinculados de `agenda_ocorrencias`. RLS `USING (true)` + GRANT pra `authenticated/anon/service_role`. Coexiste com a nota de ocorrência (cada uma com fluxo próprio) |
 
 ## DATABASE_URL — Conexão com Supabase (⚠️ crítico)
 
