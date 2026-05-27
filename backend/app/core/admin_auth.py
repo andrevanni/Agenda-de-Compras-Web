@@ -66,6 +66,41 @@ def require_admin(
     )
 
 
+def require_admin_user(
+    authorization: str | None = Header(default=None),
+):
+    """Variante de require_admin que devolve o user do Supabase (com .id e .email).
+    Usar quando o endpoint precisa saber QUEM é o admin logado (ex.: trocar
+    a própria senha). Só aceita JWT (não tem fallback de X-Admin-Token —
+    o token legado não identifica usuário).
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token JWT obrigatório para esta operação.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token = authorization.split(" ", 1)[1]
+    from app.db.supabase_client import get_supabase
+    sb = get_supabase()
+    try:
+        user_resp = sb.auth.get_user(token)
+        user = user_resp.user
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido ou expirado.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    role = (getattr(user, "app_metadata", None) or {}).get("role")
+    if role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso restrito a administradores.",
+        )
+    return user
+
+
 def require_master_admin(
     authorization: str | None = Header(default=None),
 ) -> None:

@@ -1373,6 +1373,83 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 
 document.getElementById("logoutButton").addEventListener("click", logout);
 
+// ============================================================
+// Trocar senha do admin logado
+// ============================================================
+
+function openTrocarSenhaModal() {
+  document.getElementById("senhaAtualInput").value = "";
+  document.getElementById("senhaNovaInput").value = "";
+  document.getElementById("senhaConfirmacaoInput").value = "";
+  const fb = document.getElementById("trocarSenhaFeedback");
+  fb.style.display = "none";
+  fb.textContent = "";
+  document.getElementById("trocarSenhaModal").style.display = "flex";
+  setTimeout(() => document.getElementById("senhaAtualInput").focus(), 50);
+}
+
+function closeTrocarSenhaModal() {
+  document.getElementById("trocarSenhaModal").style.display = "none";
+}
+
+function setTrocarSenhaFeedback(msg, tipo) {
+  const fb = document.getElementById("trocarSenhaFeedback");
+  fb.textContent = msg;
+  fb.style.display = "block";
+  if (tipo === "error") {
+    fb.style.background = "rgba(248,113,113,.12)";
+    fb.style.color = "#f87171";
+    fb.style.border = "1px solid rgba(248,113,113,.3)";
+  } else {
+    fb.style.background = "rgba(52,211,153,.12)";
+    fb.style.color = "#34d399";
+    fb.style.border = "1px solid rgba(52,211,153,.3)";
+  }
+}
+
+async function submitTrocarSenha(e) {
+  e.preventDefault();
+  const atual = document.getElementById("senhaAtualInput").value;
+  const nova = document.getElementById("senhaNovaInput").value;
+  const conf = document.getElementById("senhaConfirmacaoInput").value;
+  if (nova.length < 8) {
+    setTrocarSenhaFeedback("A nova senha precisa ter pelo menos 8 caracteres.", "error");
+    return;
+  }
+  if (nova !== conf) {
+    setTrocarSenhaFeedback("A confirmação não bate com a nova senha.", "error");
+    return;
+  }
+  if (nova === atual) {
+    setTrocarSenhaFeedback("A nova senha precisa ser diferente da atual.", "error");
+    return;
+  }
+  const btn = document.getElementById("trocarSenhaConfirmar");
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Salvando...";
+  try {
+    await fetchAdmin("/api/v1/admin/auth/trocar-senha", {
+      method: "POST",
+      body: { senha_atual: atual, senha_nova: nova },
+    });
+    setTrocarSenhaFeedback("Senha atualizada. Você continua logado nesta sessão.", "success");
+    setTimeout(closeTrocarSenhaModal, 1500);
+  } catch (err) {
+    setTrocarSenhaFeedback(err.message || "Erro ao trocar senha.", "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+document.getElementById("trocarSenhaButton")?.addEventListener("click", openTrocarSenhaModal);
+document.getElementById("trocarSenhaCancelar")?.addEventListener("click", closeTrocarSenhaModal);
+document.getElementById("trocarSenhaForm")?.addEventListener("submit", submitTrocarSenha);
+document.getElementById("trocarSenhaModal")?.addEventListener("click", (e) => {
+  if (e.target.id === "trocarSenhaModal") closeTrocarSenhaModal();
+});
+
 applyTheme();
 populateSettings();
 showSection("tenants");

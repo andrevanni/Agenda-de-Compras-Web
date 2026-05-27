@@ -9,6 +9,13 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v52",
+        "dataHora": "28/05/2026 — manhã",
+        "notas": [
+            "Novo (painel admin): botão '🔑 Trocar senha' no topo permite que o administrador logado altere a própria senha sem precisar de reset por SQL.",
+        ],
+    },
+    {
         "versao": "v51",
         "dataHora": "27/05/2026 — tarde",
         "notas": [

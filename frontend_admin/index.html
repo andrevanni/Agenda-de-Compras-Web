@@ -91,6 +91,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span id="loggedAdminEmail" style="font-size:12px;color:#64748b;"></span>
+          <button id="trocarSenhaButton" class="secondary-button" type="button" style="font-size:12px;padding:6px 12px;">🔑 Trocar senha</button>
           <button id="logoutButton" class="secondary-button" type="button" style="font-size:12px;padding:6px 12px;">Sair</button>
         </div>
       </div>
@@ -640,6 +641,36 @@
         <p style="margin:0;font-size:13px;color:#cbd5e1;"><strong style="color:#f1f5f9;">iPhone/iPad:</strong> compartilhar ⎙ → "Adicionar à Tela de Início"</p>
       </div>
       <button id="pwaModalDismiss" style="width:100%;padding:10px;background:transparent;color:#64748b;border:1px solid #334155;border-radius:8px;font-size:13px;cursor:pointer;">Já instalei — continuar</button>
+    </div>
+  </div>
+
+  <!-- Modal Trocar Senha -->
+  <div id="trocarSenhaModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:16px;">
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px 24px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+      <h2 style="margin:0 0 4px;font-size:18px;font-weight:700;color:#f1f5f9;">🔑 Trocar senha</h2>
+      <p style="margin:0 0 18px;font-size:13px;color:#94a3b8;">Você vai alterar a senha da sua própria conta admin.</p>
+
+      <form id="trocarSenhaForm" style="display:flex;flex-direction:column;gap:12px;">
+        <label style="display:flex;flex-direction:column;gap:4px;">
+          <span style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Senha atual</span>
+          <input id="senhaAtualInput" type="password" autocomplete="current-password" required style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px;color:#f1f5f9;font-size:14px;">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;">
+          <span style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Nova senha <span style="color:#64748b;text-transform:none;font-weight:400;">(mínimo 8 caracteres)</span></span>
+          <input id="senhaNovaInput" type="password" autocomplete="new-password" minlength="8" required style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px;color:#f1f5f9;font-size:14px;">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;">
+          <span style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Confirmar nova senha</span>
+          <input id="senhaConfirmacaoInput" type="password" autocomplete="new-password" minlength="8" required style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px;color:#f1f5f9;font-size:14px;">
+        </label>
+
+        <div id="trocarSenhaFeedback" style="display:none;font-size:13px;padding:8px 12px;border-radius:6px;"></div>
+
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button id="trocarSenhaCancelar" type="button" style="flex:1;padding:10px;background:transparent;color:#94a3b8;border:1px solid #334155;border-radius:8px;font-size:13px;cursor:pointer;">Cancelar</button>
+          <button id="trocarSenhaConfirmar" type="submit" style="flex:1;padding:10px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Salvar nova senha</button>
+        </div>
+      </form>
     </div>
   </div>
 

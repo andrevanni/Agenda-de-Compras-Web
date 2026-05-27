@@ -5,7 +5,7 @@ from urllib.error import HTTPError
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.core.admin_auth import require_admin, require_master_admin
+from app.core.admin_auth import require_admin, require_admin_user, require_master_admin
 from app.core.config import settings
 from app.db.supabase_client import get_supabase
 from app.services.email_service import send_html
@@ -28,6 +28,48 @@ class ConvidarAdminRequest(BaseModel):
 class ReportSubscriptionsRequest(BaseModel):
     admin_email: str
     tenant_ids: list[str]
+
+
+class TrocarSenhaRequest(BaseModel):
+    senha_atual: str
+    senha_nova: str
+
+
+@router.post("/trocar-senha")
+def trocar_senha(payload: TrocarSenhaRequest, user=Depends(require_admin_user)) -> dict:
+    """Permite ao admin logado trocar a própria senha.
+    Valida a senha atual (fazendo login no Supabase) antes de atualizar.
+    """
+    if len(payload.senha_nova) < 8:
+        raise HTTPException(status_code=400, detail="A senha nova precisa ter pelo menos 8 caracteres.")
+    if payload.senha_nova == payload.senha_atual:
+        raise HTTPException(status_code=400, detail="A senha nova precisa ser diferente da atual.")
+    if not settings.supabase_url or not settings.supabase_anon_key:
+        raise HTTPException(status_code=503, detail="Supabase não configurado.")
+
+    # 1) Confirma a senha atual via login no Supabase Auth
+    url = f"{settings.supabase_url}/auth/v1/token?grant_type=password"
+    body = json.dumps({"email": user.email, "password": payload.senha_atual}).encode()
+    req = urlreq.Request(url, data=body, headers={
+        "Content-Type": "application/json",
+        "apikey": settings.supabase_anon_key,
+    }, method="POST")
+    try:
+        with urlreq.urlopen(req, timeout=15) as r:
+            r.read()
+    except HTTPError:
+        raise HTTPException(status_code=401, detail="Senha atual incorreta.")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Erro ao validar senha atual.")
+
+    # 2) Atualiza para a nova senha via admin API (SERVICE_ROLE)
+    sb = get_supabase()
+    try:
+        sb.auth.admin.update_user_by_id(str(user.id), {"password": payload.senha_nova})
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Erro ao atualizar senha: {e}")
+
+    return {"success": True}
 
 
 @router.post("/login")
