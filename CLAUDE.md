@@ -303,7 +303,8 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - **Modo edição**: título "Editar Evento", recorrência oculta, botão 🗑️ Excluir visível — aberto ao clicar em evento genérico no calendário
 - Clicar em evento de **Agenda de Compras** no calendário abre o detalhe com as regras próprias (inalterado)
 - **PATCH** na ocorrência existente ao salvar em modo edição; **DELETE** com confirmação ao excluir
-- `saveNewEvent()` e `deleteGenericEvent()` em `script_main.js`; `newEventEditId` (hidden input) controla o modo
+- **Série + edição/exclusão em massa** (desde mai/2026, [schema_v16](backend/db/schema_v16_serie_recorrencia.sql)): toda criação com `total > 1` (recorrência ou multi-comprador) recebe um `serie_id` UUID compartilhado em `agenda_ocorrencias.serie_id` ([script_main.js `saveNewEvent`](frontend/script_main.js)). No modo edição, quando a ocorrência tem `serie_id`, um radio "Aplicar mudanças a" aparece com 3 escopos: **Só esta** (PATCH/DELETE por id — comportamento legado), **Esta e as próximas** (filtro `serie_id=eq.X&data_prevista=gte.Y`), **Toda a série** (filtro só por `serie_id`). Ocorrências legado (sem `serie_id`) só têm "Só esta" — o radio fica oculto. Edição em massa NÃO replica `data_prevista` (cada ocorrência tem a sua), `nota` (post-it ad-hoc, ver abaixo), nem `comprador_id` (intencional — para trocar carteira, edita uma por vez). Exclusão em massa pede confirmação com contagem (`Excluir 14 ocorrência(s) da série?`).
+- `saveNewEvent()`, `deleteGenericEvent()` e `getEditScope()` em `script_main.js`; `newEventEditId` (hidden input) controla o modo, `newEventEditScopeWrap` esconde/mostra o radio
 - **Botão "Salvar Evento" desabilitado durante o POST** — evita duplo clique criando ocorrências duplicadas; reabilitado no `finally`
 - **Categoria**: "Agenda de Compras" excluída do dropdown
 - **Compradores**: checkboxes em grid; botões Todos/Nenhum; comprador logado pré-marcado na criação
@@ -460,6 +461,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | `schema_v13_relatorio_log_convite.sql` | Adiciona `'convite'` ao CHECK constraint do campo `tipo` em `relatorio_log` |
 | `schema_v14_admin_report_subscriptions.sql` | Tabela `admin_report_subscriptions(admin_email, tenant_id)` para inscrições de relatório por admin; adiciona `'admin_copia'` ao CHECK constraint de `relatorio_log.tipo` |
 | `schema_v15_tratamento_pedido.sql` | Colunas `pedido_realizado` (bool), `pedido_quantidade` (int), `pedido_valor` (numeric), `pedido_motivo_nao` (CHECK), `pedido_motivo_detalhe` (text) em `agenda_ocorrencias`; CHECK de coerência (se Sim → qtd+valor obrigatórios; se Não → motivo obrigatório); índice por `(tenant_id, pedido_realizado)` |
+| `schema_v16_serie_recorrencia.sql` | Coluna `serie_id` (UUID nullable) em `agenda_ocorrencias` para agrupar ocorrências criadas no mesmo "Novo Evento"; índice parcial `(tenant_id, serie_id) WHERE serie_id IS NOT NULL`. Usado pelo radio de escopo "Esta / Esta e as próximas / Toda a série" no modal de edição |
 
 ## DATABASE_URL — Conexão com Supabase (⚠️ crítico)
 

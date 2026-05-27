@@ -1267,6 +1267,26 @@
           <label style="grid-column:1/-1">Nota (fixada no Painel)<br>
             <textarea id="newEventNota" rows="2" placeholder="Registre algo importante sobre este compromisso..."></textarea>
           </label>
+          <div id="newEventEditScopeWrap" class="hidden" style="grid-column:1/-1;padding:12px 14px;background:var(--panel-soft);border:1px solid var(--line);border-radius:8px;">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:8px;">Aplicar mudan&ccedil;as a</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--text);">
+                <input type="radio" name="newEventEditScope" value="single" checked>
+                <span>S&oacute; esta ocorr&ecirc;ncia</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--text);">
+                <input type="radio" name="newEventEditScope" value="future">
+                <span id="newEventEditScopeFutureLabel">Esta e as pr&oacute;ximas</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--text);">
+                <input type="radio" name="newEventEditScope" value="all">
+                <span id="newEventEditScopeAllLabel">Toda a s&eacute;rie</span>
+              </label>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.4;">
+              Edi&ccedil;&atilde;o em massa n&atilde;o muda data nem nota nem comprador &mdash; s&oacute; t&iacute;tulo, hor&aacute;rio, categoria e observa&ccedil;&atilde;o.
+            </div>
+          </div>
         </div>
         <div id="newEventConflictWarning" class="msg hidden"></div>
     <div id="newEventFeriadoWarning" class="msg hidden"></div>

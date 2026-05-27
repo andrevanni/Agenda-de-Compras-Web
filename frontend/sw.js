@@ -1,4 +1,4 @@
-const CACHE = 'agenda-compras-v43';
+const CACHE = 'agenda-compras-v44';
 const ASSETS = [
   '/',
   '/index.html',

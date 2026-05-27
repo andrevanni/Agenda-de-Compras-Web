@@ -484,6 +484,7 @@ function openNewEventModal(dateStr = "") {
   document.getElementById("newEventModalSubtitle").textContent = "Preencha os dados do evento. Horário padrão calculado a partir das configurações.";
   document.getElementById("deleteNewEventButton").classList.add("hidden");
   document.getElementById("newEventRecorrenciaWrap").classList.remove("hidden");
+  document.getElementById("newEventEditScopeWrap").classList.add("hidden");
   document.getElementById("newEventTitulo").value = "";
   document.getElementById("newEventData").value = dateStr ? isoToBr(dateStr) : isoToBr(todayIso());
   const _settings = getSettings();
@@ -522,11 +523,29 @@ function openGenericEventDetail(occ) {
   setNewEventCompradores(occ.comprador_id ? [occ.comprador_id] : []);
   document.getElementById("newEventObservacao").value = occ.observacao ?? "";
   document.getElementById("newEventNota").value = occ.nota ?? "";
+  // Escopo de edição/exclusão em massa — só aparece se a ocorrência pertence a uma série
+  const scopeWrap = document.getElementById("newEventEditScopeWrap");
+  const singleRadio = scopeWrap.querySelector('input[value="single"]');
+  if (singleRadio) singleRadio.checked = true;
+  if (occ.serie_id) {
+    const irmas = (state.agenda ?? []).filter((o) => o.serie_id === occ.serie_id);
+    const futuras = irmas.filter((o) => (o.data_prevista ?? "") >= (occ.data_prevista ?? ""));
+    document.getElementById("newEventEditScopeFutureLabel").textContent = `Esta e as próximas (${futuras.length})`;
+    document.getElementById("newEventEditScopeAllLabel").textContent = `Toda a série (${irmas.length})`;
+    scopeWrap.classList.remove("hidden");
+  } else {
+    scopeWrap.classList.add("hidden");
+  }
   clearFeedback(document.getElementById("newEventConflictWarning"));
   clearFeedback(document.getElementById("newEventFeriadoWarning"));
   setupDatePickerField("newEventData", "newEventDataNative", "newEventDataPickerButton");
   setupDatePickerField("newEventRecorrenciaFim", "newEventRecorrenciaFimNative", "newEventRecorrenciaFimPickerButton");
   document.getElementById("newEventModal").showModal();
+}
+
+function getEditScope() {
+  const checked = document.querySelector('input[name="newEventEditScope"]:checked');
+  return checked?.value || "single";
 }
 
 async function checkEventConflict(tenantId, data, horaInicio, horaFim, excludeId = null) {
@@ -600,25 +619,66 @@ async function saveNewEvent() {
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Salvando..."; }
   try {
     if (editId) {
-      // — EDIÇÃO: PATCH na ocorrência existente —
-      const buyerId = compradores[0] ?? null;
-      await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${editId}&tenant_id=eq.${s.tenantId}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: {
-          titulo,
-          data_prevista: data,
-          hora_inicio: horaInicio,
-          hora_fim: horaFim,
-          categoria_id: categoriaId,
-          comprador_id: buyerId,
-          observacao,
-          nota,
-        },
-      });
-      setFeedback("Evento atualizado com sucesso.", "success");
+      // — EDIÇÃO: PATCH na(s) ocorrência(s) existente(s) —
+      const scope = getEditScope();
+      if (scope === "single") {
+        const buyerId = compradores[0] ?? null;
+        await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${editId}&tenant_id=eq.${s.tenantId}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: {
+            titulo,
+            data_prevista: data,
+            hora_inicio: horaInicio,
+            hora_fim: horaFim,
+            categoria_id: categoriaId,
+            comprador_id: buyerId,
+            observacao,
+            nota,
+          },
+        });
+        setFeedback("Evento atualizado com sucesso.", "success");
+      } else {
+        // Massa: precisa do serie_id e (para "future") da data da ocorrência sendo editada
+        const occAtual = (state.agenda ?? []).find((o) => o.id === editId);
+        const serieId = occAtual?.serie_id;
+        if (!serieId) {
+          throw new Error("Esta ocorrência não pertence a uma série — só pode ser editada individualmente.");
+        }
+        let url = `/rest/v1/agenda_ocorrencias?serie_id=eq.${serieId}&tenant_id=eq.${s.tenantId}`;
+        if (scope === "future") {
+          url += `&data_prevista=gte.${occAtual.data_prevista}`;
+        }
+        // Edição em massa NÃO replica: data_prevista (cada uma tem a sua), nota
+        // (post-it ad-hoc), comprador_id (intencional — para trocar carteira,
+        // edita uma por vez).
+        await fetchSupabase(url, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: {
+            titulo,
+            hora_inicio: horaInicio,
+            hora_fim: horaFim,
+            categoria_id: categoriaId,
+            observacao,
+          },
+        });
+        const irmas = (state.agenda ?? []).filter((o) => o.serie_id === serieId);
+        const afetadas = scope === "all"
+          ? irmas.length
+          : irmas.filter((o) => (o.data_prevista ?? "") >= (occAtual.data_prevista ?? "")).length;
+        setFeedback(`${afetadas} ocorrência(s) da série atualizadas.`, "success");
+      }
     } else {
       // — CRIAÇÃO: POST (multi-comprador × recorrência) —
+      const dates = recorrencia ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)] : [data];
+      const buyerIds = compradores.length > 0 ? compradores : [null];
+      const total = dates.length * buyerIds.length;
+      // serie_id agrupa todas as ocorrências criadas neste "Novo Evento" para
+      // permitir edição/exclusão em massa. Só faz sentido quando total > 1.
+      const serieId = total > 1 && typeof crypto?.randomUUID === "function"
+        ? crypto.randomUUID()
+        : null;
       const base = {
         tenant_id: s.tenantId,
         titulo,
@@ -630,9 +690,8 @@ async function saveNewEvent() {
         nota,
         status: "PENDENTE",
         recorrencia: recorrencia ? JSON.stringify({ tipo: recorrencia, fim: recFim || null }) : null,
+        serie_id: serieId,
       };
-      const dates = recorrencia ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)] : [data];
-      const buyerIds = compradores.length > 0 ? compradores : [null];
       // Nota é post-it: grava apenas na 1ª ocorrência (1ª data × 1º comprador);
       // demais ficam com nota=null para não poluir o Painel de Notas.
       let isFirstOccurrence = true;
@@ -646,7 +705,6 @@ async function saveNewEvent() {
           isFirstOccurrence = false;
         }
       }
-      const total = dates.length * buyerIds.length;
       setFeedback(
         total > 1
           ? `${total} evento(s) criado(s)${buyerIds.length > 1 ? ` para ${buyerIds.length} comprador(es)` : ""}${dates.length > 1 ? `, ${dates.length} datas (${recorrencia})` : ""}.`
@@ -669,16 +727,41 @@ async function deleteGenericEvent() {
   const editId = document.getElementById("newEventEditId").value.trim();
   if (!editId) return;
   const titulo = document.getElementById("newEventTitulo").value.trim() || "este evento";
-  if (!confirm(`Excluir "${titulo}"? Esta ação não pode ser desfeita.`)) return;
+  const scope = getEditScope();
+  const s = getSettings();
+  const occAtual = (state.agenda ?? []).find((o) => o.id === editId);
+
+  let mensagem;
+  let idsParaRemover;
+  let url;
+  if (scope === "single" || !occAtual?.serie_id) {
+    mensagem = `Excluir "${titulo}"? Esta ação não pode ser desfeita.`;
+    idsParaRemover = new Set([editId]);
+    url = `/rest/v1/agenda_ocorrencias?id=eq.${editId}&tenant_id=eq.${s.tenantId}`;
+  } else {
+    const serieId = occAtual.serie_id;
+    const irmas = (state.agenda ?? []).filter((o) => o.serie_id === serieId);
+    const alvo = scope === "all"
+      ? irmas
+      : irmas.filter((o) => (o.data_prevista ?? "") >= (occAtual.data_prevista ?? ""));
+    if (alvo.length === 0) return;
+    mensagem = scope === "all"
+      ? `Excluir TODA a série "${titulo}" (${alvo.length} ocorrência(s))? Esta ação não pode ser desfeita.`
+      : `Excluir "${titulo}" e as próximas ocorrências da série (${alvo.length} no total, a partir de ${isoToBr(occAtual.data_prevista)})? Esta ação não pode ser desfeita.`;
+    idsParaRemover = new Set(alvo.map((o) => o.id));
+    url = `/rest/v1/agenda_ocorrencias?serie_id=eq.${serieId}&tenant_id=eq.${s.tenantId}`;
+    if (scope === "future") url += `&data_prevista=gte.${occAtual.data_prevista}`;
+  }
+
+  if (!confirm(mensagem)) return;
   try {
-    const s = getSettings();
-    await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${editId}&tenant_id=eq.${s.tenantId}`, {
+    await fetchSupabase(url, {
       method: "DELETE",
       headers: { Prefer: "return=minimal" },
     });
-    state.agenda = state.agenda.filter((o) => o.id !== editId);
+    state.agenda = state.agenda.filter((o) => !idsParaRemover.has(o.id));
     closeModal("newEventModal");
-    setFeedback("Evento excluído.", "success");
+    setFeedback(idsParaRemover.size > 1 ? `${idsParaRemover.size} ocorrência(s) excluída(s).` : "Evento excluído.", "success");
     refreshCalendar();
     renderTables();
   } catch (err) {
