@@ -356,6 +356,7 @@ Painel filtra pelo `activeBuyerId` (ambas as fontes). Renderização única em [
 
 - **Exportar**: botão "📤 Exportar" — Excel via SheetJS com base completa
 - **Busca**: filtro em tempo real por código ou nome (`renderSuppliers` com filtro)
+- **Filtro por comprador (default desde v53 — 28/mai/2026)**: a tabela abre mostrando apenas fornecedores do `activeBuyerId`. Botão **"Mostrar todos"** ao lado do campo de busca alterna pra base completa; flag `suppliersShowAll` (módulo-level em [script_utils.js](frontend/script_utils.js)) é **em memória** — reseta a cada reload/sessão, intencional. Quando o select da sidebar troca o comprador ativo, `renderTables()` chama `renderSuppliers()` de novo e a tabela acompanha (a menos que o usuário tenha clicado "Mostrar todos"). Tratamento de `UNASSIGNED_BUYER_VALUE`: filtra suppliers sem `comprador_id`. Toggle bindado em [script_data.js](frontend/script_data.js) junto com o listener da busca.
 - **Importação CSV**: `parseSuppliersCsv` pula linhas sem código/nome; progresso em tempo real; campo Comprador é opcional
 - Upsert via PostgREST com `?on_conflict=codigo_fornecedor`
 
