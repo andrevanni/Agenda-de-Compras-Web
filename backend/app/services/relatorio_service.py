@@ -1,10 +1,15 @@
 import json
 from calendar import monthrange
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+# Quantos envios de email simultâneos. Resend free tem rate limit ~10 req/s;
+# 5 workers ficam folgados e ainda assim cortam o tempo do cron em ~5x.
+EMAIL_PARALLEL_WORKERS = 5
 
 from app.core.config import settings
 from app.db.supabase_client import get_supabase
@@ -542,8 +547,11 @@ def enviar_relatorios_tenant(
     kpis_mes_atual_geral = _kpis_query(db, tenant_id, inicio_mes_atual, data_ref)
     kpis_mes_ant_geral = _kpis_query(db, tenant_id, inicio_mes_ant, fim_mes_ant)
 
-    sent = 0
-    errors = 0
+    # FASE 1 — montar payloads em série (queries DB + HTML + PDF).
+    # Queries só aqui pq SQLAlchemy Session não é thread-safe.
+    subject = f"Agenda de Compras — Relatório {_fmt(data_ref)}"
+    pdf_filename = f"relatorio_{_fmt(data_ref).replace('/', '-')}.pdf"
+    payloads: list[dict] = []
 
     for c in ([] if admin_only else compradores):
         is_gestor = bool(c["is_gestor"])
@@ -579,7 +587,6 @@ def enviar_relatorios_tenant(
             auditoria_rows=auditoria,
             tenant_name=tenant_name,
         )
-        subject = f"Agenda de Compras — Relatório {_fmt(data_ref)}"
 
         pdf_bytes: Optional[bytes] = None
         try:
@@ -599,23 +606,39 @@ def enviar_relatorios_tenant(
         except Exception:
             pdf_bytes = None
 
-        attachments = [(f"relatorio_{_fmt(data_ref).replace('/', '-')}.pdf", pdf_bytes)] if pdf_bytes else None
+        payloads.append({
+            "email": c["email"],
+            "html": html,
+            "attachments": [(pdf_filename, pdf_bytes)] if pdf_bytes else None,
+            "comprador_id": c["id"],
+            "tipo": tipo,
+        })
 
-        try:
-            send_html([c["email"]], subject, html, attachments=attachments)
-            _log_envio(db, tenant_id, c["id"], tipo, data_ref, c["email"], "enviado")
-            sent += 1
-        except Exception as exc:
-            _log_envio(db, tenant_id, c["id"], tipo, data_ref, c["email"], "erro", str(exc)[:500])
-            errors += 1
-
-    # Cópias para admins inscritos neste tenant
+    # Admins inscritos: mesmo HTML/PDF para todos (dados gerais), 1 payload por admin.
     try:
         sb = get_supabase()
         resp = sb.table("admin_report_subscriptions").select("admin_email").eq("tenant_id", tenant_id).execute()
         admin_emails = [r["admin_email"] for r in (resp.data or [])]
-        if admin_emails:
-            html_admin = _build_html_email(
+    except Exception:
+        admin_emails = []  # Nunca bloquear envio para compradores
+
+    if admin_emails:
+        html_admin = _build_html_email(
+            nome_comprador="Administrador",
+            is_gestor=True,
+            data_ref=data_ref,
+            proximo_dia=proximo_dia,
+            kpis_mes_atual=kpis_mes_atual_geral,
+            kpis_mes_anterior=kpis_mes_ant_geral,
+            itens_atrasados=atrasados_geral,
+            agenda_compras_rows=agenda_compras_geral,
+            outros_compromissos_rows=outros_compromissos_geral,
+            auditoria_rows=auditoria_geral,
+            tenant_name=tenant_name,
+        )
+        pdf_admin: Optional[bytes] = None
+        try:
+            pdf_admin = build_relatorio_pdf(
                 nome_comprador="Administrador",
                 is_gestor=True,
                 data_ref=data_ref,
@@ -628,38 +651,40 @@ def enviar_relatorios_tenant(
                 auditoria_rows=auditoria_geral,
                 tenant_name=tenant_name,
             )
-            subject_admin = f"Agenda de Compras — Relatório {_fmt(data_ref)}"
-            pdf_admin: Optional[bytes] = None
-            try:
-                pdf_admin = build_relatorio_pdf(
-                    nome_comprador="Administrador",
-                    is_gestor=True,
-                    data_ref=data_ref,
-                    proximo_dia=proximo_dia,
-                    kpis_mes_atual=kpis_mes_atual_geral,
-                    kpis_mes_anterior=kpis_mes_ant_geral,
-                    itens_atrasados=atrasados_geral,
-                    agenda_compras_rows=agenda_compras_geral,
-                    outros_compromissos_rows=outros_compromissos_geral,
-                    auditoria_rows=auditoria_geral,
-                    tenant_name=tenant_name,
-                )
-            except Exception:
-                pdf_admin = None
-            attachments_admin = (
-                [(f"relatorio_{_fmt(data_ref).replace('/', '-')}.pdf", pdf_admin)]
-                if pdf_admin else None
-            )
-            for admin_email in admin_emails:
-                try:
-                    send_html([admin_email], subject_admin, html_admin, attachments=attachments_admin)
-                    _log_envio(db, tenant_id, None, "admin_copia", data_ref, admin_email, "enviado")
-                    sent += 1
-                except Exception as exc:
-                    _log_envio(db, tenant_id, None, "admin_copia", data_ref, admin_email, "erro", str(exc)[:500])
-                    errors += 1
-    except Exception:
-        pass  # Nunca bloquear o fluxo principal de envio para compradores
+        except Exception:
+            pdf_admin = None
+        attachments_admin = [(pdf_filename, pdf_admin)] if pdf_admin else None
+        for admin_email in admin_emails:
+            payloads.append({
+                "email": admin_email,
+                "html": html_admin,
+                "attachments": attachments_admin,
+                "comprador_id": None,
+                "tipo": "admin_copia",
+            })
+
+    # FASE 2 — envia tudo em paralelo. Bloqueante; resultados na mesma ordem dos payloads.
+    def _send_one(p: dict) -> tuple[str, Optional[str]]:
+        try:
+            send_html([p["email"]], subject, p["html"], attachments=p["attachments"])
+            return ("enviado", None)
+        except Exception as exc:
+            return ("erro", str(exc)[:500])
+
+    results: list[tuple[str, Optional[str]]] = []
+    if payloads:
+        with ThreadPoolExecutor(max_workers=EMAIL_PARALLEL_WORKERS) as pool:
+            results = list(pool.map(_send_one, payloads))
+
+    # FASE 3 — log em série (session DB não é thread-safe).
+    sent = 0
+    errors = 0
+    for payload, (status, erro) in zip(payloads, results):
+        _log_envio(db, tenant_id, payload["comprador_id"], payload["tipo"], data_ref, payload["email"], status, erro)
+        if status == "enviado":
+            sent += 1
+        else:
+            errors += 1
 
     return {
         "tenant_id": tenant_id,
