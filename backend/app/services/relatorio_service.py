@@ -674,7 +674,7 @@ def enviar_relatorios_todos_tenants(
     db: Session,
     data_ref: Optional[date] = None,
 ) -> dict:
-    tenants = db.execute(text("SELECT id::text AS id FROM tenants WHERE envio_relatorio_ativo = true")).mappings().all()
+    tenants = db.execute(text("SELECT id::text AS id FROM tenants WHERE envio_relatorio_ativo = true ORDER BY nome")).mappings().all()
     total_sent = 0
     total_errors = 0
     results = []
