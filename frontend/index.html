@@ -115,12 +115,18 @@
           </section>
 
           <section id="compromissos" class="section-view hidden">
-            <div class="section-title">
+            <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
               <div>
                 <h2>🗒️ Compromissos</h2>
                 <p class="muted">Todos os eventos agendados do comprador ativo, exceto agenda de compras.</p>
               </div>
-              <button id="newEventButtonCompromissos" class="btn btn-sm" type="button">+ Novo Evento</button>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;">
+                  <input type="checkbox" id="compromissosMostrarConcluidos">
+                  Mostrar concluídos
+                </label>
+                <button id="newEventButtonCompromissos" class="btn btn-sm" type="button">+ Novo Evento</button>
+              </div>
             </div>
             <div class="table-wrap">
               <table class="data-table">

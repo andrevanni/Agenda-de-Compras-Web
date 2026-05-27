@@ -11,21 +11,26 @@ function renderTables() {
 }
 
 function renderCompromissos() {
-  const { activeBuyerId, tenantId } = getSettings();
+  const { activeBuyerId } = getSettings();
   const catAgendaId = state.categorias.find((c) => c.nome === "Agenda de Compras")?.id;
+  const mostrarConcluidos = document.getElementById("compromissosMostrarConcluidos")?.checked ?? false;
 
-  const rows = [...state.agenda]
-    .filter((occ) => !occ.fornecedor_id)
-    .filter((occ) => occ.categoria_id !== catAgendaId)
-    .filter((occ) => {
-      if (!activeBuyerId || activeBuyerId === UNASSIGNED_BUYER_VALUE) return true;
-      return occ.comprador_id === activeBuyerId || !occ.comprador_id;
-    })
-    .sort((a, b) => {
-      const da = (a.data_prevista ?? "") + (a.hora_inicio ?? "00:00");
-      const db = (b.data_prevista ?? "") + (b.hora_inicio ?? "00:00");
-      return da.localeCompare(db);
-    });
+  const filtroComprador = (occ) => {
+    if (!activeBuyerId || activeBuyerId === UNASSIGNED_BUYER_VALUE) return true;
+    return occ.comprador_id === activeBuyerId || !occ.comprador_id;
+  };
+  const ehGenerico = (occ) => !occ.fornecedor_id && occ.categoria_id !== catAgendaId;
+
+  const pendentes = state.agenda.filter(ehGenerico).filter(filtroComprador);
+  const concluidos = mostrarConcluidos
+    ? (state.auditOccurrences ?? []).filter((occ) => occ.status === "REALIZADA").filter(ehGenerico).filter(filtroComprador)
+    : [];
+
+  const rows = [...pendentes, ...concluidos].sort((a, b) => {
+    const da = (a.data_prevista ?? "") + (a.hora_inicio ?? "00:00");
+    const db = (b.data_prevista ?? "") + (b.hora_inicio ?? "00:00");
+    return da.localeCompare(db);
+  });
 
   const tbody = document.getElementById("compromissosTable");
   if (!tbody) return;
@@ -37,21 +42,32 @@ function renderCompromissos() {
         const horario = occ.hora_inicio
           ? occ.hora_inicio + (occ.hora_fim ? " – " + occ.hora_fim : "")
           : "-";
-        return `<tr>
+        const concluido = occ.status === "REALIZADA";
+        const rowStyle = concluido ? ' style="opacity:.55;text-decoration:line-through;"' : "";
+        const acoes = concluido
+          ? `<button class="btn btn-outline btn-sm btn-table" data-reabrir-compromisso="${occ.id}" title="Marcar como pendente novamente">↩ Desfazer</button>
+             <button class="btn btn-danger btn-sm btn-table" data-delete-compromisso="${occ.id}">Excluir</button>`
+          : `<button class="btn btn-success btn-sm btn-table" data-concluir-compromisso="${occ.id}" title="Marcar como concluído">✓ Concluir</button>
+             <button class="btn btn-danger btn-sm btn-table" data-delete-compromisso="${occ.id}">Excluir</button>`;
+        return `<tr${rowStyle}>
           <td>${formatDate(occ.data_prevista)}</td>
           <td>${occ.titulo ?? "-"}</td>
           <td>${cat ? `<span class="pill" style="background:${cat.cor};color:#fff;">${cat.nome}</span>` : "-"}</td>
           <td>${horario}</td>
           <td>${buyer?.nome_comprador ?? "<span class='muted'>Sem resp.</span>"}</td>
-          <td class="td-actions">
-            <button class="btn btn-danger btn-sm btn-table" data-delete-compromisso="${occ.id}">Excluir</button>
-          </td>
+          <td class="td-actions">${acoes}</td>
         </tr>`;
       }).join("")
-    : `<tr><td colspan="6">Nenhum compromisso agendado para este comprador.</td></tr>`;
+    : `<tr><td colspan="6">Nenhum compromisso ${mostrarConcluidos ? "para este comprador" : "pendente para este comprador"}.</td></tr>`;
 
   tbody.querySelectorAll("[data-delete-compromisso]").forEach((btn) => {
     btn.addEventListener("click", () => deleteCompromisso(btn.dataset.deleteCompromisso));
+  });
+  tbody.querySelectorAll("[data-concluir-compromisso]").forEach((btn) => {
+    btn.addEventListener("click", () => concluirCompromisso(btn.dataset.concluirCompromisso));
+  });
+  tbody.querySelectorAll("[data-reabrir-compromisso]").forEach((btn) => {
+    btn.addEventListener("click", () => reabrirCompromisso(btn.dataset.reabrirCompromisso));
   });
 }
 
@@ -63,11 +79,68 @@ async function deleteCompromisso(id) {
       { method: "DELETE" }
     );
     state.agenda = state.agenda.filter((occ) => occ.id !== id);
+    state.auditOccurrences = (state.auditOccurrences ?? []).filter((occ) => occ.id !== id);
     renderCompromissos();
     refreshCalendar();
     setFeedback("Compromisso excluído.", "success");
   } catch (err) {
     setFeedback(`Erro ao excluir: ${err.message}`, "error");
+  }
+}
+
+async function concluirCompromisso(id) {
+  try {
+    const hoje = todayIso();
+    await fetchSupabase(
+      `/rest/v1/agenda_ocorrencias?id=eq.${id}&tenant_id=eq.${getSettings().tenantId}`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: { status: "REALIZADA", data_realizacao: hoje },
+      }
+    );
+    // Move do state.agenda (PENDENTE) para state.auditOccurrences (REALIZADA)
+    const idx = state.agenda.findIndex((occ) => occ.id === id);
+    if (idx >= 0) {
+      const occ = state.agenda[idx];
+      occ.status = "REALIZADA";
+      occ.data_realizacao = hoje;
+      state.agenda.splice(idx, 1);
+      (state.auditOccurrences = state.auditOccurrences ?? []).unshift(occ);
+    }
+    renderCompromissos();
+    refreshCalendar();
+    setFeedback("Compromisso concluído.", "success");
+  } catch (err) {
+    setFeedback(`Erro ao concluir: ${err.message}`, "error");
+  }
+}
+
+async function reabrirCompromisso(id) {
+  try {
+    await fetchSupabase(
+      `/rest/v1/agenda_ocorrencias?id=eq.${id}&tenant_id=eq.${getSettings().tenantId}`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: { status: "PENDENTE", data_realizacao: null },
+      }
+    );
+    // Move do state.auditOccurrences (REALIZADA) para state.agenda (PENDENTE)
+    const list = state.auditOccurrences ?? [];
+    const idx = list.findIndex((occ) => occ.id === id);
+    if (idx >= 0) {
+      const occ = list[idx];
+      occ.status = "PENDENTE";
+      occ.data_realizacao = null;
+      list.splice(idx, 1);
+      state.agenda.push(occ);
+    }
+    renderCompromissos();
+    refreshCalendar();
+    setFeedback("Compromisso reaberto como pendente.", "success");
+  } catch (err) {
+    setFeedback(`Erro ao reabrir: ${err.message}`, "error");
   }
 }
 

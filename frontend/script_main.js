@@ -356,8 +356,9 @@ function categoriaCorById(id) {
 
 function buildCalendarEvents() {
   const { activeBuyerId } = getSettings();
+  const catAgendaId = state.categorias.find((c) => c.nome === "Agenda de Compras")?.id;
 
-  const filtered = state.agenda.filter((occ) => {
+  const filtroComprador = (occ) => {
     if (!activeBuyerId || activeBuyerId === UNASSIGNED_BUYER_VALUE) return true;
     // Tarefas gerais (sem fornecedor e sem comprador) aparecem para todos os compradores
     if (!occ.fornecedor_id && !occ.comprador_id) return true;
@@ -365,9 +366,17 @@ function buildCalendarEvents() {
     const buyerOnSupplier = supplier?.comprador_id;
     const buyerOnOcc = occ.comprador_id;
     return buyerOnSupplier === activeBuyerId || buyerOnOcc === activeBuyerId;
-  });
+  };
 
-  const occEvents = filtered.map((occ) => {
+  const pendentes = state.agenda.filter(filtroComprador);
+  // Compromissos genéricos concluídos (REALIZADA, sem fornecedor, categoria != Agenda de Compras)
+  // aparecem riscados no calendário. Agenda de Compras tem fluxo próprio (Tratar Agenda)
+  // e suas REALIZADAs continuam fora do calendário pra não poluir.
+  const concluidosGenericos = (state.auditOccurrences ?? []).filter(
+    (occ) => occ.status === "REALIZADA" && !occ.fornecedor_id && occ.categoria_id !== catAgendaId
+  ).filter(filtroComprador);
+
+  const toEvent = (occ, concluido) => {
     const supplier = supplierById(occ.fornecedor_id);
     const cat = categoriaById(occ.categoria_id);
     const titulo = occ.titulo || supplier?.nome_fornecedor || "Sem título";
@@ -380,16 +389,22 @@ function buildCalendarEvents() {
       : null;
     return {
       id: occ.id,
-      title: titulo,
+      title: concluido ? `✓ ${titulo}` : titulo,
       start,
       end: end ?? undefined,
       allDay: !occ.hora_inicio,
       backgroundColor: cor,
       borderColor: cor,
       textColor: "#ffffff",
-      extendedProps: { occ, supplier, cat },
+      classNames: concluido ? ["fc-event-concluido"] : [],
+      extendedProps: { occ, supplier, cat, concluido },
     };
-  });
+  };
+
+  const occEvents = [
+    ...pendentes.map((occ) => toEvent(occ, false)),
+    ...concluidosGenericos.map((occ) => toEvent(occ, true)),
+  ];
 
   const feriadoEvents = state.feriados.flatMap((f) => [
     {

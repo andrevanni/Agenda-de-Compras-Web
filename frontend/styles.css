@@ -453,6 +453,15 @@ body[data-theme="light"] .btn-outline {
   color: #fff;
 }
 
+.btn-success {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+}
+.btn-success:hover {
+  background: #15803d;
+}
+
 .postit-button {
   border: 1px solid rgba(247, 208, 84, 0.34);
   background: linear-gradient(180deg, #f8e98f 0%, #f1d257 100%);
@@ -1763,6 +1772,15 @@ body[data-theme="light"] .postit-note-shell textarea {
 
 .fc .fc-event:hover {
   opacity: 0.85;
+}
+
+.fc .fc-event.fc-event-concluido {
+  opacity: 0.55;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+.fc .fc-event.fc-event-concluido:hover {
+  opacity: 0.75;
 }
 
 .fc .fc-daygrid-event-dot {
