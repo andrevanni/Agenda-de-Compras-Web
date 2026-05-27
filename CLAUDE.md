@@ -80,15 +80,15 @@ Arquivos JS carregados em ordem no `index.html` — escopo global compartilhado 
 | `script_utils.js` | `fetchSupabase()`, `fetchApi()`, `refreshJWT()`, `_store()`, utilitários de data/cálculo, `renderBuyers()`, `editBuyer()` |
 | `script_render.js` | Render tabelas, fornecedores, compradores, `saveBuyer()`, `renderCompromissos()`, `deleteCompromisso()` |
 | `script_forms.js` | Formulários (saveSupplier), importação CSV/Excel, exportação, `ensureBuyerSelection()`, `renderAuditDashboard()`, `loadEmailLog()` |
-| `script_data.js` | `loadPortalData()`, `loginBuyer()`, `bindEvents()`, configurações — login via modal salva `tenant_id` + recarrega `loadPortalData()` após autenticação |
-| `script_main.js` | `bootstrap()`, auth, calendário, categorias, PWA install, `refreshJWT` interval, `saveNewEvent()`, `deleteGenericEvent()` |
+| `script_data.js` | `loadPortalData()`, `loadClientMetaOnly()` (carga leve só de tenants+clientes sem JWT), `loginBuyer()` (chama `loadCategorias` + `loadPortalData` após auth), `bindEvents()`, configurações |
+| `script_main.js` | `bootstrap()` com gate de sessão (sem JWT/tenant não carrega agenda/fornecedores/categorias, só abre login), auth, calendário, categorias, PWA install, `refreshJWT` interval, `saveNewEvent()`, `deleteGenericEvent()` |
 
 Outros arquivos estáticos:
 
 | Arquivo | Descrição |
 |---|---|
 | `vercel.json` | Configuração Vercel: `buildCommand: null`, `outputDirectory: "."`, `framework: null` — força deploy como site estático |
-| `sw.js` | Service Worker v41 — cache dos assets, registrado em `index.html` e `instalar.html` |
+| `sw.js` | Service Worker v43 — cache dos assets, registrado em `index.html` e `instalar.html` |
 | `manifest.json` | PWA manifest com ícones PNG 192×512 |
 | `icon-192.png` / `icon-512.png` | Ícones PWA gerados do `.ico` original |
 | `instalar.html` | Página de primeiro acesso: define senha → loga → mostra guia de instalação |
@@ -345,13 +345,18 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 
 ## Frequências de revisão (regras de negócio)
 
-| Valor | Dias compra | Intervalo |
-|---|---|---|
-| 1, 2, 4 | 1 dia | 28/14/7 dias |
-| 8 | 2 dias | próximo dia permitido |
-| 12 | 3 dias | próximo dia permitido |
+| Valor | Dias compra | Intervalo entre pedidos | Mínimo de `parametro_estoque` |
+|---|---|---|---|
+| 1 | 1 dia | 28 dias (mensal) | 28 dias |
+| 2 | 1 dia | 14 dias (quinzenal) | 14 dias |
+| 4 | 1 dia | 7 dias (semanal) | 7 dias |
+| 8 | 2 dias | próximo dia permitido (2×/semana) | 4 dias |
+| 12 | 3 dias | próximo dia permitido (3×/semana) | 3 dias |
 
-Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script_render.js` (`tratarAgendaAtual`) — manter sincronizados.
+- `DIAS_POR_FREQUENCIA` (dias de compra obrigatórios) e `INTERVALO_DIAS_FREQUENCIA` (intervalo fixo entre pedidos — só 1/2/4) em [script_state.js](frontend/script_state.js) e [backend/app/services/agenda_service.py](backend/app/services/agenda_service.py).
+- `PARAMETRO_MINIMO_FREQUENCIA = { 1: 28, 2: 14, 4: 7, 8: 4, 12: 3 }` em [script_state.js](frontend/script_state.js) — usado na validação ao salvar fornecedor ([script_render.js `saveSupplier`](frontend/script_render.js)) e no auto-ajuste do import CSV ([script_forms.js](frontend/script_forms.js)).
+- Hint dinâmico abaixo do input "Parâmetro Estoque" mostra o mínimo atual e fica vermelho quando o valor digitado é inferior — `updateParametroEstoqueHint()` em [script_forms.js](frontend/script_forms.js), disparada por listeners em `fornecedorFrequencia` (change) e `fornecedorParametroEstoque` (input).
+- Lógica de tratamento de agenda duplicada em `backend/app/services/agenda_service.py` e `frontend/script_render.js` (`tratarAgendaAtual`) — manter sincronizados.
 
 ## Incremento de parâmetro ao tratar agenda
 
@@ -405,7 +410,7 @@ Lógica duplicada em `backend/app/services/agenda_service.py` e `frontend/script
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v41` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
+- Cache cliente: `agenda-compras-v43` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
 - Cache admin: `agenda-admin-v10` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
@@ -481,6 +486,14 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 ## Pendências
 
+### Entregue em 27/mai/2026 (commits `691c1a9`, `ed11db2`)
+
+- **Vazamento de tenant no bootstrap fechado** (commit `691c1a9`): código antigo carregava Service Farma ao fundo da tela de login porque (a) `defaultSettings.tenantId` estava hardcoded em Service Farma e (b) `loadCategorias` + `loadPortalData` rodavam ANTES de checar JWT, então qualquer `tenant_id` residual em localStorage carregava dados operacionais (agenda, fornecedores, categorias) na renderização. Mudanças: `tenantId: ""` em `defaultSettings`; gate de bootstrap (`if (hasJwt && hasTenant) load all else loadClientMetaOnly + login`) — nova função `loadClientMetaOnly()` carrega só `tenants`+`clientes` sem operacionais, preserva UX de admin_client em primeiro acesso; `loginBuyer` passa a chamar `loadCategorias` após auth (evita resíduo de `state.categorias` do tenant anterior); SW v41→v42. Validado em produção em aba anônima: modal de login limpo, sem fundo de SF. Trade-off conhecido: admin_client de tenant **novo** (sem `admin_password` definido em `clientes.observacoes`) em primeiro acesso direto pelo portal não detecta automaticamente — workaround: usar "Abrir Portal" do painel admin ou setar via SQL.
+
+- **Senha do Caio Destro Andrade (Drogaria SV) — 27/mai/2026**: padrão Raquel idênctico, resolvido com a mesma receita SQL.
+
+- **Parâmetro mínimo de estoque por frequência com aviso proativo** (commit `ed11db2`): regra antiga validava `parametro_estoque < frequencia` (compara estoque-em-dias com código de frequência — escalas diferentes, resultado contraintuitivo: exigia 1 dia para mensal e 12 dias para 3×/semana). Substituída pela nova constante `PARAMETRO_MINIMO_FREQUENCIA = { 1: 28, 2: 14, 4: 7, 8: 4, 12: 3 }` (mínimo = intervalo real entre pedidos). Hint dinâmico abaixo do input "Parâmetro Estoque" mostra o mínimo da frequência atual; vermelho quando valor digitado é inferior. Validação ao salvar com mensagem específica. Auto-ajuste do import CSV também respeita a nova regra. SW v42→v43.
+
 ### Entregue em 26/mai/2026 (commits `a678580`, `010869c`, `5dd3f9b`, `130154c`)
 
 - **Modal Novo Evento — tema claro**: grid de compradores ficava invisível por causa de variáveis CSS inexistentes (`--input-bg`, `--border-color`, `--text-muted`). Substituídas por `--panel-soft`/`--line`/`--text`/`--muted`. (Commit `a678580`)
@@ -499,9 +512,9 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 3. **Implementar fluxo de staging de verdade** — branch `staging` está 23+ commits atrás de `main` desde 26/mai/2026 (SW v17 vs v38; falta vários fixes de SW, backfill, login, audit log, novo fluxo de pedido, etc.). Toda alteração ainda vai direto para `main` por hábito. Sincronizar staging via `git merge main` num momento controlado, depois decidir: (a) criar projeto Supabase separado para staging, OU (b) reservar tenant exclusivo de teste com variáveis de ambiente apontando para ele; padronizar `staging` como destino obrigatório antes de `main`.
 
-4. **Corrigir `defaultSettings.tenantId` hardcoded como Service Farma** (`script_state.js` linha 47) — qualquer usuário que abra o portal sem `localStorage` configurado vê a agenda da Service Farma por padrão. Trocar para `""`. Suspeita-se que esse é o vetor comum dos casos Elias e Raquel (Drogaria SV). Mudança pequena, mas toca em estado inicial — testar bem em staging antes (depende do item 3).
+4. **~~Corrigir `defaultSettings.tenantId` hardcoded como Service Farma~~** — ✅ **RESOLVIDO em 27/mai/2026** (commit `691c1a9`). Além do troca direta para `""`, foi implementado gate de bootstrap que impede `loadPortalData` sem JWT — `loadClientMetaOnly` carrega só `tenants`+`clientes` para preservar UX de admin_client em primeiro acesso. Validado em produção em aba anônima.
 
-5. **Investigar falha silenciosa do `instalar.html` / `POST /auth/definir-senha`** — o caso Raquel revelou que o fluxo permite o usuário "concluir" o convite sem efetivamente gravar a senha em `auth.users.encrypted_password`. Hipóteses: (a) `sb.auth.admin.update_user_by_id` lançando exceção silenciada, (b) erro de rede interpretado como sucesso, (c) Supabase Auth retornando 200 sem persistir. Adicionar logging server-side e validação client-side antes de redirecionar.
+5. **Investigar falha silenciosa do `instalar.html` / `POST /auth/definir-senha` — ⚠️ URGENTE (3º caso em 9 dias)** — casos Raquel (26/mai), Caio (26-27/mai) e provavelmente Elias (mai/2026) revelaram que o fluxo permite o usuário "concluir" o convite sem efetivamente gravar a senha em `auth.users.encrypted_password`. Padrão observado: `auth.users` criado no envio do convite com `encrypted_password=NULL`, `email_confirmed_at=NULL`, `last_sign_in_at=NULL`. Hipóteses: (a) `sb.auth.admin.update_user_by_id` lançando exceção silenciada, (b) erro de rede interpretado como sucesso, (c) Supabase Auth retornando 200 sem persistir, (d) usuário fechando aba antes do POST completar. Adicionar logging server-side com `print(traceback)` + verificação pós-update (re-fetch do user para confirmar `encrypted_password` foi gravado) + validação client-side antes de redirecionar. Workaround atual: receita SQL direta (ver Caso Raquel/Caio).
 
 6. **`saveSupplier` — feedback inconsistente em falha parcial**: relato pontual em 26/mai/2026 (cadastro do fornecedor "MAM") de "erro mas fornecedor apareceu cadastrado". Não reproduzível depois. Refator defensivo arquivado: isolar passos secundários (`fornecedor_dias_compra`, `persistSupplierNote`, `ensurePendingOccurrenceForSupplier`) em try/catch internos que não propagam — mostrar warnings em vez de erro genérico, e chamar `loadPortalData()` sempre. Implementar quando o erro voltar a aparecer com mensagem capturada.
 
@@ -569,3 +582,18 @@ WHERE id = '{USER_ID}';
 ```
 
 Equivalente à chamada `sb.auth.admin.update_user_by_id(user_id, {"password": senha, "email_confirm": True})` mas sem precisar de `SUPABASE_SERVICE_ROLE_KEY` — usa apenas o `DATABASE_URL`. `gen_salt('bf', 10)` casa com o cost factor padrão do Supabase Auth.
+
+## Caso Caio (Drogaria SV) — 27/mai/2026
+
+**Histórico:** padrão idêntico ao da Raquel — convite gerado em 26/mai/2026, `auth.users` criado com `encrypted_password` vazio (`email_confirmed_at = NULL`, `last_sign_in_at = NULL`), Caio não conseguiu logar. Resolvido em 27/mai/2026 com a mesma receita SQL (senha provisória `Caio2026`).
+
+**Dados confirmados:**
+
+| Campo | Valor |
+|---|---|
+| `compradores.id` | `6a8dd378-7922-4484-bd55-8c9e3160cba0` |
+| `compradores.email` | `caiodestroandrade@gmail.com` |
+| `compradores.user_id` | `73444dab-12f1-4e5c-ab41-71e91d3b244b` ✓ vinculado |
+| `compradores.tenant_id` | `f0d557c6-9dd9-4e80-96e0-2094da4a40ff` (Drogaria SV ✓) |
+
+**Observação:** 2º caso idêntico em 2 dias (Raquel 26/mai, Caio 27/mai) reforça a urgência da pendência "investigar falha silenciosa do `instalar.html` / `POST /auth/definir-senha`". O `auth.users` é criado no momento do envio do convite, mas a senha só é gravada quando o usuário completa o `instalar.html` com sucesso. Algum erro silencioso entre essas duas etapas está deixando users com `encrypted_password` vazio sem o usuário perceber.
