@@ -620,7 +620,7 @@
               </details>
 
               <details class="ajuda-item">
-                <summary>🗓️ Calend&aacute;rio — Vistas e Eventos</summary>
+                <summary>🗓️ Calend&aacute;rio — Vistas, Eventos e Edi&ccedil;&atilde;o em S&eacute;rie</summary>
                 <div class="ajuda-corpo">
                   <h4>Vistas dispon&iacute;veis</h4>
                   <ul>
@@ -638,13 +638,27 @@
                   <ul>
                     <li>Clique em <strong>+ Novo Evento</strong> (bot&atilde;o no topo) ou <strong>arraste um intervalo de tempo</strong> na vista Semana ou Dia</li>
                     <li>O comprador logado j&aacute; vem <strong>pr&eacute;-selecionado</strong> — pode marcar outros compradores ou clicar em <strong>Todos</strong></li>
-                    <li>O sistema cria <strong>uma ocorr&ecirc;ncia por comprador selecionado</strong></li>
+                    <li>O sistema cria <strong>uma ocorr&ecirc;ncia por comprador selecionado &times; data</strong></li>
                     <li>A categoria <em>Agenda de Compras</em> n&atilde;o aparece — use as demais categorias (Pessoal, Operacional etc.)</li>
                   </ul>
-                  <h4>Recorr&ecirc;ncia</h4>
-                  <p>Escolha Di&aacute;ria, Semanal, Quinzenal ou Mensal. Ao selecionar, aparece o campo <strong>Data de fim</strong> (opcional). O sistema gera uma ocorr&ecirc;ncia por data × comprador selecionado.</p>
+
+                  <h4>Recorr&ecirc;ncia &mdash; criar uma s&eacute;rie</h4>
+                  <p>No modal de Novo Evento, escolha <strong>Di&aacute;ria</strong>, <strong>Semanal</strong>, <strong>Quinzenal</strong> ou <strong>Mensal</strong>. Ao selecionar, aparece o campo <strong>Data de fim</strong> (opcional). O sistema gera uma ocorr&ecirc;ncia por data &times; comprador selecionado, e todas ficam agrupadas como uma <strong>s&eacute;rie</strong> (compartilham o mesmo identificador interno).</p>
+
+                  <h4>Editar ou excluir uma s&eacute;rie inteira (em massa)</h4>
+                  <p>Ao clicar num evento da s&eacute;rie no calend&aacute;rio, o modal de edi&ccedil;&atilde;o mostra um seletor <strong>"Aplicar mudan&ccedil;as a"</strong> com 3 op&ccedil;&otilde;es:</p>
+                  <ul>
+                    <li><strong>S&oacute; esta ocorr&ecirc;ncia</strong>: muda/exclui apenas o item clicado (comportamento padr&atilde;o e &uacute;nica op&ccedil;&atilde;o para ocorr&ecirc;ncias antigas, criadas antes desta funcionalidade)</li>
+                    <li><strong>Esta e as pr&oacute;ximas</strong>: muda/exclui o item clicado e todos os subsequentes da s&eacute;rie (mant&eacute;m os anteriores intactos)</li>
+                    <li><strong>Toda a s&eacute;rie</strong>: muda/exclui todas as ocorr&ecirc;ncias da s&eacute;rie, do come&ccedil;o ao fim (a contagem total aparece ao lado da op&ccedil;&atilde;o)</li>
+                  </ul>
+                  <p><strong>O que muda em massa</strong>: t&iacute;tulo, hor&aacute;rio, categoria e observa&ccedil;&atilde;o. <strong>N&atilde;o muda em massa</strong>: data (cada ocorr&ecirc;ncia tem a sua), nota (post-it ad-hoc, n&atilde;o replica) e comprador respons&aacute;vel (se precisar trocar a carteira, edite uma por vez). Exclus&otilde;es em massa pedem confirma&ccedil;&atilde;o com a contagem ("Excluir 14 da s&eacute;rie?").</p>
+
                   <h4>Cores no calend&aacute;rio</h4>
                   <p>Cada categoria tem uma cor definida em <strong>Categorias</strong>. Eventos de fornecedores usam a cor da categoria <em>Agenda de Compras</em> por padr&atilde;o.</p>
+
+                  <h4>Compromissos conclu&iacute;dos &mdash; visual riscado</h4>
+                  <p>Compromissos gen&eacute;ricos marcados como <strong>conclu&iacute;dos</strong> (na se&ccedil;&atilde;o Compromissos, bot&atilde;o ✓ Concluir) continuam aparecendo no calend&aacute;rio mas com a linha <strong>riscada</strong> e tom mais claro, com um <strong>✓</strong> antes do t&iacute;tulo. Eventos da <em>Agenda de Compras</em> tratados desaparecem do calend&aacute;rio (continuam s&oacute; na Auditoria) &mdash; comportamento intencional para n&atilde;o poluir o calend&aacute;rio operacional.</p>
                 </div>
               </details>
 
@@ -671,34 +685,76 @@
               <details class="ajuda-item">
                 <summary>📌 Painel de Notas — Post-its por Comprador</summary>
                 <div class="ajuda-corpo">
-                  <p>O Painel de Notas re&uacute;ne em um s&oacute; lugar todas as notas fixadas nos compromissos, organizadas por comprador.</p>
-                  <h4>Como adicionar uma nota</h4>
+                  <p>O <strong>Painel de Notas</strong> re&uacute;ne todos os post-its do comprador ativo em um s&oacute; lugar, agrupados por respons&aacute;vel. Existem <strong>duas formas</strong> de criar uma nota:</p>
+
+                  <h4>1. Nota vinculada a um compromisso (de ocorr&ecirc;ncia)</h4>
+                  <p>&Eacute; uma nota grudada num evento espec&iacute;fico do calend&aacute;rio. Some quando o compromisso &eacute; conclu&iacute;do ou exclu&iacute;do. Aparece no painel com o <strong>nome do fornecedor (ou t&iacute;tulo do evento) + data + hor&aacute;rio</strong>.</p>
+                  <p>Como criar:</p>
                   <ul>
-                    <li>Ao <strong>tratar uma agenda</strong>: preencha o campo <em>Nota</em> no modal de detalhe antes de confirmar</li>
-                    <li>Ao <strong>criar um novo evento</strong>: preencha o campo <em>Nota</em> no modal de novo evento</li>
+                    <li><strong>Modal de detalhe da Agenda de Compras</strong>: preencha o campo <em>Nota</em> e clique em <strong>💾 Salvar nota</strong> (logo abaixo do textarea). N&atilde;o precisa tratar a agenda &mdash; pode s&oacute; deixar a nota e fechar.</li>
+                    <li>Tamb&eacute;m grava ao clicar em <strong>Tratar Agenda</strong> ou ao salvar um <strong>Novo Evento</strong> com o campo Nota preenchido.</li>
                   </ul>
-                  <p>A nota aparece como um post-it colorido (cor da categoria) no <strong>Painel de Notas</strong>, com data, hor&aacute;rio e o nome do fornecedor ou t&iacute;tulo do evento.</p>
-                  <h4>Remover uma nota</h4>
-                  <p>Clique no <strong>✕</strong> no canto do post-it. A nota &eacute; removida do painel mas o compromisso continua existindo.</p>
-                  <p class="ajuda-dica">💡 <strong>Aten&ccedil;&atilde;o</strong>: a nota do compromisso &eacute; diferente da nota do fornecedor. A nota do fornecedor fica no cadastro de fornecedores e persiste independentemente das ocorr&ecirc;ncias.</p>
+
+                  <h4>2. Post-it livre (direto no painel)</h4>
+                  <p>&Eacute; uma nota autônoma, sem v&iacute;nculo com nenhum compromisso. Persiste at&eacute; voc&ecirc; excluir. Aparece com o &iacute;cone <strong>📌 Post-it</strong> + data de cria&ccedil;&atilde;o. &Uacute;til para recados soltos do dia ("ligar pro EMS sexta", "fornecedor X aumentou pre&ccedil;o").</p>
+                  <p>Como criar:</p>
+                  <ul>
+                    <li>Clique em <strong>+ Nova nota</strong> no canto direito do header do Painel</li>
+                    <li>Digite o texto na janela que abre e clique em OK</li>
+                    <li>O post-it aparece no grupo do comprador ativo no momento da cria&ccedil;&atilde;o</li>
+                  </ul>
+                  <p>Como editar um post-it livre:</p>
+                  <ul>
+                    <li><strong>Clique no texto</strong> do post-it &mdash; ele vira um editor</li>
+                    <li><strong>Click fora</strong> ou <strong>Ctrl+Enter</strong> salva</li>
+                    <li><strong>Esc</strong> descarta a edi&ccedil;&atilde;o</li>
+                    <li>Apagar todo o texto e clicar fora <strong>exclui</strong> automaticamente</li>
+                  </ul>
+
+                  <h4>Excluir qualquer nota</h4>
+                  <p>Clique no <strong>✕</strong> no canto do post-it. Para nota de ocorr&ecirc;ncia, o compromisso continua existindo (s&oacute; a nota some). Para post-it livre, o item &eacute; exclu&iacute;do.</p>
+
+                  <p class="ajuda-dica">💡 <strong>Aten&ccedil;&atilde;o &agrave;s 3 notas diferentes</strong>: (1) <em>nota do compromisso</em> &mdash; fica grudada na agenda e some quando ela &eacute; conclu&iacute;da; (2) <em>post-it livre</em> &mdash; aut&ocirc;nomo, persiste at&eacute; excluir; (3) <em>nota do fornecedor</em> &mdash; permanente, fica no cadastro do fornecedor e n&atilde;o aparece no Painel de Notas.</p>
                 </div>
               </details>
 
               <details class="ajuda-item">
-                <summary>🗒️ Compromissos — Lista e Exclus&atilde;o de Eventos</summary>
+                <summary>🗒️ Compromissos — Concluir, Desfazer e Hist&oacute;rico</summary>
                 <div class="ajuda-corpo">
                   <p>A se&ccedil;&atilde;o <strong>Compromissos</strong> no menu lateral lista todos os eventos gen&eacute;ricos agendados para o comprador ativo, exceto os eventos da agenda de compras (que t&ecirc;m fluxo pr&oacute;prio de tratamento).</p>
+
                   <h4>O que aparece na lista</h4>
                   <ul>
                     <li>Eventos criados pelo bot&atilde;o <strong>+ Novo Evento</strong> com qualquer categoria exceto <em>Agenda de Compras</em></li>
                     <li>Ordenados por data e hor&aacute;rio crescente (mais pr&oacute;ximo primeiro)</li>
                     <li>Filtrado pelo <strong>comprador ativo</strong> selecionado na sidebar</li>
                   </ul>
-                  <h4>Colunas exibidas</h4>
-                  <p>Data &bull; T&iacute;tulo &bull; Categoria (chip colorido) &bull; Hor&aacute;rio &bull; Comprador respons&aacute;vel &bull; Bot&atilde;o Excluir</p>
+                  <p>Colunas: Data &bull; T&iacute;tulo &bull; Categoria (chip colorido) &bull; Hor&aacute;rio &bull; Comprador respons&aacute;vel &bull; A&ccedil;&otilde;es</p>
+
+                  <h4>Concluir um compromisso (✓)</h4>
+                  <p>Compromissos com status <strong>pendente</strong> mostram o bot&atilde;o verde <strong>✓ Concluir</strong>. Ao clicar:</p>
+                  <ul>
+                    <li>O compromisso &eacute; marcado como <strong>conclu&iacute;do</strong> (status REALIZADA) com a data de hoje como data de conclus&atilde;o</li>
+                    <li>Some da lista <strong>pendentes</strong> (mas n&atilde;o &eacute; exclu&iacute;do &mdash; continua no banco)</li>
+                    <li>No calend&aacute;rio, o evento passa a aparecer <strong>riscado</strong> e mais transparente, com um <strong>✓</strong> antes do t&iacute;tulo</li>
+                  </ul>
+
+                  <h4>Mostrar conclu&iacute;dos (hist&oacute;rico)</h4>
+                  <p>No topo da se&ccedil;&atilde;o tem a op&ccedil;&atilde;o <strong>☑ Mostrar conclu&iacute;dos</strong>. Quando ativada:</p>
+                  <ul>
+                    <li>A lista passa a exibir <strong>pendentes + conclu&iacute;dos juntos</strong>, ordenados por data</li>
+                    <li>Os conclu&iacute;dos aparecem com a linha <strong>riscada</strong> e em tom mais claro</li>
+                    <li>Quando desativada, voc&ecirc; volta a ver s&oacute; os pendentes (mais limpo no dia a dia)</li>
+                  </ul>
+
+                  <h4>Desfazer uma conclus&atilde;o (↩)</h4>
+                  <p>Compromissos conclu&iacute;dos mostram o bot&atilde;o <strong>↩ Desfazer</strong>. Ele <strong>reabre</strong> o compromisso como pendente novamente &mdash; &uacute;til quando voc&ecirc; concluiu por engano ou precisa reagendar.</p>
+
                   <h4>Excluir um compromisso</h4>
-                  <p>Clique em <strong>Excluir</strong> na linha do evento. O compromisso &eacute; removido imediatamente do calend&aacute;rio e da lista, sem precisar recarregar a p&aacute;gina.</p>
-                  <p class="ajuda-dica">💡 Para criar um novo compromisso direto desta se&ccedil;&atilde;o, use o bot&atilde;o <strong>+ Novo Evento</strong> no topo — o comprador logado j&aacute; vem pr&eacute;-selecionado.</p>
+                  <p>Funciona em qualquer status (pendente ou conclu&iacute;do). Clique em <strong>Excluir</strong> e confirme. A&ccedil;&atilde;o n&atilde;o pode ser desfeita.</p>
+
+                  <p class="ajuda-dica">💡 <strong>Diferen&ccedil;a de Excluir vs Concluir</strong>: <em>Concluir</em> preserva o hist&oacute;rico (voc&ecirc; v&ecirc; tudo que j&aacute; fez). <em>Excluir</em> apaga o registro permanentemente. Prefira sempre concluir &mdash; o hist&oacute;rico &eacute; valioso para conferir o que foi feito.</p>
+                  <p class="ajuda-dica">⚠️ <strong>Agenda de Compras</strong> (com fornecedor) <strong>n&atilde;o</strong> tem bot&atilde;o Concluir. Ela usa o fluxo pr&oacute;prio de <strong>Tratar Agenda</strong> + <strong>Deu pedido?</strong>, que marca a ocorr&ecirc;ncia como tratada e j&aacute; cria a pr&oacute;xima.</p>
                 </div>
               </details>
 

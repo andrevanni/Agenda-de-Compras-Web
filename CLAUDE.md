@@ -327,12 +327,15 @@ Painel filtra pelo `activeBuyerId` (ambas as fontes). Renderização única em [
 ## Seção Compromissos (`id="compromissos"`)
 
 - Menu **🗒️ Compromissos** na sidebar do portal cliente
-- Lista todos os `agenda_ocorrencias` com `fornecedor_id IS NULL` e categoria ≠ "Agenda de Compras"
-- Filtro pelo comprador ativo (`activeBuyerId`)
-- Ordenação crescente por `data_prevista` + `hora_inicio`
-- Colunas: Data, Título, Categoria (pill colorida), Horário, Comprador, Excluir
-- Exclusão remove do `state.agenda` imediatamente e recarrega o calendário (sem reload completo)
-- Botão **+ Novo Evento** no topo da seção
+- Lista compromissos genéricos (`agenda_ocorrencias` com `fornecedor_id IS NULL` e categoria ≠ "Agenda de Compras") do comprador ativo, ordenados por `data_prevista` + `hora_inicio`
+- Header tem botão **+ Novo Evento** e toggle **"Mostrar concluídos"** (default off — só pendentes; on — pendentes + concluídos juntos, concluídos riscados visualmente)
+- Colunas: Data, Título, Categoria (pill), Horário, Comprador, Ações
+- **Ciclo PENDENTE ↔ REALIZADA** (desde mai/2026, sem migration — usa o `status` já existente):
+  - PENDENTE → botões **"✓ Concluir"** (verde) + **Excluir**. Concluir faz PATCH `status=REALIZADA, data_realizacao=hoje` e move in-place do `state.agenda` para `state.auditOccurrences` (sem reload pesado). Funções `concluirCompromisso` em [script_render.js](frontend/script_render.js).
+  - REALIZADA → botões **"↩ Desfazer"** + **Excluir**. Desfazer faz PATCH `status=PENDENTE, data_realizacao=null` e move de volta. Função `reabrirCompromisso`.
+  - Exclusão funciona em qualquer status.
+- **Calendário visual riscado**: `buildCalendarEvents` ([script_main.js](frontend/script_main.js)) inclui compromissos REALIZADAs genéricos com `classNames: ['fc-event-concluido']` (CSS: `opacity .55 + text-decoration line-through`) e prefixo "✓ " no título. Agenda de Compras (fornecedor) tem fluxo próprio (Tratar Agenda) e suas REALIZADAs **continuam fora do calendário** para não poluir.
+- Para fornecedor (Agenda de Compras) o ciclo é outro: "Tratar Agenda" com modal de pedido. Não há botão Concluir no fornecedor.
 
 ## Seleção de comprador (`ensureBuyerSelection`)
 
@@ -499,6 +502,24 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 - Cron manual: `POST /api/v1/cron/relatorio-diario?tenant_id=c2f65634-b7e0-47f0-8937-94446540701a&data_ref=2026-04-30` com `X-Cron-Secret: agenda-cron-2026-sfx`
 
 ## Pendências
+
+### Entregue em 27/mai/2026 (segunda leva — commits `a4a8c6e`, `ceb4687`, `4a09e62`, `d68478f`, `23ba1c6`, `67dfcfe`, `190fe05`, `e2732cd`, `e805100`, `86b0aca`)
+
+Resolução do incidente Total Socorro + 4 sugestões do cliente:
+
+- **Cron diário cortado pelo timeout (Total Socorro sem relatório)** — investigação revelou que o cron rodava com `maxDuration` default de 60s do Vercel e a ordem dos tenants no `SELECT` era indefinida (sem `ORDER BY`). Em 27/mai, drogaria_sv + velanes consumiram ~53s e total_socorro caiu fora silenciosamente. Disparo manual cobriu o dia (`POST /cron/relatorio-diario?tenant_id=…&data_ref=2026-05-26`, 2 emails). Duas tentativas de subir `maxDuration` migrando `vercel.json` para o formato `functions` quebraram o build (mensagem "pattern doesn't match any Serverless Functions" — formato exige Framework Preset Python no dashboard, não "Other"). Solução adotada: **paralelizar o envio no código** com `ThreadPoolExecutor(max_workers=5)` em [relatorio_service.py](backend/app/services/relatorio_service.py). 3 fases: (1) montar payloads em série — DB session não é thread-safe; (2) `send_html` em paralelo; (3) `_log_envio` em série. Throughput ~5x. 14 emails atuais caem de ~50s para ~14s; teto novo ~150 emails em ~30s ainda cabe nos 60s default. `ORDER BY nome` mantido para ordem determinística. (commit `23ba1c6`)
+
+- **#1 Editar/excluir série de recorrência em massa** (commit `67dfcfe`, [schema_v16](backend/db/schema_v16_serie_recorrencia.sql)): coluna `serie_id` UUID em `agenda_ocorrencias` agrupa ocorrências criadas no mesmo "Novo Evento" com recorrência/multi-comprador. Modal de edição ganha radio **"Aplicar mudanças a"** com 3 escopos (Só esta / Esta e as próximas / Toda a série) com contagens — só aparece se a ocorrência tem `serie_id` (legado continua só com "Só esta"). PATCH/DELETE em massa via filtros Supabase REST. Edição em massa não replica `data_prevista` (cada uma tem a sua), `nota` (post-it ad-hoc) nem `comprador_id` (intencional). Exclusão pede confirmação com contagem.
+
+- **#2 Botão Concluir compromissos + visual riscado + histórico** (commit `86b0aca`, sem migration): seção Compromissos ganha toggle **"Mostrar concluídos"** (default off) e botões **✓ Concluir** (PATCH `status=REALIZADA`)  / **↩ Desfazer** (PATCH `status=PENDENTE`). Compromissos REALIZADAs genéricos aparecem no calendário com classe CSS `.fc-event-concluido` (opacity .55 + line-through) e prefixo ✓ no título. Carga ajustada em [script_data.js](frontend/script_data.js) — SELECT de REALIZADAs passou a incluir `titulo/hora/categoria/serie_id`. Escopo restrito a compromissos genéricos (sem fornecedor); Agenda de Compras mantém fluxo próprio (Tratar Agenda).
+
+- **#3 Calendário não atualizava após tratar agenda** (commit `e2732cd`, fix 1 linha): `tratarAgendaAtual` chamava `loadPortalData({silent:true})` mas esqueceu de chamar `refreshCalendar()` depois — `loadPortalData` faz `renderTables` mas não atualiza FullCalendar. Resultado: usuário precisava fechar/reabrir a tela pra ver a próxima ocorrência. Fix em [script_render.js:670](frontend/script_render.js#L670) com comentário pra evitar regressão.
+
+- **#4 Salvar nota sem tratar agenda + Post-it livre no Painel** (commits `190fe05` e `e805100`, [schema_v17](backend/db/schema_v17_notas_painel.sql)):
+  - Botão **💾 Salvar nota** no modal de detalhe da Agenda de Compras — PATCH só do campo `nota`, sem mexer em status. Funciona em PENDENTE e REALIZADA (corrigir nota de algo já tratado também). Atualização local de `state.agenda`/`state.auditOccurrences` + `renderPainel()` sem reload pesado. SELECT de REALIZADAs ganhou `nota` (era omitido — nota perdida ao recarregar). Funciona inclusive corrigindo a nota de uma agenda já tratada.
+  - Botão **+ Nova nota** no header do Painel cria post-its livres na tabela `notas_painel` (id, tenant_id, comprador_id, texto, timestamps). Edição inline ao clicar no card (textarea aparece; `blur`/`Ctrl+Enter` salvam, `Esc` descarta, texto vazio deleta). Coexiste com nota-de-ocorrência no mesmo painel (📌 vs título-do-fornecedor+data).
+
+- **Ajuda do portal atualizada**: itens "Painel de Notas", "Compromissos" e "Calendário" reescritos cobrindo as novas funcionalidades. SW v47 → v49 ao longo da sessão.
 
 ### Entregue em 27/mai/2026 (commits `691c1a9`, `ed11db2`)
 
