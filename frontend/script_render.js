@@ -667,6 +667,10 @@ async function tratarAgendaAtual(pedido) {
     setFeedback(`Agenda tratada. Pr\u00f3xima data programada: ${formatDate(chosenDate)}.`, "success");
     document.getElementById("agendaDetailModal").close();
     await loadPortalData({ silent: true });
+    // loadPortalData chama renderTables mas N\u00c3O refreshCalendar \u2014 sem isso,
+    // o fornecedor some/aparece nas datas certas s\u00f3 depois de fechar/reabrir
+    // a tela (bug relatado por cliente em mai/2026).
+    refreshCalendar();
   } catch (error) {
     setFeedback(`Não foi possível tratar a agenda: ${error.message}`, "error", agendaDetailFeedback);
   }
