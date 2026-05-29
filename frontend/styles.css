@@ -1238,6 +1238,17 @@ textarea::placeholder {
   margin: 0 0 6px;
 }
 
+.comprador-notif-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  background: var(--panel-soft);
+  border-left: 3px solid #6366f1;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin: 0 0 8px;
+}
+
 .checkbox-row {
   display: flex;
   align-items: flex-start;

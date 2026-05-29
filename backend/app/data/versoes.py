@@ -9,6 +9,13 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v55",
+        "dataHora": "29/05/2026 — manhã",
+        "notas": [
+            "Cadastro de compradores: os textos das opções de notificação por e-mail ficaram mais claros. Agora explicam que marcar 'Gestor' apenas amplia o conteúdo do relatório (mostra todos os compradores), enquanto são as opções 'Receber e-mail' que de fato ligam o envio — basta marcar ao menos uma delas para a pessoa passar a receber o relatório diário.",
+        ],
+    },
+    {
         "versao": "v53",
         "dataHora": "28/05/2026 — tarde",
         "notas": [

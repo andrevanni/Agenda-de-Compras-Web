@@ -504,6 +504,7 @@ def enviar_relatorios_tenant(
     tenant_id: str,
     data_ref: Optional[date] = None,
     admin_only: bool = False,
+    comprador_id: Optional[str] = None,
 ) -> dict:
     from datetime import datetime
     if data_ref is None:
@@ -521,8 +522,14 @@ def enviar_relatorios_tenant(
     inicio_mes_atual = date(data_ref.year, data_ref.month, 1)
     inicio_mes_ant, fim_mes_ant = _mes_anterior(data_ref)
 
+    # comprador_id: envio pontual para um único comprador (validação/teste manual).
+    # Quando setado, ignora os demais compradores e as cópias de admin.
+    filtro_comprador = "AND id = cast(:cid as uuid)" if comprador_id else ""
+    params_compradores: dict = {"tid": tenant_id}
+    if comprador_id:
+        params_compradores["cid"] = comprador_id
     compradores = db.execute(
-        text("""
+        text(f"""
             SELECT
                 id::text AS id,
                 nome_comprador,
@@ -534,9 +541,10 @@ def enviar_relatorios_tenant(
             WHERE tenant_id = cast(:tid as uuid)
               AND email IS NOT NULL
               AND (receber_auditoria = true OR receber_agenda_proximo = true)
+              {filtro_comprador}
             ORDER BY nome_comprador
         """),
-        {"tid": tenant_id},
+        params_compradores,
     ).mappings().all()
 
     # Dados gerais para gestores (carregados uma vez)
@@ -615,10 +623,14 @@ def enviar_relatorios_tenant(
         })
 
     # Admins inscritos: mesmo HTML/PDF para todos (dados gerais), 1 payload por admin.
+    # Pulado em envio pontual (comprador_id) — só queremos o comprador alvo.
     try:
-        sb = get_supabase()
-        resp = sb.table("admin_report_subscriptions").select("admin_email").eq("tenant_id", tenant_id).execute()
-        admin_emails = [r["admin_email"] for r in (resp.data or [])]
+        if comprador_id:
+            admin_emails = []
+        else:
+            sb = get_supabase()
+            resp = sb.table("admin_report_subscriptions").select("admin_email").eq("tenant_id", tenant_id).execute()
+            admin_emails = [r["admin_email"] for r in (resp.data or [])]
     except Exception:
         admin_emails = []  # Nunca bloquear envio para compradores
 
