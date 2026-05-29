@@ -158,10 +158,11 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `is_gestor` | boolean | Recebe relatório consolidado de todos os compradores do tenant |
-| `receber_auditoria` | boolean | Recebe e-mail com auditoria do dia anterior |
-| `receber_agenda_proximo` | boolean | Recebe e-mail com agenda do próximo dia útil |
+| `is_gestor` | boolean | **Escopo, não gatilho.** Quando o comprador recebe o relatório, vê dados de TODOS os compradores do tenant (consolidado) em vez de só a própria carteira. **Sozinho NÃO dispara envio.** |
+| `receber_auditoria` | boolean | **Gatilho de envio.** Inclui no e-mail a seção "Tratamentos do dia anterior" + KPIs do mês |
+| `receber_agenda_proximo` | boolean | **Gatilho de envio.** Inclui no e-mail as seções "Itens em atraso" + "Agenda do próximo dia útil" |
 
+- ⚠️ **`is_gestor` NÃO faz o e-mail ser enviado** — apesar do nome, ele só define o escopo do conteúdo. O cron seleciona o comprador apenas se `receber_auditoria=true OR receber_agenda_proximo=true` (ver `WHERE` em `relatorio_service.enviar_relatorios_tenant`). Caso real (29/mai/2026): gestora não recebia porque os dois flags de "Receber e-mail" estavam desligados — `is_gestor=true` sozinho nunca disparou. Os rótulos no portal ([frontend/index.html](frontend/index.html), `compradorIsGestor`/`compradorReceberAuditoria`/`compradorReceberAgenda`) foram reescritos nessa data para deixar isso explícito.
 - Gestor sempre recebe dados de todos os compradores, independente dos flags individuais dos outros
 - Não-gestor recebe apenas os dados da própria carteira
 - Campos editáveis apenas por `admin_client` / `admin_portal` no formulário de comprador
@@ -224,7 +225,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 
 ### Cron (header `X-Cron-Secret` ou `Authorization: Bearer {CRON_SECRET}`)
 - `GET /api/v1/cron/relatorio-diario` — chamado pelo Vercel Cron (00:00 UTC = 21:00 BRT, seg-sex); schedule `0 0 * * 2-6` UTC
-- `POST /api/v1/cron/relatorio-diario` — chamada manual; aceita `?tenant_id=`, `?data_ref=` e `?admin_only=true` (envia só para admins inscritos, sem disparar compradores)
+- `POST /api/v1/cron/relatorio-diario` — chamada manual; aceita `?tenant_id=`, `?data_ref=`, `?admin_only=true` (envia só para admins inscritos, sem disparar compradores) e `?comprador_id=` (envio pontual a UM único comprador para validação — pula os demais compradores e as cópias de admin)
 
 ### Redirect (público)
 - `GET /portal` — redirect 302 para `FRONTEND_URL`
@@ -244,6 +245,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - Admin se inscreve via Painel Admin → Admins → botão **📧 Relatórios** → checklist de tenants
 - Cópia enviada sempre no nível gestor (dados consolidados de todos os compradores do tenant)
 - Teste sem afetar compradores: `POST /api/v1/cron/relatorio-diario?tenant_id=X&admin_only=true` com `X-Cron-Secret`
+- Envio pontual a 1 comprador (validar entrega sem disparar para os outros): `POST /api/v1/cron/relatorio-diario?tenant_id=X&comprador_id=Y&data_ref=AAAA-MM-DD` com `X-Cron-Secret` (adicionado em 29/mai/2026 — `comprador_id` em `enviar_relatorios_tenant`; pula demais compradores e admins)
 - ⚠️ Ao criar a tabela via SQL, rodar `GRANT ALL ON admin_report_subscriptions TO authenticated, anon, service_role;` para garantir acesso via Supabase client
 
 ### Estrutura do PDF (6 seções — reestruturado em mai/2026)
