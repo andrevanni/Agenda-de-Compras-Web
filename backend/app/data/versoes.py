@@ -9,6 +9,13 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v58",
+        "dataHora": "01/06/2026 — tarde",
+        "notas": [
+            "Ajuda do portal: a seção 'Fornecedores' agora explica a importância do campo Comprador — um fornecedor salvo sem comprador não aparece na lista (que abre filtrada por comprador) e parece ter sumido, e o mesmo código não pode ser recriado ('já existe cadastrado'); nesse caso, use 'Mostrar todos', edite o registro e reatribua o comprador.",
+        ],
+    },
+    {
         "versao": "v57",
         "dataHora": "01/06/2026 — manhã",
         "notas": [

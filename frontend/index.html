@@ -553,6 +553,10 @@
                   <p>Use <strong>Baixar Modelo CSV</strong> para obter o template, preencha e importe via <strong>Importar Fornecedores</strong>. Colunas obrigat&oacute;rias: <code>Codigo</code> e <code>Nome</code>. O sistema faz upsert — atualiza se j&aacute; existe, cria se n&atilde;o existe.</p>
                   <h4>Filtro por comprador</h4>
                   <p>A tabela abre por padr&atilde;o mostrando apenas os fornecedores do <strong>comprador ativo</strong> (o selecionado na barra lateral). Para ver a base completa, clique em <strong>Mostrar todos</strong> ao lado do campo de busca; clique novamente para voltar ao escopo do comprador. Ao reabrir o portal em uma nova sess&atilde;o, o filtro volta para o padr&atilde;o.</p>
+                  <h4>O campo Comprador (importante)</h4>
+                  <p>Cada fornecedor pertence a um <strong>comprador</strong> (a carteira). Como a tela abre filtrada pelo comprador ativo, um fornecedor salvo <strong>sem comprador</strong> n&atilde;o aparece nessa lista &mdash; parece que &ldquo;sumiu&rdquo;. Ele continua cadastrado: para encontr&aacute;-lo, clique em <strong>Mostrar todos</strong>, abra-o em <strong>Editar</strong> e selecione o comprador.</p>
+                  <p>Como o c&oacute;digo do fornecedor &eacute; &uacute;nico, tentar <strong>recriar</strong> um fornecedor que ficou sem comprador resulta no aviso <em>&ldquo;j&aacute; existe cadastrado&rdquo;</em> &mdash; n&atilde;o crie de novo, apenas reatribua o comprador ao registro existente.</p>
+                  <p>Ao editar para <strong>mesclar</strong> dois fornecedores num cadastro &uacute;nico, confira se o <strong>Comprador</strong> continua preenchido antes de salvar. Se voc&ecirc; salvar um fornecedor que tinha comprador deixando o campo vazio, o sistema agora <strong>pede confirma&ccedil;&atilde;o</strong> para evitar que ele saia da carteira sem querer.</p>
                 </div>
               </details>
 
