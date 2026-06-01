@@ -321,10 +321,17 @@ function renderBuyerSelect() {
     localStorage.setItem(storageKeys.activeBuyerId, UNASSIGNED_BUYER_VALUE);
   }
 
+  // Preserva a seleção em andamento do formulário de fornecedor: o form é uma seção
+  // inline, então um re-render (ex.: troca de comprador ativo) reconstruía as opções
+  // e zerava o select para "Sem Comprador", gravando comprador_id=null ao salvar.
+  const prevSupplierComprador = fornecedorCompradorSelect.value;
   fornecedorCompradorSelect.innerHTML = [
     `<option value="">Sem Comprador</option>`,
     ...state.buyers.map((buyer) => `<option value="${buyer.id}">${buyer.nome_comprador}</option>`),
   ].join("");
+  if (prevSupplierComprador && state.buyers.some((buyer) => buyer.id === prevSupplierComprador)) {
+    fornecedorCompradorSelect.value = prevSupplierComprador;
+  }
 
   updateBuyerCard();
 }

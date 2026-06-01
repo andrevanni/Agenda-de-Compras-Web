@@ -1032,6 +1032,22 @@ async function saveSupplier(event) {
     return;
   }
 
+  // Rede de segurança: ao editar um fornecedor que já tinha comprador, não gravar
+  // sem comprador sem confirmação — isso o tira da carteira e o esconde da lista
+  // (filtrada por comprador), fazendo parecer que "sumiu".
+  if (supplierId && oldSupplier?.comprador_id && !payload.comprador_id) {
+    const nomeAtual = state.buyers.find((b) => b.id === oldSupplier.comprador_id)?.nome_comprador ?? "o comprador atual";
+    const confirmar = window.confirm(
+      `Salvar "${payload.nome_fornecedor}" SEM comprador?\n\n` +
+      `Ele sairá da carteira de ${nomeAtual} e deixará de aparecer na lista filtrada por comprador. ` +
+      `Para mantê-lo na carteira, cancele e selecione o comprador antes de salvar.`
+    );
+    if (!confirmar) {
+      setFeedback("Salvamento cancelado. Selecione o comprador antes de salvar.", "warning");
+      return;
+    }
+  }
+
   try {
     let savedId = supplierId;
     if (supplierId) {

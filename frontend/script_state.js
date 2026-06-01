@@ -121,6 +121,14 @@ const mockAgenda = [
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
   {
+    versao: "v57",
+    dataHora: "01/06/2026 — manhã",
+    notas: [
+      "Fornecedores: ao editar um fornecedor, o comprador selecionado agora é sempre preservado ao salvar. Foi reportado que, em algumas situações, o cadastro podia ser salvo sem comprador sem aviso — fazendo o fornecedor desaparecer da lista (que abre filtrada por comprador) e impedir a recriação com o mesmo código ('já existe cadastrado').",
+      "Como rede de segurança, ao salvar um fornecedor que tinha comprador e ficar sem nenhum selecionado, o sistema agora pede confirmação antes de tirá-lo da carteira.",
+    ],
+  },
+  {
     versao: "v56",
     dataHora: "29/05/2026 — manhã",
     notas: [
