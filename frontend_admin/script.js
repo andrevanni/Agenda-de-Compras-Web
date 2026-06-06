@@ -493,6 +493,7 @@ function renderClientes() {
       </div>
       <div class="actions">
         <div class="submeta">${cliente.tenant_id ?? "Sem vinculação"}</div>
+        <button class="secondary-button" type="button" data-logo-client="${cliente.id}">${parseObservacoes(cliente.observacoes).logo_url ? "Trocar logo" : "Adicionar logo"}</button>
         <button class="secondary-button" type="button" data-audit-password-client="${cliente.id}">Senha da auditoria</button>
       </div>
     </article>
@@ -500,6 +501,10 @@ function renderClientes() {
 
   document.querySelectorAll("[data-audit-password-client]").forEach((button) => {
     button.addEventListener("click", () => definirSenhaAuditoria(button.dataset.auditPasswordClient));
+  });
+
+  document.querySelectorAll("[data-logo-client]").forEach((button) => {
+    button.addEventListener("click", () => trocarLogo(button.dataset.logoClient));
   });
 }
 
@@ -805,6 +810,47 @@ async function definirSenhaAuditoria(clienteId) {
   } catch (error) {
     setFeedback(`Não foi possível atualizar a senha da auditoria: ${error.message}`, "error");
   }
+}
+
+async function trocarLogo(clienteId) {
+  const cliente = clientes.find((item) => item.id === clienteId);
+  if (!cliente) {
+    setFeedback("Cliente não localizado para troca da logo.", "error");
+    return;
+  }
+
+  const nome = cliente.nome_fantasia ?? cliente.razao_social;
+  const picker = document.createElement("input");
+  picker.type = "file";
+  picker.accept = "image/*";
+  picker.addEventListener("change", async () => {
+    const file = picker.files?.[0];
+    if (!file) return;
+
+    setFeedback(`Enviando logo de ${nome}...`, "info");
+    let logoUrl;
+    try {
+      logoUrl = await uploadLogo(file);
+    } catch (err) {
+      setFeedback(`Erro no upload da logo: ${err.message}`, "error");
+      return;
+    }
+
+    try {
+      await fetchSupabase(`/rest/v1/clientes?id=eq.${clienteId}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          observacoes: buildObservacoes(cliente.observacoes, { logo_url: logoUrl }),
+        }),
+      });
+      setFeedback(`Logo de ${nome} atualizada com sucesso.`, "success", true);
+      await loadAdminData();
+    } catch (error) {
+      setFeedback(`Não foi possível atualizar a logo: ${error.message}`, "error");
+    }
+  });
+  picker.click();
 }
 
 async function salvarVigencia(event) {
