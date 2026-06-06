@@ -107,7 +107,8 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - Seções: Base Operacional (tenants), Clientes, Vigências, Admins, **Log de E-mails**, Ajuda, Conexão
 - **Admins — inscrições de relatório**: cada card de admin tem botão **📧 Relatórios** → modal com checklist de tenants; admin inscrito recebe cópia consolidada (gestor) do relatório diário daquele tenant; qualquer admin pode gerenciar suas próprias inscrições; `editAdminReportSubs()` / `saveAdminReportSubs()` em `script.js`
 - **Admins — gestão (Convidar/Revogar/Excluir)**: controles sempre visíveis para qualquer admin autenticado; autorização master-only (`MASTER_EMAIL = andre@servicefarma.far.br`) aplicada exclusivamente no backend (`require_master_admin`). Não usar guarda frontend para visibilidade desses controles.
-- **SW admin**: `frontend_admin/sw.js` — `agenda-admin-v10`; bumpar junto com qualquer alteração de JS/CSS do painel admin
+- **Clientes — logomarca**: o upload no formulário **Cadastrar cliente** (`#logoFile`) só roda na criação. Para um cliente **já cadastrado**, cada card tem botão **"Adicionar logo" / "Trocar logo"** (rótulo muda conforme já exista `logo_url`) — `trocarLogo(clienteId)` em `script.js` abre um `<input type=file>` dinâmico, sobe via `uploadLogo()` (bucket Storage `logos`) e grava `logo_url` por PATCH em `clientes.observacoes` via `buildObservacoes()` (mesmo padrão de `definirSenhaAuditoria` — preserva `audit_password` e demais metadados)
+- **SW admin**: `frontend_admin/sw.js` — `agenda-admin-v14`; bumpar junto com qualquer alteração de JS/CSS do painel admin
 - `fetchAdmin()` envia JWT admin no header `Authorization: Bearer` (com fallback para `X-Admin-Token`)
 - Tenants ordenados **alfabeticamente** por `nome`
 - Cada card de tenant tem toggle **"Envio de relatório diário"** — PATCH imediato em `tenants.envio_relatorio_ativo`
@@ -186,7 +187,7 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | `api/v1/cron.py` | `/api/v1/cron` | Endpoint de cron — dispara relatórios diários |
 | `api/v1/redirect.py` | `/portal` | Redirect 302 para `FRONTEND_URL` (URL estável do instalador) |
 | `services/agenda_service.py` | — | Lógica de tratamento: cálculo de datas, parâmetros |
-| `services/email_service.py` | — | `send_html()` — usa Resend se `RESEND_API_KEY` configurado, fallback para SMTP porta 465; inclui `text/plain` automático via `_html_to_text()`; suporta `attachments` (PDF) |
+| `services/email_service.py` | — | `send_html()` — usa Resend se `RESEND_API_KEY` configurado, fallback para SMTP porta 465; inclui `text/plain` automático via `_html_to_text()`; suporta `attachments` (PDF). `_send_via_resend` tem **throttle ≤4/s** (`_resend_throttle`, gate thread-safe com espaçamento mínimo de 0,25s) + **retry com backoff** (0,5/1/2s) só em erro 429 — ver "Rate limit do Resend" abaixo |
 | `services/relatorio_service.py` | — | Monta e envia relatório diário (HTML + PDF anexo) |
 | `services/pdf_service.py` | — | Gera PDF com ReportLab (padrão visual SFI) |
 | `services/admin_clientes_service.py` | — | Queries SQL de clientes (raw SQL com `sqlalchemy.text()`) |
@@ -432,7 +433,7 @@ Painel filtra pelo `activeBuyerId` (ambas as fontes). Renderização única em [
 ## Service Worker e PWA
 
 - Cache cliente: `agenda-compras-v43` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
-- Cache admin: `agenda-admin-v10` — bumpar ao alterar JS/CSS do `frontend_admin/`
+- Cache admin: `agenda-admin-v14` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
 - Modal "Instale o app": detecta browser via `userAgent` e mostra instruções específicas (Edge / Chrome / iOS)
@@ -509,11 +510,17 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 ## Pendências
 
+### Entregue em 06/jun/2026 (commits `c63d23f`, `e3abaa1`)
+
+- **Botão "Trocar/Adicionar logo" em cliente já cadastrado** (commit `c63d23f`, SW admin v13→v14): faltava o controle — a logo só podia ser definida no cadastro inicial. Cada card de cliente no painel admin (Base Operacional → Clientes) ganhou botão ao lado de "Senha da auditoria"; `trocarLogo()` em [frontend_admin/script.js](frontend_admin/script.js) reaproveita `uploadLogo()` e grava `logo_url` por PATCH em `clientes.observacoes`. **Não conserta logos de clientes pré-existentes** — só dá a ferramenta pra trocar daqui pra frente.
+
+- **Rate limit do Resend no cron diário** (commit `e3abaa1`): o Log de E-mails acusava várias falhas com `Too many requests. You can only make 5 requests per second` (38 ocorrências, 25 nos últimos 7 dias, sempre às 00:00 UTC = horário do cron). **Causa:** a paralelização com `ThreadPoolExecutor(5)` (commit `23ba1c6`, feita pra resolver o timeout do Total Socorro) destravou o teto de **5 req/s da conta Resend** — os workers disparavam em rajada, o Resend devolvia 429, e como não havia retry o e-mail simplesmente não era entregue. **Fix (B+C) em [email_service.py](backend/app/services/email_service.py) `_send_via_resend`:** (B) throttle thread-safe (`_resend_throttle`) espaça o início de cada disparo em ≥0,25s → ≤4/s mantendo o paralelismo; (C) retry com backoff exponencial (0,5/1/2s, até 4 tentativas) só quando `_is_rate_limit_error` detecta 429 — erros reais (ex.: `550` caixa inexistente) propagam normais. Protege cron **e** convites (qualquer envio Resend). Custo: ~0,25s/e-mail (~12,5s para 50 e-mails, dentro do `maxDuration`). Validado em teste local: 12 disparos com pico de 4/s. **A outra falha do log (3× `maria.teste@…` 550, mai/2026) era só endereço de teste inexistente — não é bug.**
+
 ### Entregue em 27/mai/2026 (segunda leva — commits `a4a8c6e`, `ceb4687`, `4a09e62`, `d68478f`, `23ba1c6`, `67dfcfe`, `190fe05`, `e2732cd`, `e805100`, `86b0aca`)
 
 Resolução do incidente Total Socorro + 4 sugestões do cliente:
 
-- **Cron diário cortado pelo timeout (Total Socorro sem relatório)** — investigação revelou que o cron rodava com `maxDuration` default de 60s do Vercel e a ordem dos tenants no `SELECT` era indefinida (sem `ORDER BY`). Em 27/mai, drogaria_sv + velanes consumiram ~53s e total_socorro caiu fora silenciosamente. Disparo manual cobriu o dia (`POST /cron/relatorio-diario?tenant_id=…&data_ref=2026-05-26`, 2 emails). Duas tentativas de subir `maxDuration` migrando `vercel.json` para o formato `functions` quebraram o build (mensagem "pattern doesn't match any Serverless Functions" — formato exige Framework Preset Python no dashboard, não "Other"). Solução adotada: **paralelizar o envio no código** com `ThreadPoolExecutor(max_workers=5)` em [relatorio_service.py](backend/app/services/relatorio_service.py). 3 fases: (1) montar payloads em série — DB session não é thread-safe; (2) `send_html` em paralelo; (3) `_log_envio` em série. Throughput ~5x. 14 emails atuais caem de ~50s para ~14s; teto novo ~150 emails em ~30s ainda cabe nos 60s default. `ORDER BY nome` mantido para ordem determinística. (commit `23ba1c6`)
+- **Cron diário cortado pelo timeout (Total Socorro sem relatório)** — investigação revelou que o cron rodava com `maxDuration` default de 60s do Vercel e a ordem dos tenants no `SELECT` era indefinida (sem `ORDER BY`). Em 27/mai, drogaria_sv + velanes consumiram ~53s e total_socorro caiu fora silenciosamente. Disparo manual cobriu o dia (`POST /cron/relatorio-diario?tenant_id=…&data_ref=2026-05-26`, 2 emails). Duas tentativas de subir `maxDuration` migrando `vercel.json` para o formato `functions` quebraram o build (mensagem "pattern doesn't match any Serverless Functions" — formato exige Framework Preset Python no dashboard, não "Other"). Solução adotada: **paralelizar o envio no código** com `ThreadPoolExecutor(max_workers=5)` em [relatorio_service.py](backend/app/services/relatorio_service.py). 3 fases: (1) montar payloads em série — DB session não é thread-safe; (2) `send_html` em paralelo; (3) `_log_envio` em série. Throughput ~5x. 14 emails atuais caem de ~50s para ~14s; teto novo ~150 emails em ~30s ainda cabe nos 60s default. `ORDER BY nome` mantido para ordem determinística. (commit `23ba1c6`) ⚠️ **Efeito colateral descoberto em 06/jun/2026**: essa paralelização estourava o teto de 5 req/s da conta Resend (429 sem retry). Corrigido com throttle ≤4/s + retry/backoff em `email_service.py` — ver "Entregue em 06/jun/2026" acima.
 
 - **#1 Editar/excluir série de recorrência em massa** (commit `67dfcfe`, [schema_v16](backend/db/schema_v16_serie_recorrencia.sql)): coluna `serie_id` UUID em `agenda_ocorrencias` agrupa ocorrências criadas no mesmo "Novo Evento" com recorrência/multi-comprador. Modal de edição ganha radio **"Aplicar mudanças a"** com 3 escopos (Só esta / Esta e as próximas / Toda a série) com contagens — só aparece se a ocorrência tem `serie_id` (legado continua só com "Só esta"). PATCH/DELETE em massa via filtros Supabase REST. Edição em massa não replica `data_prevista` (cada uma tem a sua), `nota` (post-it ad-hoc) nem `comprador_id` (intencional). Exclusão pede confirmação com contagem.
 
