@@ -2143,3 +2143,12 @@ body[data-theme="light"] .postit-note-shell textarea {
 .ef-pedidos-table th { text-align: left; }
 .ef-motivo { color: var(--muted); font-style: italic; max-width: 320px; white-space: normal; }
 .ef-empty { padding: 8px 0; }
+.ef-sugestao {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 8px;
+  font-size: 13px;
+}
+body[data-theme="dark"] .ef-sugestao { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }

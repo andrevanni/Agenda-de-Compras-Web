@@ -9,6 +9,16 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v64",
+        "dataHora": "25/06/2026 — tarde",
+        "notas": [
+            "Eficiência da Agenda — análise reformulada: agora valida se a frequência de cada fornecedor está realmente funcionando, comparando o intervalo real entre os pedidos com o intervalo que a frequência determina (semanal = a cada 7 dias, quinzenal = 14, mensal = 28, etc.).",
+            "Cada fornecedor mostra a frequência cadastrada, o intervalo real × alvo e um status: No ritmo, Abaixo do esperado (pedidos mais espaçados que o previsto — acima de 10% já alerta, pois o estoque de segurança não cobre), Acima do esperado, Vencido (passou do prazo sem novo pedido) ou Sem pedido.",
+            "Fornecedores com baixa conversão (agenda gerada mas sem pedido) também são sinalizados, pois indicam que a frequência pode não estar funcionando.",
+            "Quando o ritmo real difere do cadastrado, o sistema sugere a frequência mais adequada.",
+        ],
+    },
+    {
         "versao": "v63",
         "dataHora": "25/06/2026 — tarde",
         "notas": [
