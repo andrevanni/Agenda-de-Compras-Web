@@ -432,8 +432,11 @@ Painel filtra pelo `activeBuyerId` (ambas as fontes). Renderização única em [
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v43` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome)
+- Cache cliente: `agenda-compras-v62` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
 - Cache admin: `agenda-admin-v14` — bumpar ao alterar JS/CSS do `frontend_admin/`
+- **Estratégia NETWORK-FIRST (desde v62 / jun/2026)**: o handler `fetch` tenta a rede primeiro e só cai no cache offline. Substituiu o `cache-first` antigo, que causava um estado "Frankenstein" — mistura de arquivos de versões diferentes presos no cache (ex.: `index.html` novo + `script_state.js` velho → menu aparece mas dados/Versões quebram). Não voltar para cache-first.
+- **Instalação RESILIENTE (desde v62)**: `install` faz `addAll` só dos assets **locais** (mesmo domínio, sempre 200) e os assets de **CDN externa** (fontes, FullCalendar) via `Promise.allSettled` best-effort. Motivo: com `cache.addAll([...CDN])` num passo único, se uma CDN falhasse (comum no **Safari**), o `addAll` rejeitava, a versão nova **nunca instalava/ativava** e o usuário ficava preso na antiga — causa real de "atualização não chega" (jun/2026, validação da Eficiência). **Nunca** colocar URL de CDN externa no `addAll` obrigatório.
+- **Recuperação de cache preso**: `/?limpar=1` agora faz **reset nuclear** — além de limpar storage, **desregistra todos os Service Workers e apaga todos os caches** (`navigator.serviceWorker.getRegistrations()` + `caches.keys()`), depois recarrega. É o procedimento oficial quando um usuário fica preso numa versão antiga.
 - SW registrado em `index.html` e `instalar.html` com `navigator.serviceWorker.register('/sw.js')`
 - ASSETS do SW: os 6 `script_*.js`, `index.html`, `instalar.html`, `styles.css`, `manifest.json`, `icon-*.png`, fontes, FullCalendar
 - Modal "Instale o app": detecta browser via `userAgent` e mostra instruções específicas (Edge / Chrome / iOS)

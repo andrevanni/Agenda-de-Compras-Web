@@ -971,7 +971,8 @@ async function bootstrap() {
     history.replaceState(null, "", window.location.pathname);
   }
 
-  // Limpeza forçada de sessão — ?limpar=1 na URL
+  // Reset nuclear — ?limpar=1 na URL: limpa sessão, desregistra o Service Worker
+  // e apaga todos os caches. Resolve estados de cache preso/inconsistente.
   if (new URLSearchParams(window.location.search).get("limpar") === "1") {
     [storageKeys.jwt, storageKeys.refreshToken, storageKeys.tenantId,
      storageKeys.loggedBuyerId, storageKeys.activeBuyerId,
@@ -980,8 +981,16 @@ async function bootstrap() {
       localStorage.removeItem(k);
       sessionStorage.removeItem(k);
     });
-    history.replaceState(null, "", window.location.pathname);
-    window.location.href = window.location.pathname;
+    Promise.allSettled([
+      navigator.serviceWorker
+        ? navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister())))
+        : Promise.resolve(),
+      window.caches
+        ? caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k))))
+        : Promise.resolve(),
+    ]).finally(() => {
+      window.location.href = window.location.pathname;
+    });
     return;
   }
 
