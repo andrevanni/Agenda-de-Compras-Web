@@ -1,3 +1,5 @@
+import traceback
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -80,38 +82,76 @@ def definir_senha(payload: DefinirSenhaRequest) -> dict:
         user_resp = sb.auth.get_user(payload.access_token)
         user = user_resp.user
     except Exception:
+        print("[definir-senha] get_user FALHOU — link de convite expirado/inválido")
+        traceback.print_exc()
         raise HTTPException(
             status_code=401,
             detail="Link expirado ou inválido. Solicite um novo convite ao administrador.",
         )
 
+    email = (user.email or "").lower().strip()
+
     if len(payload.nova_senha) < 6:
         raise HTTPException(status_code=400, detail="A senha deve ter ao menos 6 caracteres.")
 
+    # Grava a senha E confirma o e-mail. Sem email_confirm o usuário fica com
+    # email_confirmed_at=NULL e o sign_in abaixo pode ser rejeitado pelo Supabase
+    # Auth — deixando o comprador preso (casos Raquel/Caio/Elias, mai/2026).
     try:
-        sb.auth.admin.update_user_by_id(str(user.id), {"password": payload.nova_senha})
+        sb.auth.admin.update_user_by_id(
+            str(user.id), {"password": payload.nova_senha, "email_confirm": True}
+        )
     except Exception as e:
+        print(f"[definir-senha] update_user_by_id FALHOU — email={email} user_id={user.id}")
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=f"Erro ao definir senha: {e}")
 
-    # Vincula user_id ao comprador pelo e-mail
+    # Vincula user_id ao comprador pelo e-mail (não fatal — só loga se falhar)
     try:
         sb.table("compradores").update({"user_id": str(user.id)}).eq(
-            "email", user.email.lower().strip()
+            "email", email
         ).execute()
     except Exception:
-        pass
+        print(f"[definir-senha] AVISO: falha ao vincular user_id ao comprador — email={email}")
+        traceback.print_exc()
 
+    # Verificação pós-update: o sign_in PROVA que a senha foi realmente persistida.
+    # Se falhar após um update "ok", é sinal de que a senha NÃO gravou — loga alto e
+    # retorna erro HONESTO em vez de dizer "Senha definida" e deixar o usuário preso
+    # achando que deu certo (causa-raiz dos casos de mai/2026).
     try:
         sign_resp = sb.auth.sign_in_with_password(
             {"email": user.email, "password": payload.nova_senha}
         )
     except Exception:
+        print(
+            f"[definir-senha] ALERTA: sign_in FALHOU após update — email={email} "
+            f"user_id={user.id} — senha provavelmente NÃO foi persistida"
+        )
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
-            detail="Senha definida. Acesse o portal com seu e-mail e senha.",
+            detail=(
+                "Não foi possível confirmar sua senha. Tente novamente em alguns "
+                "instantes ou solicite um novo convite ao administrador."
+            ),
+        )
+
+    if not sign_resp.session:
+        print(f"[definir-senha] ALERTA: sign_in sem session — email={email} user_id={user.id}")
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Não foi possível confirmar sua senha. Tente novamente ou solicite "
+                "um novo convite ao administrador."
+            ),
         )
 
     comprador = _comprador_para_usuario(sb, user.email, str(user.id))
+    print(
+        f"[definir-senha] OK — senha definida e login confirmado — email={email} "
+        f"tenant={comprador['tenant_id']}"
+    )
     return {
         "access_token": sign_resp.session.access_token,
         "refresh_token": sign_resp.session.refresh_token,
