@@ -9,6 +9,13 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v60",
+        "dataHora": "25/06/2026 — tarde",
+        "notas": [
+            "Auditoria da Operação: corrigido um problema em que compromissos genéricos concluídos (sem fornecedor) apareciam na 'Auditoria por comprador' como 'Fornecedor não localizado', inflando a contagem de eventos. A Auditoria volta a considerar apenas a Agenda de Compras.",
+        ],
+    },
+    {
         "versao": "v59",
         "dataHora": "25/06/2026 — tarde",
         "notas": [

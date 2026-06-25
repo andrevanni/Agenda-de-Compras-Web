@@ -1056,6 +1056,10 @@ function renderAuditDashboard() {
   const filterSupplierId = document.getElementById("auditSupplierFilter")?.value ?? "";
 
   const allEntries = state.auditOccurrences
+    // Escopo da Auditoria = Agenda de Compras. Compromissos genéricos (sem
+    // fornecedor) ficam REALIZADA ao serem concluídos na seção Compromissos
+    // (v48) e vazavam pra cá como "Fornecedor não localizado" — excluídos aqui.
+    .filter((raw) => raw.fornecedor_id)
     .filter((raw) => !filterSupplierId || raw.fornecedor_id === filterSupplierId)
     .map(classifyAuditEvent)
     .filter((entry) => entry.status !== "PENDENTE" || entry.meta)
