@@ -1,12 +1,18 @@
 import json
 from calendar import monthrange
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+# Quantos envios de email simultâneos. Resend free tem rate limit ~10 req/s;
+# 5 workers ficam folgados e ainda assim cortam o tempo do cron em ~5x.
+EMAIL_PARALLEL_WORKERS = 5
+
 from app.core.config import settings
+from app.db.supabase_client import get_supabase
 from app.services.email_service import send_html
 from app.services.pdf_service import build_relatorio_pdf
 
@@ -86,7 +92,10 @@ def _kpis_query(db: Session, tenant_id: str, inicio: date, fim: date, comprador_
                       AND observacao IS NOT NULL
                       AND observacao::jsonb ? 'executado_fora_da_carteira'
                       AND (observacao::jsonb->>'executado_fora_da_carteira')::boolean = true
-                ) AS fora_carteira
+                ) AS fora_carteira,
+                COUNT(*) FILTER (WHERE pedido_realizado = TRUE) AS pedidos_sim,
+                COUNT(*) FILTER (WHERE pedido_realizado = FALSE) AS pedidos_nao,
+                COALESCE(SUM(pedido_valor) FILTER (WHERE pedido_realizado = TRUE), 0) AS valor_total_pedidos
             FROM agenda_ocorrencias
             WHERE tenant_id = cast(:tid as uuid)
               AND data_prevista BETWEEN :inicio AND :fim
@@ -96,8 +105,13 @@ def _kpis_query(db: Session, tenant_id: str, inicio: date, fim: date, comprador_
         params,
     ).mappings().first()
     empty = {"total": 0, "realizadas": 0, "adiadas": 0, "atrasadas": 0, "pendentes": 0,
-             "postergadas": 0, "antecipadas": 0, "param_aumentados": 0, "param_reduzidos": 0, "fora_carteira": 0}
-    return dict(row) if row else empty
+             "postergadas": 0, "antecipadas": 0, "param_aumentados": 0, "param_reduzidos": 0,
+             "fora_carteira": 0, "pedidos_sim": 0, "pedidos_nao": 0, "valor_total_pedidos": 0}
+    result = dict(row) if row else empty
+    # taxa_pedido = sim / (sim + nao) — calculada após query
+    respondidos = (result.get("pedidos_sim") or 0) + (result.get("pedidos_nao") or 0)
+    result["taxa_pedido"] = round((result.get("pedidos_sim", 0) / respondidos) * 100) if respondidos > 0 else None
+    return result
 
 
 def _get_itens_atrasados(
@@ -287,9 +301,19 @@ def _build_html_email(
             cell("Parâm. ↓", kpis.get("param_reduzidos", 0),  "#10b981"),
             cell("Fora carteira", kpis.get("fora_carteira", 0),    "#6b7280"),
         ])
+        taxa = kpis.get("taxa_pedido")
+        valor = kpis.get("valor_total_pedidos") or 0
+        valor_fmt = "R$ " + f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        row3 = "".join([
+            cell("Pedidos Sim", kpis.get("pedidos_sim", 0),                "#16a34a"),
+            cell("Pedidos Não", kpis.get("pedidos_nao", 0),                "#ef4444"),
+            cell("Taxa Pedido", f"{taxa}%" if taxa is not None else "—",   "#0ea5e9"),
+            cell("Valor Total", valor_fmt,                                 "#7c3aed"),
+        ])
         return (
             f'<p style="font-size:13px;font-weight:600;color:#1e293b;margin:20px 0 6px;">{label}</p>'
-            f'<table style="width:100%;border-spacing:5px;border-collapse:separate;"><tr>{row1}</tr><tr>{row2}</tr></table>'
+            f'<table style="width:100%;border-spacing:5px;border-collapse:separate;">'
+            f'<tr>{row1}</tr><tr>{row2}</tr><tr>{row3}</tr></table>'
         )
 
     def atrasados_section() -> str:
@@ -479,6 +503,8 @@ def enviar_relatorios_tenant(
     db: Session,
     tenant_id: str,
     data_ref: Optional[date] = None,
+    admin_only: bool = False,
+    comprador_id: Optional[str] = None,
 ) -> dict:
     from datetime import datetime
     if data_ref is None:
@@ -496,8 +522,14 @@ def enviar_relatorios_tenant(
     inicio_mes_atual = date(data_ref.year, data_ref.month, 1)
     inicio_mes_ant, fim_mes_ant = _mes_anterior(data_ref)
 
+    # comprador_id: envio pontual para um único comprador (validação/teste manual).
+    # Quando setado, ignora os demais compradores e as cópias de admin.
+    filtro_comprador = "AND id = cast(:cid as uuid)" if comprador_id else ""
+    params_compradores: dict = {"tid": tenant_id}
+    if comprador_id:
+        params_compradores["cid"] = comprador_id
     compradores = db.execute(
-        text("""
+        text(f"""
             SELECT
                 id::text AS id,
                 nome_comprador,
@@ -509,9 +541,10 @@ def enviar_relatorios_tenant(
             WHERE tenant_id = cast(:tid as uuid)
               AND email IS NOT NULL
               AND (receber_auditoria = true OR receber_agenda_proximo = true)
+              {filtro_comprador}
             ORDER BY nome_comprador
         """),
-        {"tid": tenant_id},
+        params_compradores,
     ).mappings().all()
 
     # Dados gerais para gestores (carregados uma vez)
@@ -522,10 +555,13 @@ def enviar_relatorios_tenant(
     kpis_mes_atual_geral = _kpis_query(db, tenant_id, inicio_mes_atual, data_ref)
     kpis_mes_ant_geral = _kpis_query(db, tenant_id, inicio_mes_ant, fim_mes_ant)
 
-    sent = 0
-    errors = 0
+    # FASE 1 — montar payloads em série (queries DB + HTML + PDF).
+    # Queries só aqui pq SQLAlchemy Session não é thread-safe.
+    subject = f"Agenda de Compras — Relatório {_fmt(data_ref)}"
+    pdf_filename = f"relatorio_{_fmt(data_ref).replace('/', '-')}.pdf"
+    payloads: list[dict] = []
 
-    for c in compradores:
+    for c in ([] if admin_only else compradores):
         is_gestor = bool(c["is_gestor"])
 
         if is_gestor:
@@ -559,7 +595,6 @@ def enviar_relatorios_tenant(
             auditoria_rows=auditoria,
             tenant_name=tenant_name,
         )
-        subject = f"Agenda de Compras — Relatório {_fmt(data_ref)}"
 
         pdf_bytes: Optional[bytes] = None
         try:
@@ -579,14 +614,88 @@ def enviar_relatorios_tenant(
         except Exception:
             pdf_bytes = None
 
-        attachments = [(f"relatorio_{_fmt(data_ref).replace('/', '-')}.pdf", pdf_bytes)] if pdf_bytes else None
+        payloads.append({
+            "email": c["email"],
+            "html": html,
+            "attachments": [(pdf_filename, pdf_bytes)] if pdf_bytes else None,
+            "comprador_id": c["id"],
+            "tipo": tipo,
+        })
 
+    # Admins inscritos: mesmo HTML/PDF para todos (dados gerais), 1 payload por admin.
+    # Pulado em envio pontual (comprador_id) — só queremos o comprador alvo.
+    try:
+        if comprador_id:
+            admin_emails = []
+        else:
+            sb = get_supabase()
+            resp = sb.table("admin_report_subscriptions").select("admin_email").eq("tenant_id", tenant_id).execute()
+            admin_emails = [r["admin_email"] for r in (resp.data or [])]
+    except Exception:
+        admin_emails = []  # Nunca bloquear envio para compradores
+
+    if admin_emails:
+        html_admin = _build_html_email(
+            nome_comprador="Administrador",
+            is_gestor=True,
+            data_ref=data_ref,
+            proximo_dia=proximo_dia,
+            kpis_mes_atual=kpis_mes_atual_geral,
+            kpis_mes_anterior=kpis_mes_ant_geral,
+            itens_atrasados=atrasados_geral,
+            agenda_compras_rows=agenda_compras_geral,
+            outros_compromissos_rows=outros_compromissos_geral,
+            auditoria_rows=auditoria_geral,
+            tenant_name=tenant_name,
+        )
+        pdf_admin: Optional[bytes] = None
         try:
-            send_html([c["email"]], subject, html, attachments=attachments)
-            _log_envio(db, tenant_id, c["id"], tipo, data_ref, c["email"], "enviado")
-            sent += 1
+            pdf_admin = build_relatorio_pdf(
+                nome_comprador="Administrador",
+                is_gestor=True,
+                data_ref=data_ref,
+                proximo_dia=proximo_dia,
+                kpis_mes_atual=kpis_mes_atual_geral,
+                kpis_mes_anterior=kpis_mes_ant_geral,
+                itens_atrasados=atrasados_geral,
+                agenda_compras_rows=agenda_compras_geral,
+                outros_compromissos_rows=outros_compromissos_geral,
+                auditoria_rows=auditoria_geral,
+                tenant_name=tenant_name,
+            )
+        except Exception:
+            pdf_admin = None
+        attachments_admin = [(pdf_filename, pdf_admin)] if pdf_admin else None
+        for admin_email in admin_emails:
+            payloads.append({
+                "email": admin_email,
+                "html": html_admin,
+                "attachments": attachments_admin,
+                "comprador_id": None,
+                "tipo": "admin_copia",
+            })
+
+    # FASE 2 — envia tudo em paralelo. Bloqueante; resultados na mesma ordem dos payloads.
+    def _send_one(p: dict) -> tuple[str, Optional[str]]:
+        try:
+            send_html([p["email"]], subject, p["html"], attachments=p["attachments"])
+            return ("enviado", None)
         except Exception as exc:
-            _log_envio(db, tenant_id, c["id"], tipo, data_ref, c["email"], "erro", str(exc)[:500])
+            return ("erro", str(exc)[:500])
+
+    results: list[tuple[str, Optional[str]]] = []
+    if payloads:
+        with ThreadPoolExecutor(max_workers=EMAIL_PARALLEL_WORKERS) as pool:
+            results = list(pool.map(_send_one, payloads))
+
+    # FASE 3 — log em série (session DB não é thread-safe).
+    sent = 0
+    errors = 0
+    for payload, (status, erro) in zip(payloads, results):
+        _log_envio(db, tenant_id, payload["comprador_id"], payload["tipo"], data_ref, payload["email"], status, erro)
+        if status == "enviado":
+            sent += 1
+        else:
             errors += 1
 
     return {
@@ -602,7 +711,7 @@ def enviar_relatorios_todos_tenants(
     db: Session,
     data_ref: Optional[date] = None,
 ) -> dict:
-    tenants = db.execute(text("SELECT id::text AS id FROM tenants WHERE envio_relatorio_ativo = true")).mappings().all()
+    tenants = db.execute(text("SELECT id::text AS id FROM tenants WHERE envio_relatorio_ativo = true ORDER BY nome")).mappings().all()
     total_sent = 0
     total_errors = 0
     results = []

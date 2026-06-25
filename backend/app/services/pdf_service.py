@@ -176,10 +176,19 @@ def _kpi_cards(kpis: dict, width: int) -> Table:
         ("Param. -",      kpis.get("param_reduzidos", 0),  "#10b981"),
         ("Fora Carteira", kpis.get("fora_carteira", 0),    "#6b7280"),
     ]
+    taxa = kpis.get("taxa_pedido")
+    valor = kpis.get("valor_total_pedidos") or 0
+    valor_fmt = "R$ " + f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    row3 = [
+        ("Pedidos Sim", kpis.get("pedidos_sim", 0),                "#16a34a"),
+        ("Pedidos Não", kpis.get("pedidos_nao", 0),                "#ef4444"),
+        ("Taxa Pedido", f"{taxa}%" if taxa is not None else "—",   "#0ea5e9"),
+        ("Valor Total", valor_fmt,                                 "#7c3aed"),
+    ]
     n = len(row1)
     card_w = (width - (n - 1) * 5) / n
 
-    def card(label: str, value: int, accent: str, small: bool = False) -> Table:
+    def card(label: str, value, accent: str, small: bool = False) -> Table:
         fs_val = 15 if small else 18
         t_s = _s(f"ct_{label}", fontName="Helvetica", fontSize=7.5, leading=10, textColor=C_SLATE)
         v_s = _s(f"cv_{label}", fontName="Helvetica-Bold", fontSize=fs_val, leading=fs_val + 4, textColor=C_NAVY)
@@ -197,6 +206,10 @@ def _kpi_cards(kpis: dict, width: int) -> Table:
 
     cards1 = [card(lbl, val, acc) for lbl, val, acc in row1]
     cards2 = [card(lbl, val, acc, small=True) for lbl, val, acc in row2]
+    # Row 3 (pedidos): mesmo card_w para ficar alinhado; preencher 5ª coluna vazia
+    cards3 = [card(lbl, val, acc, small=True) for lbl, val, acc in row3]
+    while len(cards3) < n:
+        cards3.append("")
     spacing = TableStyle([
         ("LEFTPADDING",  (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 5),
@@ -208,7 +221,9 @@ def _kpi_cards(kpis: dict, width: int) -> Table:
     g1.setStyle(spacing)
     g2 = Table([cards2], colWidths=[card_w] * n)
     g2.setStyle(spacing)
-    wrapper = Table([[g1], [g2]], colWidths=[width])
+    g3 = Table([cards3], colWidths=[card_w] * n)
+    g3.setStyle(spacing)
+    wrapper = Table([[g1], [g2], [g3]], colWidths=[width])
     wrapper.setStyle(TableStyle([
         ("LEFTPADDING",  (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),

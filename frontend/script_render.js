@@ -11,21 +11,26 @@ function renderTables() {
 }
 
 function renderCompromissos() {
-  const { activeBuyerId, tenantId } = getSettings();
+  const { activeBuyerId } = getSettings();
   const catAgendaId = state.categorias.find((c) => c.nome === "Agenda de Compras")?.id;
+  const mostrarConcluidos = document.getElementById("compromissosMostrarConcluidos")?.checked ?? false;
 
-  const rows = [...state.agenda]
-    .filter((occ) => !occ.fornecedor_id)
-    .filter((occ) => occ.categoria_id !== catAgendaId)
-    .filter((occ) => {
-      if (!activeBuyerId || activeBuyerId === UNASSIGNED_BUYER_VALUE) return true;
-      return occ.comprador_id === activeBuyerId || !occ.comprador_id;
-    })
-    .sort((a, b) => {
-      const da = (a.data_prevista ?? "") + (a.hora_inicio ?? "00:00");
-      const db = (b.data_prevista ?? "") + (b.hora_inicio ?? "00:00");
-      return da.localeCompare(db);
-    });
+  const filtroComprador = (occ) => {
+    if (!activeBuyerId || activeBuyerId === UNASSIGNED_BUYER_VALUE) return true;
+    return occ.comprador_id === activeBuyerId || !occ.comprador_id;
+  };
+  const ehGenerico = (occ) => !occ.fornecedor_id && occ.categoria_id !== catAgendaId;
+
+  const pendentes = state.agenda.filter(ehGenerico).filter(filtroComprador);
+  const concluidos = mostrarConcluidos
+    ? (state.auditOccurrences ?? []).filter((occ) => occ.status === "REALIZADA").filter(ehGenerico).filter(filtroComprador)
+    : [];
+
+  const rows = [...pendentes, ...concluidos].sort((a, b) => {
+    const da = (a.data_prevista ?? "") + (a.hora_inicio ?? "00:00");
+    const db = (b.data_prevista ?? "") + (b.hora_inicio ?? "00:00");
+    return da.localeCompare(db);
+  });
 
   const tbody = document.getElementById("compromissosTable");
   if (!tbody) return;
@@ -37,21 +42,32 @@ function renderCompromissos() {
         const horario = occ.hora_inicio
           ? occ.hora_inicio + (occ.hora_fim ? " – " + occ.hora_fim : "")
           : "-";
-        return `<tr>
+        const concluido = occ.status === "REALIZADA";
+        const rowStyle = concluido ? ' style="opacity:.55;text-decoration:line-through;"' : "";
+        const acoes = concluido
+          ? `<button class="btn btn-outline btn-sm btn-table" data-reabrir-compromisso="${occ.id}" title="Marcar como pendente novamente">↩ Desfazer</button>
+             <button class="btn btn-danger btn-sm btn-table" data-delete-compromisso="${occ.id}">Excluir</button>`
+          : `<button class="btn btn-success btn-sm btn-table" data-concluir-compromisso="${occ.id}" title="Marcar como concluído">✓ Concluir</button>
+             <button class="btn btn-danger btn-sm btn-table" data-delete-compromisso="${occ.id}">Excluir</button>`;
+        return `<tr${rowStyle}>
           <td>${formatDate(occ.data_prevista)}</td>
           <td>${occ.titulo ?? "-"}</td>
           <td>${cat ? `<span class="pill" style="background:${cat.cor};color:#fff;">${cat.nome}</span>` : "-"}</td>
           <td>${horario}</td>
           <td>${buyer?.nome_comprador ?? "<span class='muted'>Sem resp.</span>"}</td>
-          <td class="td-actions">
-            <button class="btn btn-danger btn-sm btn-table" data-delete-compromisso="${occ.id}">Excluir</button>
-          </td>
+          <td class="td-actions">${acoes}</td>
         </tr>`;
       }).join("")
-    : `<tr><td colspan="6">Nenhum compromisso agendado para este comprador.</td></tr>`;
+    : `<tr><td colspan="6">Nenhum compromisso ${mostrarConcluidos ? "para este comprador" : "pendente para este comprador"}.</td></tr>`;
 
   tbody.querySelectorAll("[data-delete-compromisso]").forEach((btn) => {
     btn.addEventListener("click", () => deleteCompromisso(btn.dataset.deleteCompromisso));
+  });
+  tbody.querySelectorAll("[data-concluir-compromisso]").forEach((btn) => {
+    btn.addEventListener("click", () => concluirCompromisso(btn.dataset.concluirCompromisso));
+  });
+  tbody.querySelectorAll("[data-reabrir-compromisso]").forEach((btn) => {
+    btn.addEventListener("click", () => reabrirCompromisso(btn.dataset.reabrirCompromisso));
   });
 }
 
@@ -63,11 +79,68 @@ async function deleteCompromisso(id) {
       { method: "DELETE" }
     );
     state.agenda = state.agenda.filter((occ) => occ.id !== id);
+    state.auditOccurrences = (state.auditOccurrences ?? []).filter((occ) => occ.id !== id);
     renderCompromissos();
     refreshCalendar();
     setFeedback("Compromisso excluído.", "success");
   } catch (err) {
     setFeedback(`Erro ao excluir: ${err.message}`, "error");
+  }
+}
+
+async function concluirCompromisso(id) {
+  try {
+    const hoje = todayIso();
+    await fetchSupabase(
+      `/rest/v1/agenda_ocorrencias?id=eq.${id}&tenant_id=eq.${getSettings().tenantId}`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: { status: "REALIZADA", data_realizacao: hoje },
+      }
+    );
+    // Move do state.agenda (PENDENTE) para state.auditOccurrences (REALIZADA)
+    const idx = state.agenda.findIndex((occ) => occ.id === id);
+    if (idx >= 0) {
+      const occ = state.agenda[idx];
+      occ.status = "REALIZADA";
+      occ.data_realizacao = hoje;
+      state.agenda.splice(idx, 1);
+      (state.auditOccurrences = state.auditOccurrences ?? []).unshift(occ);
+    }
+    renderCompromissos();
+    refreshCalendar();
+    setFeedback("Compromisso concluído.", "success");
+  } catch (err) {
+    setFeedback(`Erro ao concluir: ${err.message}`, "error");
+  }
+}
+
+async function reabrirCompromisso(id) {
+  try {
+    await fetchSupabase(
+      `/rest/v1/agenda_ocorrencias?id=eq.${id}&tenant_id=eq.${getSettings().tenantId}`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: { status: "PENDENTE", data_realizacao: null },
+      }
+    );
+    // Move do state.auditOccurrences (REALIZADA) para state.agenda (PENDENTE)
+    const list = state.auditOccurrences ?? [];
+    const idx = list.findIndex((occ) => occ.id === id);
+    if (idx >= 0) {
+      const occ = list[idx];
+      occ.status = "PENDENTE";
+      occ.data_realizacao = null;
+      list.splice(idx, 1);
+      state.agenda.push(occ);
+    }
+    renderCompromissos();
+    refreshCalendar();
+    setFeedback("Compromisso reaberto como pendente.", "success");
+  } catch (err) {
+    setFeedback(`Erro ao reabrir: ${err.message}`, "error");
   }
 }
 
@@ -119,8 +192,20 @@ function classifyAuditEvent(entry) {
     resumo,
     meta,
     metrics,
+    pedidoRealizado: entry.pedido_realizado ?? null,
+    pedidoQuantidade: entry.pedido_quantidade ?? null,
+    pedidoValor: entry.pedido_valor != null ? Number(entry.pedido_valor) : null,
+    pedidoMotivoNao: entry.pedido_motivo_nao ?? null,
+    pedidoMotivoDetalhe: entry.pedido_motivo_detalhe ?? null,
   };
 }
+
+const PEDIDO_MOTIVO_LABEL = {
+  NAO_DEU_PEDIDO_MINIMO: "Não deu Pedido Mínimo",
+  FORNECEDOR_NAO_CUMPRIU: "Fornecedor não cumpriu a Agenda",
+  INDEFINICAO_COMERCIAL: "Indefinição Comercial nas Condições",
+  OUTROS: "Outros",
+};
 
 function aggregateAuditMetrics(entries) {
   return entries.reduce((acc, entry) => {
@@ -130,6 +215,13 @@ function aggregateAuditMetrics(entries) {
     acc.antecipadas += entry.metrics.antecipada;
     acc.aumentos += entry.metrics.aumentoParametro;
     acc.reducoes += entry.metrics.reducaoParametro;
+    if (entry.pedidoRealizado === true) {
+      acc.pedidosSim += 1;
+      acc.valorTotalPedidos += entry.pedidoValor || 0;
+      acc.quantidadeTotalPedidos += entry.pedidoQuantidade || 0;
+    } else if (entry.pedidoRealizado === false) {
+      acc.pedidosNao += 1;
+    }
     return acc;
   }, {
     total: 0,
@@ -138,6 +230,10 @@ function aggregateAuditMetrics(entries) {
     antecipadas: 0,
     aumentos: 0,
     reducoes: 0,
+    pedidosSim: 0,
+    pedidosNao: 0,
+    valorTotalPedidos: 0,
+    quantidadeTotalPedidos: 0,
   });
 }
 
@@ -157,6 +253,37 @@ function showSection(sectionId) {
       initCalendar();
     }
   }
+  if (sectionId === "versoes") {
+    renderVersoes();
+  }
+}
+
+function renderVersoes() {
+  const container = document.getElementById("versoesLista");
+  if (!container) return;
+  if (typeof VERSOES === "undefined" || !VERSOES.length) {
+    container.innerHTML = `<p class="muted" style="padding:24px 0">Nenhuma versão registrada ainda.</p>`;
+    return;
+  }
+  container.innerHTML = VERSOES.map((v, idx) => {
+    const isLatest = idx === 0;
+    const badge = isLatest
+      ? `<span class="versao-badge-atual">Atual</span>`
+      : "";
+    const notas = (v.notas ?? []).map((n) => `<li>${escapeHtml(n)}</li>`).join("");
+    return `
+      <article class="versao-card${isLatest ? " versao-card-atual" : ""}">
+        <header class="versao-card-header">
+          <div class="versao-card-id">
+            <span class="versao-card-tag">${escapeHtml(v.versao)}</span>
+            ${badge}
+          </div>
+          <span class="versao-card-data">${escapeHtml(v.dataHora)}</span>
+        </header>
+        <ul class="versao-card-notas">${notas}</ul>
+      </article>
+    `;
+  }).join("");
 }
 
 function mapSupplier(item) {
@@ -296,10 +423,11 @@ function openAgendaDetail(occurrenceId) {
   document.getElementById("proximaDataInput").value = isoToBr(suggestedDate);
   document.getElementById("agendaObservacao").value = "Tratado pela tela";
   document.getElementById("agendaNota").value = row.nota ?? "";
+  const incrementoBaseFiltrado = Math.max(0, incrementoTratamentoBase);
   document.getElementById("incrementoTratamento").textContent = formatIncrement(incrementoTratamentoBase);
   document.getElementById("incrementoAjusteProxima").textContent = "+0 dia(s)";
-  document.getElementById("incrementoParametroTotal").textContent = formatIncrement(incrementoTratamentoBase);
-  document.getElementById("novoParametro").textContent = String(supplier.parametro_compra + incrementoTratamentoBase);
+  document.getElementById("incrementoParametroTotal").textContent = formatIncrement(incrementoBaseFiltrado);
+  document.getElementById("novoParametro").textContent = String(supplier.parametro_compra + incrementoBaseFiltrado);
 
   // Reset justificativa
   const justField = document.getElementById("agendaJustificativa");
@@ -328,6 +456,136 @@ function openAgendaDetail(occurrenceId) {
   updateAgendaAdjustment();
 }
 
+function resetPedidoModal() {
+  const simBtn = document.getElementById("modalPedidoSimBtn");
+  const naoBtn = document.getElementById("modalPedidoNaoBtn");
+  const simFields = document.getElementById("modalPedidoSimFields");
+  const naoFields = document.getElementById("modalPedidoNaoFields");
+  const erro = document.getElementById("modalPedidoErro");
+  const qty = document.getElementById("modalPedidoQuantidade");
+  const val = document.getElementById("modalPedidoValor");
+  const motivo = document.getElementById("modalPedidoMotivo");
+  const detalhe = document.getElementById("modalPedidoDetalhe");
+  simBtn?.classList.remove("justify-active");
+  naoBtn?.classList.remove("justify-active");
+  simFields?.classList.add("hidden");
+  naoFields?.classList.add("hidden");
+  erro?.classList.add("hidden");
+  if (qty) qty.value = "";
+  if (val) val.value = "";
+  if (motivo) motivo.value = "";
+  if (detalhe) detalhe.value = "";
+}
+
+function openPedidoModal() {
+  // Validação prévia do modal de detalhe — chosenDate é necessário antes
+  const chosenDate = brToIso(document.getElementById("proximaDataInput").value);
+  if (!chosenDate) {
+    setFeedback("Informe a próxima data no formato DD/MM/AAAA antes de tratar.", "error", agendaDetailFeedback);
+    return;
+  }
+  resetPedidoModal();
+  setupPedidoModalHandlers();
+  document.getElementById("pedidoModal").showModal();
+}
+
+function setupPedidoModalHandlers() {
+  const simBtn = document.getElementById("modalPedidoSimBtn");
+  const naoBtn = document.getElementById("modalPedidoNaoBtn");
+  const simFields = document.getElementById("modalPedidoSimFields");
+  const naoFields = document.getElementById("modalPedidoNaoFields");
+  const val = document.getElementById("modalPedidoValor");
+  const confirmarBtn = document.getElementById("modalPedidoConfirmarBtn");
+
+  if (simBtn) simBtn.onclick = () => {
+    simBtn.classList.add("justify-active");
+    naoBtn?.classList.remove("justify-active");
+    simFields?.classList.remove("hidden");
+    naoFields?.classList.add("hidden");
+    document.getElementById("modalPedidoQuantidade")?.focus();
+  };
+  if (naoBtn) naoBtn.onclick = () => {
+    naoBtn.classList.add("justify-active");
+    simBtn?.classList.remove("justify-active");
+    naoFields?.classList.remove("hidden");
+    simFields?.classList.add("hidden");
+    document.getElementById("modalPedidoMotivo")?.focus();
+  };
+
+  // Máscara R$ no valor (formato brasileiro: R$ 1.234,56)
+  if (val) {
+    val.oninput = () => {
+      const digits = val.value.replace(/\D/g, "");
+      if (!digits) { val.value = ""; return; }
+      const cents = parseInt(digits, 10);
+      val.value = formatBRL(cents / 100);
+    };
+  }
+
+  if (confirmarBtn) confirmarBtn.onclick = confirmarPedidoEContinuar;
+}
+
+async function confirmarPedidoEContinuar() {
+  const pedido = getPedidoModalData();
+  const erro = document.getElementById("modalPedidoErro");
+
+  if (pedido.realizado === null) {
+    erro.textContent = "Selecione SIM ou NÃO antes de confirmar.";
+    erro.className = "msg error";
+    return;
+  }
+  if (pedido.realizado === true && (!pedido.quantidade || !pedido.valor)) {
+    erro.textContent = "Preencha quantidade e valor antes de confirmar.";
+    erro.className = "msg error";
+    return;
+  }
+  if (pedido.realizado === false && !pedido.motivo) {
+    erro.textContent = "Selecione o motivo antes de confirmar.";
+    erro.className = "msg error";
+    return;
+  }
+
+  erro?.classList.add("hidden");
+  document.getElementById("pedidoModal").close();
+  await tratarAgendaAtual(pedido);
+}
+
+function getPedidoModalData() {
+  const simBtn = document.getElementById("modalPedidoSimBtn");
+  const naoBtn = document.getElementById("modalPedidoNaoBtn");
+  const isSim = simBtn?.classList.contains("justify-active");
+  const isNao = naoBtn?.classList.contains("justify-active");
+  if (!isSim && !isNao) return { realizado: null };
+  if (isSim) {
+    const qty = parseInt(document.getElementById("modalPedidoQuantidade")?.value || "", 10);
+    const valor = parseBRL(document.getElementById("modalPedidoValor")?.value || "");
+    return {
+      realizado: true,
+      quantidade: Number.isFinite(qty) && qty > 0 ? qty : null,
+      valor: Number.isFinite(valor) && valor > 0 ? valor : null,
+    };
+  }
+  const motivo = document.getElementById("modalPedidoMotivo")?.value || "";
+  const detalhe = document.getElementById("modalPedidoDetalhe")?.value.trim() || null;
+  return {
+    realizado: false,
+    motivo: motivo || null,
+    detalhe,
+  };
+}
+
+function formatBRL(value) {
+  return "R$ " + Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function parseBRL(text) {
+  if (!text) return null;
+  const digits = String(text).replace(/\D/g, "");
+  if (!digits) return null;
+  return parseInt(digits, 10) / 100;
+}
+
+
 function refreshAgendaSupplierNotesState(supplierId) {
   const noteText = getSupplierNote(supplierId).trim();
   const notesButton = document.getElementById("openAgendaSupplierNotesButton");
@@ -352,7 +610,7 @@ function updateAgendaAdjustment() {
   const chosenDate = brToIso(document.getElementById("proximaDataInput").value);
   const incrementoTratamentoBase = diffDays(row.data_prevista, todayIso());
   const incrementoAjuste = chosenDate ? diffDays(chosenDate, suggestedDate) : 0;
-  const incrementoTotal = incrementoTratamentoBase + incrementoAjuste;
+  const incrementoTotal = Math.max(0, incrementoTratamentoBase) + incrementoAjuste;
   document.getElementById("incrementoTratamento").textContent = formatIncrement(incrementoTratamentoBase);
   document.getElementById("incrementoAjusteProxima").textContent = formatIncrement(incrementoAjuste);
   document.getElementById("incrementoParametroTotal").textContent = formatIncrement(incrementoTotal);
@@ -364,10 +622,10 @@ function updateAuditSummary(row, supplier, incrementoTratamentoBase, incrementoA
   const list = document.getElementById("agendaAuditItems");
   if (!list) return;
   const items = [];
-  if (incrementoTratamentoBase > 0) {
-    items.push(`Agenda tratada com <strong>${incrementoTratamentoBase} dia(s) de atraso</strong>`);
-  } else if (incrementoTratamentoBase < 0) {
-    items.push(`Agenda tratada com <strong>${Math.abs(incrementoTratamentoBase)} dia(s) de antecedência</strong>`);
+  if (incrementoTratamentoBase < 0) {
+    items.push(`Agenda tratada com <strong>${Math.abs(incrementoTratamentoBase)} dia(s) de atraso</strong>`);
+  } else if (incrementoTratamentoBase > 0) {
+    items.push(`Agenda tratada com <strong>${incrementoTratamentoBase} dia(s) de antecedência</strong>`);
   } else {
     items.push("Agenda cumprida no prazo");
   }
@@ -386,7 +644,7 @@ function updateAuditSummary(row, supplier, incrementoTratamentoBase, incrementoA
   list.innerHTML = items.map((i) => `<li>${i}</li>`).join("");
 }
 
-async function tratarAgendaAtual() {
+async function tratarAgendaAtual(pedido) {
   const row = occurrenceRows().find((item) => item.id === state.selectedOccurrenceId);
   if (!row) return;
   const supplier = row.supplier;
@@ -398,6 +656,12 @@ async function tratarAgendaAtual() {
 
   if (!chosenDate) {
     setFeedback("Informe a pr\u00f3xima data no formato DD/MM/AAAA.", "error", agendaDetailFeedback);
+    return;
+  }
+
+  // pedido deve vir do pedidoModal (passado como argumento). Se n\u00e3o veio, abre o modal.
+  if (!pedido || pedido.realizado === null || pedido.realizado === undefined) {
+    openPedidoModal();
     return;
   }
 
@@ -435,7 +699,7 @@ async function tratarAgendaAtual() {
     const suggestedDate = calculateSuggestedDate(row.data_prevista, supplier.frequencia_revisao, supplier.dias_compra);
     const incrementoTratamentoBase = diffDays(row.data_prevista, todayIso());
     const incrementoAjuste = diffDays(chosenDate, suggestedDate);
-    const incrementoTotal = incrementoTratamentoBase + incrementoAjuste;
+    const incrementoTotal = Math.max(0, incrementoTratamentoBase) + incrementoAjuste;
     const observacaoAuditoria = JSON.stringify({
       type: "agenda_treatment",
       note: observation,
@@ -478,6 +742,11 @@ async function tratarAgendaAtual() {
         data_realizacao: todayIso(),
         observacao: observacaoAuditoria,
         nota: document.getElementById("agendaNota").value.trim() || null,
+        pedido_realizado: pedido.realizado,
+        pedido_quantidade: pedido.realizado === true ? pedido.quantidade : null,
+        pedido_valor: pedido.realizado === true ? pedido.valor : null,
+        pedido_motivo_nao: pedido.realizado === false ? pedido.motivo : null,
+        pedido_motivo_detalhe: pedido.realizado === false ? pedido.detalhe : null,
       },
     });
 
@@ -502,6 +771,10 @@ async function tratarAgendaAtual() {
     setFeedback(`Agenda tratada. Pr\u00f3xima data programada: ${formatDate(chosenDate)}.`, "success");
     document.getElementById("agendaDetailModal").close();
     await loadPortalData({ silent: true });
+    // loadPortalData chama renderTables mas N\u00c3O refreshCalendar \u2014 sem isso,
+    // o fornecedor some/aparece nas datas certas s\u00f3 depois de fechar/reabrir
+    // a tela (bug relatado por cliente em mai/2026).
+    refreshCalendar();
   } catch (error) {
     setFeedback(`Não foi possível tratar a agenda: ${error.message}`, "error", agendaDetailFeedback);
   }
@@ -748,14 +1021,31 @@ async function saveSupplier(event) {
     return;
   }
 
-  if (parametroEstoque < frequency) {
-    setFeedback("O parâmetro de estoque não pode ser menor que a frequência de revisão.", "error");
+  const minimoEstoque = PARAMETRO_MINIMO_FREQUENCIA[frequency] ?? frequency;
+  if (parametroEstoque < minimoEstoque) {
+    setFeedback(`O parâmetro de estoque para frequência ${frequency} não pode ser menor que ${minimoEstoque} dias.`, "error");
     return;
   }
 
   if (selectedDays.length !== requiredDays) {
     setFeedback(`A frequencia ${frequency} exige ${requiredDays} dia(s) de compra selecionado(s).`, "error");
     return;
+  }
+
+  // Rede de segurança: ao editar um fornecedor que já tinha comprador, não gravar
+  // sem comprador sem confirmação — isso o tira da carteira e o esconde da lista
+  // (filtrada por comprador), fazendo parecer que "sumiu".
+  if (supplierId && oldSupplier?.comprador_id && !payload.comprador_id) {
+    const nomeAtual = state.buyers.find((b) => b.id === oldSupplier.comprador_id)?.nome_comprador ?? "o comprador atual";
+    const confirmar = window.confirm(
+      `Salvar "${payload.nome_fornecedor}" SEM comprador?\n\n` +
+      `Ele sairá da carteira de ${nomeAtual} e deixará de aparecer na lista filtrada por comprador. ` +
+      `Para mantê-lo na carteira, cancele e selecione o comprador antes de salvar.`
+    );
+    if (!confirmar) {
+      setFeedback("Salvamento cancelado. Selecione o comprador antes de salvar.", "warning");
+      return;
+    }
   }
 
   try {

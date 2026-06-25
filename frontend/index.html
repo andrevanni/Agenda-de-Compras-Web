@@ -62,6 +62,7 @@
           <button class="nav-link" data-section="ajuda" title="Ajuda"><span class="nav-icon">❓</span><span class="nav-label">Ajuda</span></button>
           <button class="nav-link" id="openSettingsButton" type="button" title="Configurações"><span class="nav-icon">⚙️</span><span class="nav-label">Configura&ccedil;&otilde;es</span></button>
           <button class="nav-link" id="pwaInstallNavBtn" type="button" title="Reinstalar Atalho" onclick="showPwaInstallModal()"><span class="nav-icon">📲</span><span class="nav-label">Reinstalar Atalho</span></button>
+          <button class="nav-link" data-section="versoes" title="Versões"><span class="nav-icon">🆕</span><span class="nav-label">Vers&otilde;es</span></button>
         </nav>
 
       </aside>
@@ -104,22 +105,29 @@
           </section>
 
           <section id="painel" class="section-view hidden">
-            <div class="section-title">
+            <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
               <div>
                 <h2>Painel de Notas</h2>
-                <p class="muted">Notas fixadas nos compromissos, organizadas por comprador.</p>
+                <p class="muted">Notas fixadas nos compromissos e post-its livres, organizados por comprador.</p>
               </div>
+              <button id="novaNotaLivreButton" class="btn" type="button" title="Criar um post-it livre no painel">&#43; Nova nota</button>
             </div>
             <div id="painelNotas" class="painel-notas"></div>
           </section>
 
           <section id="compromissos" class="section-view hidden">
-            <div class="section-title">
+            <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
               <div>
                 <h2>🗒️ Compromissos</h2>
                 <p class="muted">Todos os eventos agendados do comprador ativo, exceto agenda de compras.</p>
               </div>
-              <button id="newEventButtonCompromissos" class="btn btn-sm" type="button">+ Novo Evento</button>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;">
+                  <input type="checkbox" id="compromissosMostrarConcluidos">
+                  Mostrar concluídos
+                </label>
+                <button id="newEventButtonCompromissos" class="btn btn-sm" type="button">+ Novo Evento</button>
+              </div>
             </div>
             <div class="table-wrap">
               <table class="data-table">
@@ -288,8 +296,6 @@
                 <span id="fornecedorFormMode" class="kpi-emphasis">Novo fornecedor</span>
               </div>
             </div>
-            <div id="importPreviewBox" class="msg hidden"></div>
-
             <form id="fornecedorForm" class="grid-form">
               <input id="fornecedorId" type="hidden">
               <input id="fornecedorNotasDraft" type="hidden">
@@ -315,7 +321,10 @@
                   <input id="fornecedorDataPrimeiroPedidoNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
                 </div>
               </label>
-              <label>Par&acirc;metro Estoque<br><input id="fornecedorParametroEstoque" name="parametro_estoque" type="number" min="0" value="0" required></label>
+              <label>Par&acirc;metro Estoque<br>
+                <input id="fornecedorParametroEstoque" name="parametro_estoque" type="number" min="0" value="0" required>
+                <small id="fornecedorParametroEstoqueHint" style="display:block;font-size:12px;margin-top:4px;color:var(--muted);"></small>
+              </label>
               <label>Lead Time Entrega<br><input id="fornecedorLeadTime" name="lead_time_entrega" type="number" min="0" value="0" required></label>
               <label>Comprador<br>
                 <select id="fornecedorComprador" name="comprador_id"></select>
@@ -334,8 +343,9 @@
             </form>
 
             <h3>Fornecedores Cadastrados</h3>
-            <div style="margin-bottom:10px;">
-              <input id="fornecedorSearch" type="search" placeholder="Buscar por código ou nome..." style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#f1f5f9;font-size:14px;">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+              <input id="fornecedorSearch" type="search" placeholder="Buscar por código ou nome..." style="flex:1;min-width:200px;padding:8px 12px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#f1f5f9;font-size:14px;">
+              <button id="fornecedorToggleScope" class="btn btn-outline btn-sm" type="button" title="Alternar entre fornecedores do comprador e todos">Mostrar todos</button>
             </div>
             <div class="table-wrap">
               <table>
@@ -381,17 +391,18 @@
               </div>
               <div class="comprador-notif-group">
                 <p class="comprador-notif-title">Papel e notificações por e-mail</p>
+                <p class="comprador-notif-hint">Marque ao menos uma das duas opções de <strong>e-mail</strong> abaixo para a pessoa receber o relatório diário. O <strong>Gestor</strong> sozinho não dispara envio — ele apenas amplia o conteúdo.</p>
                 <label class="checkbox-row">
                   <input type="checkbox" id="compradorIsGestor">
-                  <span><strong>Gestor</strong> — recebe relatório consolidado de todos os compradores</span>
+                  <span><strong>Gestor</strong> — ao receber o relatório, vê os dados de <strong>todos os compradores</strong> (não só a própria carteira). Não dispara o envio sozinho.</span>
                 </label>
                 <label class="checkbox-row">
                   <input type="checkbox" id="compradorReceberAuditoria">
-                  <span>Receber auditoria do dia anterior por e-mail</span>
+                  <span><strong>Receber e-mail — tratamentos do dia anterior</strong> + indicadores do mês</span>
                 </label>
                 <label class="checkbox-row">
                   <input type="checkbox" id="compradorReceberAgenda">
-                  <span>Receber agenda do próximo dia útil por e-mail</span>
+                  <span><strong>Receber e-mail — agenda do próximo dia útil</strong> + itens em atraso</span>
                 </label>
               </div>
               <div class="actions">
@@ -479,6 +490,14 @@
                   </table>
                   <h4>Administrador do Cliente</h4>
                   <p>O e-mail cadastrado como <em>respons&aacute;vel</em> no perfil do tenant entra automaticamente como administrador: acessa todas as carteiras, auditoria e gest&atilde;o completa de compradores.</p>
+                  <h4>Notifica&ccedil;&otilde;es por e-mail — relat&oacute;rio di&aacute;rio</h4>
+                  <p>Todo dia &uacute;til, &agrave; noite, o sistema envia por e-mail um relat&oacute;rio com a opera&ccedil;&atilde;o do dia. <strong>Quem recebe</strong> e <strong>o que vem</strong> no e-mail dependem de tr&ecirc;s op&ccedil;&otilde;es no cadastro de cada comprador:</p>
+                  <ul>
+                    <li><strong>Receber e-mail — tratamentos do dia anterior</strong>: inclui o que j&aacute; foi tratado no dia anterior + os indicadores do m&ecirc;s.</li>
+                    <li><strong>Receber e-mail — agenda do pr&oacute;ximo dia &uacute;til</strong>: inclui os itens em atraso + a agenda do pr&oacute;ximo dia &uacute;til.</li>
+                    <li><strong>Gestor</strong>: amplia o conte&uacute;do — o relat&oacute;rio passa a mostrar os dados de <strong>todos os compradores</strong>, n&atilde;o s&oacute; os da carteira da pessoa.</li>
+                  </ul>
+                  <p class="ajuda-dica">💡 &Eacute; preciso marcar <strong>ao menos uma</strong> das duas op&ccedil;&otilde;es de &ldquo;Receber e-mail&rdquo; para a pessoa receber o relat&oacute;rio. A op&ccedil;&atilde;o <strong>Gestor</strong> sozinha <strong>n&atilde;o</strong> dispara o envio — ela apenas define o escopo (consolidado de todos vs. carteira pr&oacute;pria).</p>
                   <p class="ajuda-dica">💡 A sess&atilde;o permanece ativa o dia todo — o portal renova o JWT automaticamente a cada 50 minutos em segundo plano.</p>
                 </div>
               </details>
@@ -532,6 +551,12 @@
                   </table>
                   <h4>Importa&ccedil;&atilde;o CSV</h4>
                   <p>Use <strong>Baixar Modelo CSV</strong> para obter o template, preencha e importe via <strong>Importar Fornecedores</strong>. Colunas obrigat&oacute;rias: <code>Codigo</code> e <code>Nome</code>. O sistema faz upsert — atualiza se j&aacute; existe, cria se n&atilde;o existe.</p>
+                  <h4>Filtro por comprador</h4>
+                  <p>A tabela abre por padr&atilde;o mostrando apenas os fornecedores do <strong>comprador ativo</strong> (o selecionado na barra lateral). Para ver a base completa, clique em <strong>Mostrar todos</strong> ao lado do campo de busca; clique novamente para voltar ao escopo do comprador. Ao reabrir o portal em uma nova sess&atilde;o, o filtro volta para o padr&atilde;o.</p>
+                  <h4>O campo Comprador (importante)</h4>
+                  <p>Cada fornecedor pertence a um <strong>comprador</strong> (a carteira). Como a tela abre filtrada pelo comprador ativo, um fornecedor salvo <strong>sem comprador</strong> n&atilde;o aparece nessa lista &mdash; parece que &ldquo;sumiu&rdquo;. Ele continua cadastrado: para encontr&aacute;-lo, clique em <strong>Mostrar todos</strong>, abra-o em <strong>Editar</strong> e selecione o comprador.</p>
+                  <p>Como o c&oacute;digo do fornecedor &eacute; &uacute;nico, tentar <strong>recriar</strong> um fornecedor que ficou sem comprador resulta no aviso <em>&ldquo;j&aacute; existe cadastrado&rdquo;</em> &mdash; n&atilde;o crie de novo, apenas reatribua o comprador ao registro existente.</p>
+                  <p>Ao editar para <strong>mesclar</strong> dois fornecedores num cadastro &uacute;nico, confira se o <strong>Comprador</strong> continua preenchido antes de salvar. Se voc&ecirc; salvar um fornecedor que tinha comprador deixando o campo vazio, o sistema agora <strong>pede confirma&ccedil;&atilde;o</strong> para evitar que ele saia da carteira sem querer.</p>
                 </div>
               </details>
 
@@ -559,28 +584,60 @@
               <details class="ajuda-item">
                 <summary>📋 Agenda de Compras — Como Tratar</summary>
                 <div class="ajuda-corpo">
-                  <h4>Fluxo de tratamento</h4>
+                  <h4>Fluxo de tratamento (passo a passo)</h4>
                   <ol>
                     <li>Acesse <strong>Agenda do Dia</strong> ou clique em um evento no <strong>Calend&aacute;rio</strong></li>
                     <li>Clique em <strong>Ver Detalhe</strong> para abrir a ficha do fornecedor</li>
                     <li>Revise a <strong>Pr&oacute;xima Data Sugerida</strong> — calculada automaticamente com base na frequ&ecirc;ncia e nos dias permitidos</li>
                     <li>Ajuste a data se necess&aacute;rio (o sistema avisa se cair fora dos dias configurados)</li>
-                    <li>Preencha a <strong>Observa&ccedil;&atilde;o</strong> e, opcionalmente, uma <strong>Nota</strong> para o Painel</li>
-                    <li>Clique em <strong>Tratar Agenda</strong></li>
+                    <li>Preencha a <strong>Observa&ccedil;&atilde;o</strong> e, opcionalmente, uma <strong>Nota</strong> (post-it que vai para o Painel de Notas)</li>
+                    <li>Se quiser justificar algum desvio, clique em <strong>Sim</strong> ao lado de "Deseja justificar?" e escreva o motivo</li>
+                    <li>Clique em <strong>Tratar Agenda</strong> &mdash; uma <strong>janela nova</strong> vai abrir perguntando "&#128230; Deu pedido?"</li>
+                    <li>Responda na janela (veja detalhes abaixo) e clique em <strong>&#10004; Confirmar e Tratar Agenda</strong></li>
                   </ol>
-                  <p>O sistema marca a ocorr&ecirc;ncia atual como <strong>REALIZADA</strong> e cria automaticamente a pr&oacute;xima pend&ecirc;ncia.</p>
+
+                  <h4>&#128230; Janela "Deu pedido?" (obrigat&oacute;rio)</h4>
+                  <p>Quando voc&ecirc; clica em <strong>Tratar Agenda</strong>, abre uma janela dedicada com dois bot&otilde;es grandes: <strong>&#10004; SIM</strong> (verde) e <strong>&#10006; N&Atilde;O</strong> (vermelho). Clique em um deles para responder. Sem essa resposta n&atilde;o &eacute; poss&iacute;vel finalizar o tratamento.</p>
+
+                  <h5>Se voc&ecirc; clicar em &#10004; SIM</h5>
+                  <ul>
+                    <li><strong>Quantidade total</strong>: n&uacute;mero inteiro de itens pedidos (sem decimais)</li>
+                    <li><strong>Valor total (R$)</strong>: digite apenas os n&uacute;meros &mdash; a m&aacute;scara <strong>R$ X.XXX,XX</strong> &eacute; aplicada automaticamente enquanto voc&ecirc; digita</li>
+                  </ul>
+
+                  <h5>Se voc&ecirc; clicar em &#10006; N&Atilde;O</h5>
+                  <p>Selecione o <strong>motivo</strong> entre as op&ccedil;&otilde;es:</p>
+                  <ul>
+                    <li><em>N&atilde;o deu Pedido M&iacute;nimo</em> &mdash; o pedido n&atilde;o atingiu o m&iacute;nimo exigido pelo fornecedor</li>
+                    <li><em>Fornecedor n&atilde;o cumpriu a Agenda</em> &mdash; o fornecedor n&atilde;o atendeu ao contato/pedido</li>
+                    <li><em>Indefini&ccedil;&atilde;o Comercial nas Condi&ccedil;&otilde;es</em> &mdash; pre&ccedil;o, prazo ou condi&ccedil;&otilde;es em negocia&ccedil;&atilde;o</li>
+                    <li><em>Outros</em> &mdash; qualquer outro motivo</li>
+                  </ul>
+                  <p>O campo <strong>Detalhe</strong> &eacute; opcional &mdash; use para descrever melhor o motivo quando achar importante (especialmente em "Outros").</p>
+
+                  <h5>Bot&otilde;es da janela</h5>
+                  <ul>
+                    <li><strong>Voltar</strong>: fecha a janela sem tratar a agenda &mdash; voc&ecirc; pode rever os dados antes</li>
+                    <li><strong>&#10004; Confirmar e Tratar Agenda</strong>: valida os campos, fecha a janela e <strong>finaliza o tratamento</strong> (PATCH no banco)</li>
+                  </ul>
+
+                  <p class="ajuda-dica">&#128161; <strong>Por que essa pergunta &eacute; obrigat&oacute;ria?</strong> Os dados de pedido alimentam os indicadores <strong>Taxa de Pedido</strong> (% de agendas que viraram pedido) e <strong>Valor Total</strong> (R$ comprado no per&iacute;odo) na se&ccedil;&atilde;o Auditoria e no relat&oacute;rio di&aacute;rio por e-mail. Sem isso, o sistema n&atilde;o consegue identificar fornecedores problem&aacute;ticos, calcular volume comprado nem justificar quedas de cobertura.</p>
+
+                  <p>Depois da confirma&ccedil;&atilde;o, o sistema marca a ocorr&ecirc;ncia atual como <strong>REALIZADA</strong>, registra todos os dados (data, observa&ccedil;&atilde;o, nota, justificativa, pedido) e cria automaticamente a pr&oacute;xima pend&ecirc;ncia.</p>
+
                   <h4>Sugest&atilde;o de pr&oacute;xima data</h4>
                   <ul>
-                    <li><strong>Frequ&ecirc;ncia 1/2/4</strong>: data atual + intervalo fixo → ajusta para o pr&oacute;ximo dia permitido</li>
+                    <li><strong>Frequ&ecirc;ncia 1/2/4</strong>: data atual + intervalo fixo &rarr; ajusta para o pr&oacute;ximo dia permitido</li>
                     <li><strong>Frequ&ecirc;ncia 8/12</strong>: varre os dias futuros at&eacute; encontrar um dia permitido</li>
                   </ul>
+
                   <h4>Idempot&ecirc;ncia</h4>
                   <p>O sistema nunca cria duplicatas. Se j&aacute; existe uma pend&ecirc;ncia do mesmo fornecedor na pr&oacute;xima data calculada, nenhuma nova ocorr&ecirc;ncia &eacute; criada.</p>
                 </div>
               </details>
 
               <details class="ajuda-item">
-                <summary>🗓️ Calend&aacute;rio — Vistas e Eventos</summary>
+                <summary>🗓️ Calend&aacute;rio — Vistas, Eventos e Edi&ccedil;&atilde;o em S&eacute;rie</summary>
                 <div class="ajuda-corpo">
                   <h4>Vistas dispon&iacute;veis</h4>
                   <ul>
@@ -598,13 +655,27 @@
                   <ul>
                     <li>Clique em <strong>+ Novo Evento</strong> (bot&atilde;o no topo) ou <strong>arraste um intervalo de tempo</strong> na vista Semana ou Dia</li>
                     <li>O comprador logado j&aacute; vem <strong>pr&eacute;-selecionado</strong> — pode marcar outros compradores ou clicar em <strong>Todos</strong></li>
-                    <li>O sistema cria <strong>uma ocorr&ecirc;ncia por comprador selecionado</strong></li>
+                    <li>O sistema cria <strong>uma ocorr&ecirc;ncia por comprador selecionado &times; data</strong></li>
                     <li>A categoria <em>Agenda de Compras</em> n&atilde;o aparece — use as demais categorias (Pessoal, Operacional etc.)</li>
                   </ul>
-                  <h4>Recorr&ecirc;ncia</h4>
-                  <p>Escolha Di&aacute;ria, Semanal, Quinzenal ou Mensal. Ao selecionar, aparece o campo <strong>Data de fim</strong> (opcional). O sistema gera uma ocorr&ecirc;ncia por data × comprador selecionado.</p>
+
+                  <h4>Recorr&ecirc;ncia &mdash; criar uma s&eacute;rie</h4>
+                  <p>No modal de Novo Evento, escolha <strong>Di&aacute;ria</strong>, <strong>Semanal</strong>, <strong>Quinzenal</strong> ou <strong>Mensal</strong>. Ao selecionar, aparece o campo <strong>Data de fim</strong> (opcional). O sistema gera uma ocorr&ecirc;ncia por data &times; comprador selecionado, e todas ficam agrupadas como uma <strong>s&eacute;rie</strong> (compartilham o mesmo identificador interno).</p>
+
+                  <h4>Editar ou excluir uma s&eacute;rie inteira (em massa)</h4>
+                  <p>Ao clicar num evento da s&eacute;rie no calend&aacute;rio, o modal de edi&ccedil;&atilde;o mostra um seletor <strong>"Aplicar mudan&ccedil;as a"</strong> com 3 op&ccedil;&otilde;es:</p>
+                  <ul>
+                    <li><strong>S&oacute; esta ocorr&ecirc;ncia</strong>: muda/exclui apenas o item clicado (comportamento padr&atilde;o e &uacute;nica op&ccedil;&atilde;o para ocorr&ecirc;ncias antigas, criadas antes desta funcionalidade)</li>
+                    <li><strong>Esta e as pr&oacute;ximas</strong>: muda/exclui o item clicado e todos os subsequentes da s&eacute;rie (mant&eacute;m os anteriores intactos)</li>
+                    <li><strong>Toda a s&eacute;rie</strong>: muda/exclui todas as ocorr&ecirc;ncias da s&eacute;rie, do come&ccedil;o ao fim (a contagem total aparece ao lado da op&ccedil;&atilde;o)</li>
+                  </ul>
+                  <p><strong>O que muda em massa</strong>: t&iacute;tulo, hor&aacute;rio, categoria e observa&ccedil;&atilde;o. <strong>N&atilde;o muda em massa</strong>: data (cada ocorr&ecirc;ncia tem a sua), nota (post-it ad-hoc, n&atilde;o replica) e comprador respons&aacute;vel (se precisar trocar a carteira, edite uma por vez). Exclus&otilde;es em massa pedem confirma&ccedil;&atilde;o com a contagem ("Excluir 14 da s&eacute;rie?").</p>
+
                   <h4>Cores no calend&aacute;rio</h4>
                   <p>Cada categoria tem uma cor definida em <strong>Categorias</strong>. Eventos de fornecedores usam a cor da categoria <em>Agenda de Compras</em> por padr&atilde;o.</p>
+
+                  <h4>Compromissos conclu&iacute;dos &mdash; visual riscado</h4>
+                  <p>Compromissos gen&eacute;ricos marcados como <strong>conclu&iacute;dos</strong> (na se&ccedil;&atilde;o Compromissos, bot&atilde;o ✓ Concluir) continuam aparecendo no calend&aacute;rio mas com a linha <strong>riscada</strong> e tom mais claro, com um <strong>✓</strong> antes do t&iacute;tulo. Eventos da <em>Agenda de Compras</em> tratados desaparecem do calend&aacute;rio (continuam s&oacute; na Auditoria) &mdash; comportamento intencional para n&atilde;o poluir o calend&aacute;rio operacional.</p>
                 </div>
               </details>
 
@@ -631,34 +702,76 @@
               <details class="ajuda-item">
                 <summary>📌 Painel de Notas — Post-its por Comprador</summary>
                 <div class="ajuda-corpo">
-                  <p>O Painel de Notas re&uacute;ne em um s&oacute; lugar todas as notas fixadas nos compromissos, organizadas por comprador.</p>
-                  <h4>Como adicionar uma nota</h4>
+                  <p>O <strong>Painel de Notas</strong> re&uacute;ne todos os post-its do comprador ativo em um s&oacute; lugar, agrupados por respons&aacute;vel. Existem <strong>duas formas</strong> de criar uma nota:</p>
+
+                  <h4>1. Nota vinculada a um compromisso (de ocorr&ecirc;ncia)</h4>
+                  <p>&Eacute; uma nota grudada num evento espec&iacute;fico do calend&aacute;rio. Some quando o compromisso &eacute; conclu&iacute;do ou exclu&iacute;do. Aparece no painel com o <strong>nome do fornecedor (ou t&iacute;tulo do evento) + data + hor&aacute;rio</strong>.</p>
+                  <p>Como criar:</p>
                   <ul>
-                    <li>Ao <strong>tratar uma agenda</strong>: preencha o campo <em>Nota</em> no modal de detalhe antes de confirmar</li>
-                    <li>Ao <strong>criar um novo evento</strong>: preencha o campo <em>Nota</em> no modal de novo evento</li>
+                    <li><strong>Modal de detalhe da Agenda de Compras</strong>: preencha o campo <em>Nota</em> e clique em <strong>💾 Salvar nota</strong> (logo abaixo do textarea). N&atilde;o precisa tratar a agenda &mdash; pode s&oacute; deixar a nota e fechar.</li>
+                    <li>Tamb&eacute;m grava ao clicar em <strong>Tratar Agenda</strong> ou ao salvar um <strong>Novo Evento</strong> com o campo Nota preenchido.</li>
                   </ul>
-                  <p>A nota aparece como um post-it colorido (cor da categoria) no <strong>Painel de Notas</strong>, com data, hor&aacute;rio e o nome do fornecedor ou t&iacute;tulo do evento.</p>
-                  <h4>Remover uma nota</h4>
-                  <p>Clique no <strong>✕</strong> no canto do post-it. A nota &eacute; removida do painel mas o compromisso continua existindo.</p>
-                  <p class="ajuda-dica">💡 <strong>Aten&ccedil;&atilde;o</strong>: a nota do compromisso &eacute; diferente da nota do fornecedor. A nota do fornecedor fica no cadastro de fornecedores e persiste independentemente das ocorr&ecirc;ncias.</p>
+
+                  <h4>2. Post-it livre (direto no painel)</h4>
+                  <p>&Eacute; uma nota autônoma, sem v&iacute;nculo com nenhum compromisso. Persiste at&eacute; voc&ecirc; excluir. Aparece com o &iacute;cone <strong>📌 Post-it</strong> + data de cria&ccedil;&atilde;o. &Uacute;til para recados soltos do dia ("ligar pro EMS sexta", "fornecedor X aumentou pre&ccedil;o").</p>
+                  <p>Como criar:</p>
+                  <ul>
+                    <li>Clique em <strong>+ Nova nota</strong> no canto direito do header do Painel</li>
+                    <li>Digite o texto na janela que abre e clique em OK</li>
+                    <li>O post-it aparece no grupo do comprador ativo no momento da cria&ccedil;&atilde;o</li>
+                  </ul>
+                  <p>Como editar um post-it livre:</p>
+                  <ul>
+                    <li><strong>Clique no texto</strong> do post-it &mdash; ele vira um editor</li>
+                    <li><strong>Click fora</strong> ou <strong>Ctrl+Enter</strong> salva</li>
+                    <li><strong>Esc</strong> descarta a edi&ccedil;&atilde;o</li>
+                    <li>Apagar todo o texto e clicar fora <strong>exclui</strong> automaticamente</li>
+                  </ul>
+
+                  <h4>Excluir qualquer nota</h4>
+                  <p>Clique no <strong>✕</strong> no canto do post-it. Para nota de ocorr&ecirc;ncia, o compromisso continua existindo (s&oacute; a nota some). Para post-it livre, o item &eacute; exclu&iacute;do.</p>
+
+                  <p class="ajuda-dica">💡 <strong>Aten&ccedil;&atilde;o &agrave;s 3 notas diferentes</strong>: (1) <em>nota do compromisso</em> &mdash; fica grudada na agenda e some quando ela &eacute; conclu&iacute;da; (2) <em>post-it livre</em> &mdash; aut&ocirc;nomo, persiste at&eacute; excluir; (3) <em>nota do fornecedor</em> &mdash; permanente, fica no cadastro do fornecedor e n&atilde;o aparece no Painel de Notas.</p>
                 </div>
               </details>
 
               <details class="ajuda-item">
-                <summary>🗒️ Compromissos — Lista e Exclus&atilde;o de Eventos</summary>
+                <summary>🗒️ Compromissos — Concluir, Desfazer e Hist&oacute;rico</summary>
                 <div class="ajuda-corpo">
                   <p>A se&ccedil;&atilde;o <strong>Compromissos</strong> no menu lateral lista todos os eventos gen&eacute;ricos agendados para o comprador ativo, exceto os eventos da agenda de compras (que t&ecirc;m fluxo pr&oacute;prio de tratamento).</p>
+
                   <h4>O que aparece na lista</h4>
                   <ul>
                     <li>Eventos criados pelo bot&atilde;o <strong>+ Novo Evento</strong> com qualquer categoria exceto <em>Agenda de Compras</em></li>
                     <li>Ordenados por data e hor&aacute;rio crescente (mais pr&oacute;ximo primeiro)</li>
                     <li>Filtrado pelo <strong>comprador ativo</strong> selecionado na sidebar</li>
                   </ul>
-                  <h4>Colunas exibidas</h4>
-                  <p>Data &bull; T&iacute;tulo &bull; Categoria (chip colorido) &bull; Hor&aacute;rio &bull; Comprador respons&aacute;vel &bull; Bot&atilde;o Excluir</p>
+                  <p>Colunas: Data &bull; T&iacute;tulo &bull; Categoria (chip colorido) &bull; Hor&aacute;rio &bull; Comprador respons&aacute;vel &bull; A&ccedil;&otilde;es</p>
+
+                  <h4>Concluir um compromisso (✓)</h4>
+                  <p>Compromissos com status <strong>pendente</strong> mostram o bot&atilde;o verde <strong>✓ Concluir</strong>. Ao clicar:</p>
+                  <ul>
+                    <li>O compromisso &eacute; marcado como <strong>conclu&iacute;do</strong> (status REALIZADA) com a data de hoje como data de conclus&atilde;o</li>
+                    <li>Some da lista <strong>pendentes</strong> (mas n&atilde;o &eacute; exclu&iacute;do &mdash; continua no banco)</li>
+                    <li>No calend&aacute;rio, o evento passa a aparecer <strong>riscado</strong> e mais transparente, com um <strong>✓</strong> antes do t&iacute;tulo</li>
+                  </ul>
+
+                  <h4>Mostrar conclu&iacute;dos (hist&oacute;rico)</h4>
+                  <p>No topo da se&ccedil;&atilde;o tem a op&ccedil;&atilde;o <strong>☑ Mostrar conclu&iacute;dos</strong>. Quando ativada:</p>
+                  <ul>
+                    <li>A lista passa a exibir <strong>pendentes + conclu&iacute;dos juntos</strong>, ordenados por data</li>
+                    <li>Os conclu&iacute;dos aparecem com a linha <strong>riscada</strong> e em tom mais claro</li>
+                    <li>Quando desativada, voc&ecirc; volta a ver s&oacute; os pendentes (mais limpo no dia a dia)</li>
+                  </ul>
+
+                  <h4>Desfazer uma conclus&atilde;o (↩)</h4>
+                  <p>Compromissos conclu&iacute;dos mostram o bot&atilde;o <strong>↩ Desfazer</strong>. Ele <strong>reabre</strong> o compromisso como pendente novamente &mdash; &uacute;til quando voc&ecirc; concluiu por engano ou precisa reagendar.</p>
+
                   <h4>Excluir um compromisso</h4>
-                  <p>Clique em <strong>Excluir</strong> na linha do evento. O compromisso &eacute; removido imediatamente do calend&aacute;rio e da lista, sem precisar recarregar a p&aacute;gina.</p>
-                  <p class="ajuda-dica">💡 Para criar um novo compromisso direto desta se&ccedil;&atilde;o, use o bot&atilde;o <strong>+ Novo Evento</strong> no topo — o comprador logado j&aacute; vem pr&eacute;-selecionado.</p>
+                  <p>Funciona em qualquer status (pendente ou conclu&iacute;do). Clique em <strong>Excluir</strong> e confirme. A&ccedil;&atilde;o n&atilde;o pode ser desfeita.</p>
+
+                  <p class="ajuda-dica">💡 <strong>Diferen&ccedil;a de Excluir vs Concluir</strong>: <em>Concluir</em> preserva o hist&oacute;rico (voc&ecirc; v&ecirc; tudo que j&aacute; fez). <em>Excluir</em> apaga o registro permanentemente. Prefira sempre concluir &mdash; o hist&oacute;rico &eacute; valioso para conferir o que foi feito.</p>
+                  <p class="ajuda-dica">⚠️ <strong>Agenda de Compras</strong> (com fornecedor) <strong>n&atilde;o</strong> tem bot&atilde;o Concluir. Ela usa o fluxo pr&oacute;prio de <strong>Tratar Agenda</strong> + <strong>Deu pedido?</strong>, que marca a ocorr&ecirc;ncia como tratada e j&aacute; cria a pr&oacute;xima.</p>
                 </div>
               </details>
 
@@ -707,6 +820,16 @@
               </details>
 
             </div>
+          </section>
+
+          <section id="versoes" class="section-view hidden">
+            <div class="section-title">
+              <div>
+                <h2>🆕 Versões</h2>
+                <p class="muted">Histórico das mudanças do sistema. A versão mais recente aparece no topo.</p>
+              </div>
+            </div>
+            <div id="versoesLista" class="versoes-lista"></div>
           </section>
 
           <section id="feriados" class="section-view hidden">
@@ -811,6 +934,9 @@
               <label class="detail-observation-field">
                 Nota (fixada no Painel)<br>
                 <textarea id="agendaNota" rows="2" placeholder="Registre algo importante sobre este compromisso..."></textarea>
+                <div style="display:flex;justify-content:flex-end;margin-top:4px;">
+                  <button id="saveAgendaNotaButton" class="btn btn-outline btn-sm" type="button" title="Salvar somente a nota, sem tratar a agenda">&#128190; Salvar nota</button>
+                </div>
               </label>
 
               <div id="agendaAuditSummary" class="audit-pre-treat">
@@ -841,6 +967,62 @@
 
         <div id="agendaDetailFeriadoWarning" class="msg hidden"></div>
         <div id="agendaDetailFeedback" class="msg hidden"></div>
+
+        <div class="detail-bottom-actions">
+          <button type="button" class="btn btn-outline" data-close-modal="agendaDetailModal">&#10005; Fechar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="pedidoModal" class="details-modal pedido-modal">
+      <form method="dialog" class="modal-card">
+        <button class="close-button" type="button" data-close-modal="pedidoModal" aria-label="Fechar">
+          <span class="close-glyph">&#10005;</span>
+        </button>
+        <div class="section-title">
+          <div>
+            <h2>&#128230; Deu pedido?</h2>
+            <p class="muted">Responda antes de tratar a agenda. <strong>Obrigat&oacute;rio.</strong></p>
+          </div>
+        </div>
+
+        <div class="pedido-modal-body">
+          <div class="pedido-modal-toggle">
+            <button type="button" id="modalPedidoSimBtn" class="pedido-modal-btn pedido-modal-btn-sim">&#10004; SIM</button>
+            <button type="button" id="modalPedidoNaoBtn" class="pedido-modal-btn pedido-modal-btn-nao">&#10006; N&Atilde;O</button>
+          </div>
+
+          <div id="modalPedidoSimFields" class="hidden pedido-modal-fields">
+            <label>Quantidade total<br>
+              <input id="modalPedidoQuantidade" type="number" min="1" step="1" inputmode="numeric" placeholder="Ex.: 100">
+            </label>
+            <label>Valor total (R$)<br>
+              <input id="modalPedidoValor" type="text" inputmode="decimal" placeholder="R$ 0,00">
+            </label>
+          </div>
+
+          <div id="modalPedidoNaoFields" class="hidden pedido-modal-fields pedido-modal-fields-stack">
+            <label>Motivo<br>
+              <select id="modalPedidoMotivo">
+                <option value="">Selecione...</option>
+                <option value="NAO_DEU_PEDIDO_MINIMO">N&atilde;o deu Pedido M&iacute;nimo</option>
+                <option value="FORNECEDOR_NAO_CUMPRIU">Fornecedor n&atilde;o cumpriu a Agenda</option>
+                <option value="INDEFINICAO_COMERCIAL">Indefini&ccedil;&atilde;o Comercial nas Condi&ccedil;&otilde;es</option>
+                <option value="OUTROS">Outros</option>
+              </select>
+            </label>
+            <label>Detalhe (opcional)<br>
+              <textarea id="modalPedidoDetalhe" rows="3" placeholder="Detalhe adicional..."></textarea>
+            </label>
+          </div>
+
+          <div id="modalPedidoErro" class="msg hidden" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="pedido-modal-footer">
+          <button type="button" class="btn btn-outline" data-close-modal="pedidoModal">Voltar</button>
+          <button type="button" id="modalPedidoConfirmarBtn" class="btn">&#10004; Confirmar e Tratar Agenda</button>
+        </div>
       </form>
     </dialog>
 
@@ -986,19 +1168,41 @@
               <option value="">Todos</option>
             </select>
           </label>
+          <label>
+            Fornecedor<br>
+            <select id="auditSupplierFilter">
+              <option value="">Todos</option>
+            </select>
+          </label>
           <div id="auditPeriodSummary" class="audit-period-summary muted"></div>
         </div>
 
         <div id="auditSummaryGrid" class="kpi-grid"></div>
 
+        <div class="audit-chart-box audit-chart-full">
+          <div class="audit-chart-label">Tend&ecirc;ncia di&aacute;ria no per&iacute;odo</div>
+          <canvas id="auditChartTimeline" height="160"></canvas>
+        </div>
+
         <div class="audit-charts-row">
           <div class="audit-chart-box">
             <div class="audit-chart-label">Distribui&ccedil;&atilde;o do per&iacute;odo</div>
-            <canvas id="auditChartPie" height="180"></canvas>
+            <canvas id="auditChartPie" width="200" height="200"></canvas>
           </div>
           <div class="audit-chart-box audit-chart-bar-box">
             <div class="audit-chart-label">Eventos por comprador</div>
-            <canvas id="auditChartBar"></canvas>
+            <canvas id="auditChartBar" height="220"></canvas>
+          </div>
+        </div>
+
+        <div class="audit-charts-row">
+          <div class="audit-chart-box">
+            <div class="audit-chart-label">Padr&atilde;o por dia da semana</div>
+            <div id="auditHeatmap" class="audit-heatmap"></div>
+          </div>
+          <div class="audit-chart-box audit-chart-bar-box">
+            <div class="audit-chart-label">Top 5 fornecedores</div>
+            <canvas id="auditChartTopFornecedores" height="220"></canvas>
           </div>
         </div>
 
@@ -1016,8 +1220,8 @@
           <section class="audit-block">
             <div class="section-title">
               <div>
-                <h3>Intelig&ecirc;ncia artificial</h3>
-                <p class="muted">Planos e recomenda&ccedil;&otilde;es geradas a partir do hist&oacute;rico de eventos.</p>
+                <h3>&#128161; Recomenda&ccedil;&otilde;es inteligentes</h3>
+                <p class="muted">An&aacute;lises autom&aacute;ticas baseadas em padr&otilde;es detectados no hist&oacute;rico de eventos.</p>
               </div>
             </div>
             <div id="auditAiAnalysis" class="audit-insights"></div>
@@ -1126,11 +1330,11 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted,#94a3b8);">Compradores respons&aacute;veis</span>
               <div style="display:flex;gap:6px;">
-                <button type="button" id="newEventSelectAll" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border-color,#334155);background:transparent;color:var(--text-muted,#94a3b8);cursor:pointer;">Todos</button>
-                <button type="button" id="newEventClearAll" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border-color,#334155);background:transparent;color:var(--text-muted,#94a3b8);cursor:pointer;">Nenhum</button>
+                <button type="button" id="newEventSelectAll" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;">Todos</button>
+                <button type="button" id="newEventClearAll" style="font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;">Nenhum</button>
               </div>
             </div>
-            <div id="newEventCompradoresWrap" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;padding:10px 12px;background:var(--input-bg,#0f172a);border:1px solid var(--border-color,#334155);border-radius:8px;max-height:180px;overflow-y:auto;"></div>
+            <div id="newEventCompradoresWrap" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;padding:10px 12px;background:var(--panel-soft);border:1px solid var(--line);border-radius:8px;max-height:180px;overflow-y:auto;"></div>
           </div>
           <label>Hor&aacute;rio de in&iacute;cio<br><input id="newEventHoraInicio" type="time" value="08:00"></label>
           <label>Hor&aacute;rio de fim<br><input id="newEventHoraFim" type="time" value="09:00"></label>
@@ -1156,6 +1360,26 @@
           <label style="grid-column:1/-1">Nota (fixada no Painel)<br>
             <textarea id="newEventNota" rows="2" placeholder="Registre algo importante sobre este compromisso..."></textarea>
           </label>
+          <div id="newEventEditScopeWrap" class="hidden" style="grid-column:1/-1;padding:12px 14px;background:var(--panel-soft);border:1px solid var(--line);border-radius:8px;">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:8px;">Aplicar mudan&ccedil;as a</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--text);">
+                <input type="radio" name="newEventEditScope" value="single" checked>
+                <span>S&oacute; esta ocorr&ecirc;ncia</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--text);">
+                <input type="radio" name="newEventEditScope" value="future">
+                <span id="newEventEditScopeFutureLabel">Esta e as pr&oacute;ximas</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--text);">
+                <input type="radio" name="newEventEditScope" value="all">
+                <span id="newEventEditScopeAllLabel">Toda a s&eacute;rie</span>
+              </label>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.4;">
+              Edi&ccedil;&atilde;o em massa n&atilde;o muda data nem nota nem comprador &mdash; s&oacute; t&iacute;tulo, hor&aacute;rio, categoria e observa&ccedil;&atilde;o.
+            </div>
+          </div>
         </div>
         <div id="newEventConflictWarning" class="msg hidden"></div>
     <div id="newEventFeriadoWarning" class="msg hidden"></div>

@@ -1,4 +1,4 @@
-const CACHE = 'agenda-compras-v17';
+const CACHE = 'agenda-compras-v58';
 const ASSETS = [
   '/',
   '/index.html',
@@ -41,7 +41,8 @@ self.addEventListener('fetch', event => {
     caches.match(event.request).then(cached => {
       const networkFetch = fetch(event.request).then(response => {
         if (response.ok) {
-          caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
+          const toCache = response.clone();
+          caches.open(CACHE).then(cache => cache.put(event.request, toCache));
         }
         return response;
       });

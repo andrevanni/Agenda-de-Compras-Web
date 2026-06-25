@@ -321,10 +321,17 @@ function renderBuyerSelect() {
     localStorage.setItem(storageKeys.activeBuyerId, UNASSIGNED_BUYER_VALUE);
   }
 
+  // Preserva a seleção em andamento do formulário de fornecedor: o form é uma seção
+  // inline, então um re-render (ex.: troca de comprador ativo) reconstruía as opções
+  // e zerava o select para "Sem Comprador", gravando comprador_id=null ao salvar.
+  const prevSupplierComprador = fornecedorCompradorSelect.value;
   fornecedorCompradorSelect.innerHTML = [
     `<option value="">Sem Comprador</option>`,
     ...state.buyers.map((buyer) => `<option value="${buyer.id}">${buyer.nome_comprador}</option>`),
   ].join("");
+  if (prevSupplierComprador && state.buyers.some((buyer) => buyer.id === prevSupplierComprador)) {
+    fornecedorCompradorSelect.value = prevSupplierComprador;
+  }
 
   updateBuyerCard();
 }
@@ -344,14 +351,38 @@ function tableRowForAgenda(row) {
   `;
 }
 
+let suppliersShowAll = false;
+
 function renderSuppliers() {
   const searchTerm = (document.getElementById("fornecedorSearch")?.value ?? "").toLowerCase().trim();
+  const { activeBuyerId } = getSettings();
+
+  let scoped = state.suppliers;
+  if (!suppliersShowAll) {
+    if (activeBuyerId === UNASSIGNED_BUYER_VALUE) {
+      scoped = state.suppliers.filter((s) => !s.comprador_id);
+    } else if (activeBuyerId) {
+      scoped = state.suppliers.filter((s) => s.comprador_id === activeBuyerId);
+    }
+  }
+
   const filtered = searchTerm
-    ? state.suppliers.filter((s) =>
+    ? scoped.filter((s) =>
         s.nome_fornecedor.toLowerCase().includes(searchTerm) ||
         String(s.codigo_fornecedor).toLowerCase().includes(searchTerm)
       )
-    : state.suppliers;
+    : scoped;
+
+  const toggleBtn = document.getElementById("fornecedorToggleScope");
+  if (toggleBtn) {
+    toggleBtn.textContent = suppliersShowAll ? "Mostrar só do comprador" : "Mostrar todos";
+  }
+
+  const emptyMsg = searchTerm
+    ? "Nenhum fornecedor encontrado."
+    : suppliersShowAll
+      ? "Sem fornecedores cadastrados."
+      : "Sem fornecedores cadastrados para este comprador.";
 
   document.getElementById("fornecedoresTable").innerHTML = filtered.length
     ? filtered.map((supplier) => `
@@ -372,7 +403,7 @@ function renderSuppliers() {
         </td>
       </tr>
     `).join("")
-    : `<tr><td colspan="8">${searchTerm ? "Nenhum fornecedor encontrado." : "Sem fornecedores cadastrados."}</td></tr>`;
+    : `<tr><td colspan="8">${emptyMsg}</td></tr>`;
 
   document.querySelectorAll("[data-edit-supplier]").forEach((button) => {
     button.addEventListener("click", () => editSupplier(button.dataset.editSupplier));
@@ -552,20 +583,31 @@ async function ensurePendingOccurrenceForSupplier(supplier) {
 
 async function backfillMissingPendingOccurrences(suppliers, agendaRows) {
   const pendingBySupplier = new Set((agendaRows ?? []).map((row) => row.fornecedor_id));
-  const missingCategoria = new Set(
-    (agendaRows ?? []).filter((row) => row.fornecedor_id && !row.categoria_id).map((row) => row.fornecedor_id)
-  );
-  let createdCount = 0;
+  const categoriaId = categoriaAgendaComprasId();
+  const hasRealCategoriaId = categoriaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(categoriaId));
 
-  for (const supplier of suppliers) {
-    if (pendingBySupplier.has(supplier.id) && !missingCategoria.has(supplier.id)) continue;
-    const result = await ensurePendingOccurrenceForSupplier(supplier);
-    if (result.created) {
-      createdCount += 1;
-      pendingBySupplier.add(supplier.id);
+  // Batch PATCH único para todas as ocorrências sem categoria_id — evita N chamadas sequenciais
+  if (hasRealCategoriaId) {
+    const hasMissing = (agendaRows ?? []).some((row) => row.fornecedor_id && !row.categoria_id);
+    if (hasMissing) {
+      await fetchSupabase(
+        `/rest/v1/agenda_ocorrencias?tenant_id=eq.${getSettings().tenantId}&status=eq.PENDENTE&fornecedor_id=not.is.null&categoria_id=is.null`,
+        { method: "PATCH", headers: { Prefer: "return=minimal" }, body: { categoria_id: categoriaId } }
+      );
     }
   }
 
+  // Cria ocorrências para fornecedores que não têm nenhuma pendente
+  const toCreate = suppliers.filter((s) => !pendingBySupplier.has(s.id));
+  if (!toCreate.length) return 0;
+
+  let createdCount = 0;
+  for (let i = 0; i < toCreate.length; i += 5) {
+    const results = await Promise.allSettled(
+      toCreate.slice(i, i + 5).map((s) => ensurePendingOccurrenceForSupplier(s))
+    );
+    createdCount += results.filter((r) => r.status === "fulfilled" && r.value.created).length;
+  }
   return createdCount;
 }
 
@@ -590,6 +632,7 @@ function resetSupplierForm() {
   fornecedorCompradorSelect.value = "";
   renderSupplierDayCheckboxes([]);
   refreshSupplierSuggestion();
+  updateParametroEstoqueHint();
   updateSupplierNotesButton();
   clearFeedback();
   clearImportPreview();
@@ -623,6 +666,7 @@ function editSupplier(supplierId) {
   document.getElementById("fornecedorFormMode").textContent = `Editando ${supplier.nome_fornecedor}`;
   renderSupplierDayCheckboxes(supplier.dias_compra);
   refreshSupplierSuggestion();
+  updateParametroEstoqueHint();
   updateSupplierNotesButton();
 }
 
@@ -758,15 +802,17 @@ async function persistSupplierNote(supplierId, noteText) {
 }
 
 async function logAuditEvent(evento) {
+  // Grava via backend (FastAPI usa SERVICE_ROLE e contorna RLS).
+  // INSERT direto no Supabase é bloqueado pela RLS quando o usuário é
+  // buyer sem entrada em tenant_users — causava logs invisíveis.
   try {
-    const { tenantId } = getSettings();
-    if (!tenantId) return;
-    await fetchSupabase("/rest/v1/audit_log", {
+    await fetchApi("/api/v1/portal/audit-log", {
       method: "POST",
-      headers: { Prefer: "return=minimal" },
-      body: { tenant_id: tenantId, ...evento },
+      body: evento,
     });
-  } catch { /* audit não deve bloquear operações principais */ }
+  } catch (err) {
+    console.warn("audit_log falhou:", err?.message ?? err);
+  }
 }
 
 async function deleteSupplier(supplierId) {

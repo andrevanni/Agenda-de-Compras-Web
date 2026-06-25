@@ -85,15 +85,16 @@ function renderPainel() {
   if (!container) return;
 
   const { activeBuyerId } = getSettings();
+  const filtraPorComprador = activeBuyerId && activeBuyerId !== UNASSIGNED_BUYER_VALUE;
 
-  // Junta pendentes + realizadas que tenham nota preenchida
+  // (1) Notas-de-ocorrência: pendentes + realizadas com nota preenchida
   const allOccs = [...state.agenda, ...state.auditOccurrences];
   const seen = new Set();
   const withNota = allOccs.filter((occ) => {
     if (!occ.nota?.trim()) return false;
     if (seen.has(occ.id)) return false;
     seen.add(occ.id);
-    if (activeBuyerId && activeBuyerId !== UNASSIGNED_BUYER_VALUE) {
+    if (filtraPorComprador) {
       const supplier = supplierById(occ.fornecedor_id);
       const buyerMatch = supplier?.comprador_id === activeBuyerId || occ.comprador_id === activeBuyerId;
       if (!buyerMatch) return false;
@@ -101,53 +102,89 @@ function renderPainel() {
     return true;
   });
 
-  if (!withNota.length) {
-    container.innerHTML = `<p class="muted" style="padding:24px 0">Nenhuma nota fixada nos compromissos ainda. Abra um compromisso e adicione uma nota.</p>`;
+  // (2) Notas livres (tabela notas_painel)
+  const notasLivres = (state.notasLivres ?? []).filter((nota) => {
+    if (!filtraPorComprador) return true;
+    return nota.comprador_id === activeBuyerId;
+  });
+
+  if (!withNota.length && !notasLivres.length) {
+    container.innerHTML = `<p class="muted" style="padding:24px 0">Nenhuma nota no painel ainda. Clique em <strong>+ Nova nota</strong> ou abra um compromisso e adicione uma nota.</p>`;
     return;
   }
 
-  // Agrupa por comprador
+  // Agrupa tudo por comprador. Notas-de-ocorrência primeiro, livres depois.
   const groups = new Map();
+  const addToGroup = (key, buyer, payload) => {
+    if (!groups.has(key)) groups.set(key, { buyer, occorrencias: [], livres: [] });
+    payload(groups.get(key));
+  };
   for (const occ of withNota) {
     const supplier = supplierById(occ.fornecedor_id);
     const buyer = buyerById(occ.comprador_id ?? supplier?.comprador_id);
-    const key = buyer?.id ?? "sem-comprador";
-    if (!groups.has(key)) groups.set(key, { buyer, items: [] });
-    groups.get(key).items.push(occ);
+    addToGroup(buyer?.id ?? "sem-comprador", buyer, (g) => g.occorrencias.push(occ));
+  }
+  for (const nota of notasLivres) {
+    const buyer = buyerById(nota.comprador_id);
+    addToGroup(buyer?.id ?? "sem-comprador", buyer, (g) => g.livres.push(nota));
   }
 
-  container.innerHTML = Array.from(groups.values()).map(({ buyer, items }) => `
-    <div class="painel-grupo">
-      <div class="painel-grupo-header">
-        ${buyer ? `<div class="avatar avatar-sm avatar-placeholder">${buyerInitials(buyer.nome_comprador)}</div>` : ""}
-        <strong>${buyer?.nome_comprador ?? "Sem comprador"}</strong>
-        <span class="muted">${items.length} nota(s)</span>
+  container.innerHTML = Array.from(groups.values()).map(({ buyer, occorrencias, livres }) => {
+    const totalNotas = occorrencias.length + livres.length;
+    const cardsOcc = occorrencias.map((occ) => {
+      const supplier = supplierById(occ.fornecedor_id);
+      const cat = categoriaById(occ.categoria_id);
+      const titulo = occ.titulo || supplier?.nome_fornecedor || "Compromisso";
+      const cor = cat?.cor ?? "#F59E0B";
+      const hora = occ.hora_inicio ? ` · ${occ.hora_inicio.slice(0, 5)}` : "";
+      return `
+        <div class="postit-card" style="border-top: 4px solid ${cor}">
+          <div class="postit-card-header">
+            <span class="postit-card-titulo">${titulo}</span>
+            <span class="postit-card-data muted">${formatDate(occ.data_prevista)}${hora}</span>
+          </div>
+          <p class="postit-card-nota">${escapeHtml(occ.nota)}</p>
+          <button class="postit-card-remove muted" data-remove-nota="${occ.id}" title="Remover nota">&#10005;</button>
+        </div>
+      `;
+    }).join("");
+    const cardsLivres = livres.map((nota) => `
+      <div class="postit-card postit-card-livre" style="border-top: 4px solid #FBBF24">
+        <div class="postit-card-header">
+          <span class="postit-card-titulo">&#128204; Post-it</span>
+          <span class="postit-card-data muted">${formatDate(nota.updated_at?.slice(0, 10) ?? nota.created_at?.slice(0, 10))}</span>
+        </div>
+        <p class="postit-card-nota" data-edit-nota-livre="${nota.id}" title="Clique para editar">${escapeHtml(nota.texto)}</p>
+        <button class="postit-card-remove muted" data-remove-nota-livre="${nota.id}" title="Excluir post-it">&#10005;</button>
       </div>
-      <div class="painel-cards">
-        ${items.map((occ) => {
-          const supplier = supplierById(occ.fornecedor_id);
-          const cat = categoriaById(occ.categoria_id);
-          const titulo = occ.titulo || supplier?.nome_fornecedor || "Compromisso";
-          const cor = cat?.cor ?? "#F59E0B";
-          const hora = occ.hora_inicio ? ` · ${occ.hora_inicio.slice(0, 5)}` : "";
-          return `
-            <div class="postit-card" style="border-top: 4px solid ${cor}">
-              <div class="postit-card-header">
-                <span class="postit-card-titulo">${titulo}</span>
-                <span class="postit-card-data muted">${formatDate(occ.data_prevista)}${hora}</span>
-              </div>
-              <p class="postit-card-nota">${occ.nota}</p>
-              <button class="postit-card-remove muted" data-remove-nota="${occ.id}" title="Remover nota">&#10005;</button>
-            </div>
-          `;
-        }).join("")}
+    `).join("");
+    return `
+      <div class="painel-grupo">
+        <div class="painel-grupo-header">
+          ${buyer ? `<div class="avatar avatar-sm avatar-placeholder">${buyerInitials(buyer.nome_comprador)}</div>` : ""}
+          <strong>${buyer?.nome_comprador ?? "Sem comprador"}</strong>
+          <span class="muted">${totalNotas} nota(s)</span>
+        </div>
+        <div class="painel-cards">${cardsOcc}${cardsLivres}</div>
       </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 
   container.querySelectorAll("[data-remove-nota]").forEach((btn) => {
     btn.addEventListener("click", () => removeNota(btn.dataset.removeNota));
   });
+  container.querySelectorAll("[data-remove-nota-livre]").forEach((btn) => {
+    btn.addEventListener("click", () => deleteNotaLivre(btn.dataset.removeNotaLivre));
+  });
+  container.querySelectorAll("[data-edit-nota-livre]").forEach((el) => {
+    el.addEventListener("click", () => turnNotaLivreEditable(el));
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text ?? "";
+  return div.innerHTML;
 }
 
 async function removeNota(occId) {
@@ -162,6 +199,126 @@ async function removeNota(occId) {
     renderPainel();
   } catch (err) {
     setFeedback(`Não foi possível remover a nota: ${err.message}`, "error");
+  }
+}
+
+// ============================================================
+// Notas livres (post-its do Painel desvinculados de ocorrências)
+// ============================================================
+
+async function createNotaLivre() {
+  const texto = (window.prompt("Texto do post-it:") || "").trim();
+  if (!texto) return;
+  try {
+    const s = getSettings();
+    const compradorId = (s.activeBuyerId && s.activeBuyerId !== UNASSIGNED_BUYER_VALUE)
+      ? s.activeBuyerId
+      : (s.loggedBuyerId || null);
+    const rows = await fetchSupabase("/rest/v1/notas_painel", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: { tenant_id: s.tenantId, comprador_id: compradorId, texto },
+    });
+    const nova = Array.isArray(rows) ? rows[0] : rows;
+    if (nova) {
+      state.notasLivres.unshift(nova);
+      renderPainel();
+      setFeedback("Post-it criado e fixado no Painel.", "success");
+    }
+  } catch (err) {
+    setFeedback(`Não foi possível criar o post-it: ${err.message}`, "error");
+  }
+}
+
+function turnNotaLivreEditable(pEl) {
+  const id = pEl.dataset.editNotaLivre;
+  const textoAtual = state.notasLivres.find((n) => n.id === id)?.texto ?? "";
+  const textarea = document.createElement("textarea");
+  textarea.value = textoAtual;
+  textarea.className = "postit-edit-area";
+  textarea.style.cssText = "width:100%;min-height:80px;border:1px dashed var(--line);background:transparent;font:inherit;color:inherit;resize:vertical;outline:none;padding:6px;border-radius:4px;";
+  pEl.replaceWith(textarea);
+  textarea.focus();
+  textarea.select();
+  let handled = false;
+  const finish = async () => {
+    if (handled) return;
+    handled = true;
+    const novoTexto = textarea.value.trim();
+    if (!novoTexto) {
+      await deleteNotaLivre(id, true);
+      return;
+    }
+    if (novoTexto === textoAtual) {
+      renderPainel();
+      return;
+    }
+    await saveNotaLivreEdit(id, novoTexto);
+  };
+  textarea.addEventListener("blur", finish);
+  textarea.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { handled = true; renderPainel(); }
+    if (e.ctrlKey && e.key === "Enter") { e.preventDefault(); textarea.blur(); }
+  });
+}
+
+async function saveNotaLivreEdit(id, novoTexto) {
+  try {
+    const s = getSettings();
+    const nowIso = new Date().toISOString();
+    await fetchSupabase(`/rest/v1/notas_painel?id=eq.${id}&tenant_id=eq.${s.tenantId}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: { texto: novoTexto, updated_at: nowIso },
+    });
+    const nota = state.notasLivres.find((n) => n.id === id);
+    if (nota) { nota.texto = novoTexto; nota.updated_at = nowIso; }
+    renderPainel();
+  } catch (err) {
+    setFeedback(`Não foi possível salvar o post-it: ${err.message}`, "error");
+    renderPainel();
+  }
+}
+
+async function deleteNotaLivre(id, silent = false) {
+  if (!silent && !confirm("Excluir este post-it?")) return;
+  try {
+    const s = getSettings();
+    await fetchSupabase(`/rest/v1/notas_painel?id=eq.${id}&tenant_id=eq.${s.tenantId}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    });
+    state.notasLivres = state.notasLivres.filter((n) => n.id !== id);
+    renderPainel();
+  } catch (err) {
+    setFeedback(`Não foi possível excluir o post-it: ${err.message}`, "error");
+  }
+}
+
+async function saveAgendaNota() {
+  const occId = state.selectedOccurrenceId;
+  if (!occId) return;
+  const textarea = document.getElementById("agendaNota");
+  if (!textarea) return;
+  const novaNota = textarea.value.trim() || null;
+  const btn = document.getElementById("saveAgendaNotaButton");
+  const rotuloOriginal = btn?.innerHTML;
+  if (btn) { btn.disabled = true; btn.innerHTML = "Salvando..."; }
+  try {
+    const s = getSettings();
+    await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${occId}&tenant_id=eq.${s.tenantId}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: { nota: novaNota },
+    });
+    const occ = state.agenda.find((o) => o.id === occId) ?? state.auditOccurrences.find((o) => o.id === occId);
+    if (occ) occ.nota = novaNota;
+    renderPainel();
+    setFeedback(novaNota ? "Nota salva e fixada no Painel." : "Nota removida.", "success", agendaDetailFeedback);
+  } catch (err) {
+    setFeedback(`Não foi possível salvar a nota: ${err.message}`, "error", agendaDetailFeedback);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = rotuloOriginal ?? "&#128190; Salvar nota"; }
   }
 }
 
@@ -199,8 +356,9 @@ function categoriaCorById(id) {
 
 function buildCalendarEvents() {
   const { activeBuyerId } = getSettings();
+  const catAgendaId = state.categorias.find((c) => c.nome === "Agenda de Compras")?.id;
 
-  const filtered = state.agenda.filter((occ) => {
+  const filtroComprador = (occ) => {
     if (!activeBuyerId || activeBuyerId === UNASSIGNED_BUYER_VALUE) return true;
     // Tarefas gerais (sem fornecedor e sem comprador) aparecem para todos os compradores
     if (!occ.fornecedor_id && !occ.comprador_id) return true;
@@ -208,9 +366,17 @@ function buildCalendarEvents() {
     const buyerOnSupplier = supplier?.comprador_id;
     const buyerOnOcc = occ.comprador_id;
     return buyerOnSupplier === activeBuyerId || buyerOnOcc === activeBuyerId;
-  });
+  };
 
-  const occEvents = filtered.map((occ) => {
+  const pendentes = state.agenda.filter(filtroComprador);
+  // Compromissos genéricos concluídos (REALIZADA, sem fornecedor, categoria != Agenda de Compras)
+  // aparecem riscados no calendário. Agenda de Compras tem fluxo próprio (Tratar Agenda)
+  // e suas REALIZADAs continuam fora do calendário pra não poluir.
+  const concluidosGenericos = (state.auditOccurrences ?? []).filter(
+    (occ) => occ.status === "REALIZADA" && !occ.fornecedor_id && occ.categoria_id !== catAgendaId
+  ).filter(filtroComprador);
+
+  const toEvent = (occ, concluido) => {
     const supplier = supplierById(occ.fornecedor_id);
     const cat = categoriaById(occ.categoria_id);
     const titulo = occ.titulo || supplier?.nome_fornecedor || "Sem título";
@@ -223,16 +389,22 @@ function buildCalendarEvents() {
       : null;
     return {
       id: occ.id,
-      title: titulo,
+      title: concluido ? `✓ ${titulo}` : titulo,
       start,
       end: end ?? undefined,
       allDay: !occ.hora_inicio,
       backgroundColor: cor,
       borderColor: cor,
       textColor: "#ffffff",
-      extendedProps: { occ, supplier, cat },
+      classNames: concluido ? ["fc-event-concluido"] : [],
+      extendedProps: { occ, supplier, cat, concluido },
     };
-  });
+  };
+
+  const occEvents = [
+    ...pendentes.map((occ) => toEvent(occ, false)),
+    ...concluidosGenericos.map((occ) => toEvent(occ, true)),
+  ];
 
   const feriadoEvents = state.feriados.flatMap((f) => [
     {
@@ -328,12 +500,22 @@ async function loadCategorias() {
     const rows = await fetchSupabase(
       `/rest/v1/categorias_agenda?select=id,nome,cor,icone,ativo&tenant_id=eq.${settings.tenantId}&ativo=eq.true&order=nome.asc`
     );
-    state.categorias = rows ?? [];
+    const existing = rows ?? [];
+    const hasAgendaCompras = existing.some((r) => r.nome === "Agenda de Compras");
+    if (!hasAgendaCompras) {
+      // "Agenda de Compras" é categoria fundamental — cria automaticamente se não existir
+      const created = await fetchSupabase("/rest/v1/categorias_agenda?on_conflict=tenant_id,nome", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+        body: { tenant_id: settings.tenantId, nome: "Agenda de Compras", cor: "#F59E0B", ativo: true },
+      });
+      state.categorias = [...existing, ...(created ?? [])];
+    } else {
+      state.categorias = existing;
+    }
   } catch {
     state.categorias = [
-      { id: "cat-compras",     nome: "Agenda de Compras", cor: "#F59E0B" },
-      { id: "cat-pessoal",     nome: "Pessoal",           cor: "#3B82F6" },
-      { id: "cat-operacional", nome: "Operacional",       cor: "#10B981" },
+      { id: "cat-compras", nome: "Agenda de Compras", cor: "#F59E0B" },
     ];
   }
 }
@@ -443,7 +625,7 @@ function populateNewEventSelects() {
   const wrap = document.getElementById("newEventCompradoresWrap");
   if (wrap) {
     wrap.innerHTML = state.buyers.map((b) =>
-      `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:3px 0;">` +
+      `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:3px 0;color:var(--text);">` +
       `<input type="checkbox" name="ev_comprador" value="${b.id}"> ${b.nome_comprador}</label>`
     ).join("");
   }
@@ -474,6 +656,7 @@ function openNewEventModal(dateStr = "") {
   document.getElementById("newEventModalSubtitle").textContent = "Preencha os dados do evento. Horário padrão calculado a partir das configurações.";
   document.getElementById("deleteNewEventButton").classList.add("hidden");
   document.getElementById("newEventRecorrenciaWrap").classList.remove("hidden");
+  document.getElementById("newEventEditScopeWrap").classList.add("hidden");
   document.getElementById("newEventTitulo").value = "";
   document.getElementById("newEventData").value = dateStr ? isoToBr(dateStr) : isoToBr(todayIso());
   const _settings = getSettings();
@@ -512,11 +695,29 @@ function openGenericEventDetail(occ) {
   setNewEventCompradores(occ.comprador_id ? [occ.comprador_id] : []);
   document.getElementById("newEventObservacao").value = occ.observacao ?? "";
   document.getElementById("newEventNota").value = occ.nota ?? "";
+  // Escopo de edição/exclusão em massa — só aparece se a ocorrência pertence a uma série
+  const scopeWrap = document.getElementById("newEventEditScopeWrap");
+  const singleRadio = scopeWrap.querySelector('input[value="single"]');
+  if (singleRadio) singleRadio.checked = true;
+  if (occ.serie_id) {
+    const irmas = (state.agenda ?? []).filter((o) => o.serie_id === occ.serie_id);
+    const futuras = irmas.filter((o) => (o.data_prevista ?? "") >= (occ.data_prevista ?? ""));
+    document.getElementById("newEventEditScopeFutureLabel").textContent = `Esta e as próximas (${futuras.length})`;
+    document.getElementById("newEventEditScopeAllLabel").textContent = `Toda a série (${irmas.length})`;
+    scopeWrap.classList.remove("hidden");
+  } else {
+    scopeWrap.classList.add("hidden");
+  }
   clearFeedback(document.getElementById("newEventConflictWarning"));
   clearFeedback(document.getElementById("newEventFeriadoWarning"));
   setupDatePickerField("newEventData", "newEventDataNative", "newEventDataPickerButton");
   setupDatePickerField("newEventRecorrenciaFim", "newEventRecorrenciaFimNative", "newEventRecorrenciaFimPickerButton");
   document.getElementById("newEventModal").showModal();
+}
+
+function getEditScope() {
+  const checked = document.querySelector('input[name="newEventEditScope"]:checked');
+  return checked?.value || "single";
 }
 
 async function checkEventConflict(tenantId, data, horaInicio, horaFim, excludeId = null) {
@@ -590,25 +791,66 @@ async function saveNewEvent() {
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Salvando..."; }
   try {
     if (editId) {
-      // — EDIÇÃO: PATCH na ocorrência existente —
-      const buyerId = compradores[0] ?? null;
-      await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${editId}&tenant_id=eq.${s.tenantId}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: {
-          titulo,
-          data_prevista: data,
-          hora_inicio: horaInicio,
-          hora_fim: horaFim,
-          categoria_id: categoriaId,
-          comprador_id: buyerId,
-          observacao,
-          nota,
-        },
-      });
-      setFeedback("Evento atualizado com sucesso.", "success");
+      // — EDIÇÃO: PATCH na(s) ocorrência(s) existente(s) —
+      const scope = getEditScope();
+      if (scope === "single") {
+        const buyerId = compradores[0] ?? null;
+        await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${editId}&tenant_id=eq.${s.tenantId}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: {
+            titulo,
+            data_prevista: data,
+            hora_inicio: horaInicio,
+            hora_fim: horaFim,
+            categoria_id: categoriaId,
+            comprador_id: buyerId,
+            observacao,
+            nota,
+          },
+        });
+        setFeedback("Evento atualizado com sucesso.", "success");
+      } else {
+        // Massa: precisa do serie_id e (para "future") da data da ocorrência sendo editada
+        const occAtual = (state.agenda ?? []).find((o) => o.id === editId);
+        const serieId = occAtual?.serie_id;
+        if (!serieId) {
+          throw new Error("Esta ocorrência não pertence a uma série — só pode ser editada individualmente.");
+        }
+        let url = `/rest/v1/agenda_ocorrencias?serie_id=eq.${serieId}&tenant_id=eq.${s.tenantId}`;
+        if (scope === "future") {
+          url += `&data_prevista=gte.${occAtual.data_prevista}`;
+        }
+        // Edição em massa NÃO replica: data_prevista (cada uma tem a sua), nota
+        // (post-it ad-hoc), comprador_id (intencional — para trocar carteira,
+        // edita uma por vez).
+        await fetchSupabase(url, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: {
+            titulo,
+            hora_inicio: horaInicio,
+            hora_fim: horaFim,
+            categoria_id: categoriaId,
+            observacao,
+          },
+        });
+        const irmas = (state.agenda ?? []).filter((o) => o.serie_id === serieId);
+        const afetadas = scope === "all"
+          ? irmas.length
+          : irmas.filter((o) => (o.data_prevista ?? "") >= (occAtual.data_prevista ?? "")).length;
+        setFeedback(`${afetadas} ocorrência(s) da série atualizadas.`, "success");
+      }
     } else {
       // — CRIAÇÃO: POST (multi-comprador × recorrência) —
+      const dates = recorrencia ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)] : [data];
+      const buyerIds = compradores.length > 0 ? compradores : [null];
+      const total = dates.length * buyerIds.length;
+      // serie_id agrupa todas as ocorrências criadas neste "Novo Evento" para
+      // permitir edição/exclusão em massa. Só faz sentido quando total > 1.
+      const serieId = total > 1 && typeof crypto?.randomUUID === "function"
+        ? crypto.randomUUID()
+        : null;
       const base = {
         tenant_id: s.tenantId,
         titulo,
@@ -620,19 +862,21 @@ async function saveNewEvent() {
         nota,
         status: "PENDENTE",
         recorrencia: recorrencia ? JSON.stringify({ tipo: recorrencia, fim: recFim || null }) : null,
+        serie_id: serieId,
       };
-      const dates = recorrencia ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)] : [data];
-      const buyerIds = compradores.length > 0 ? compradores : [null];
+      // Nota é post-it: grava apenas na 1ª ocorrência (1ª data × 1º comprador);
+      // demais ficam com nota=null para não poluir o Painel de Notas.
+      let isFirstOccurrence = true;
       for (const d of dates) {
         for (const buyerId of buyerIds) {
           await fetchSupabase("/rest/v1/agenda_ocorrencias", {
             method: "POST",
             headers: { Prefer: "return=minimal" },
-            body: { ...base, data_prevista: d, comprador_id: buyerId },
+            body: { ...base, data_prevista: d, comprador_id: buyerId, nota: isFirstOccurrence ? base.nota : null },
           });
+          isFirstOccurrence = false;
         }
       }
-      const total = dates.length * buyerIds.length;
       setFeedback(
         total > 1
           ? `${total} evento(s) criado(s)${buyerIds.length > 1 ? ` para ${buyerIds.length} comprador(es)` : ""}${dates.length > 1 ? `, ${dates.length} datas (${recorrencia})` : ""}.`
@@ -655,16 +899,41 @@ async function deleteGenericEvent() {
   const editId = document.getElementById("newEventEditId").value.trim();
   if (!editId) return;
   const titulo = document.getElementById("newEventTitulo").value.trim() || "este evento";
-  if (!confirm(`Excluir "${titulo}"? Esta ação não pode ser desfeita.`)) return;
+  const scope = getEditScope();
+  const s = getSettings();
+  const occAtual = (state.agenda ?? []).find((o) => o.id === editId);
+
+  let mensagem;
+  let idsParaRemover;
+  let url;
+  if (scope === "single" || !occAtual?.serie_id) {
+    mensagem = `Excluir "${titulo}"? Esta ação não pode ser desfeita.`;
+    idsParaRemover = new Set([editId]);
+    url = `/rest/v1/agenda_ocorrencias?id=eq.${editId}&tenant_id=eq.${s.tenantId}`;
+  } else {
+    const serieId = occAtual.serie_id;
+    const irmas = (state.agenda ?? []).filter((o) => o.serie_id === serieId);
+    const alvo = scope === "all"
+      ? irmas
+      : irmas.filter((o) => (o.data_prevista ?? "") >= (occAtual.data_prevista ?? ""));
+    if (alvo.length === 0) return;
+    mensagem = scope === "all"
+      ? `Excluir TODA a série "${titulo}" (${alvo.length} ocorrência(s))? Esta ação não pode ser desfeita.`
+      : `Excluir "${titulo}" e as próximas ocorrências da série (${alvo.length} no total, a partir de ${isoToBr(occAtual.data_prevista)})? Esta ação não pode ser desfeita.`;
+    idsParaRemover = new Set(alvo.map((o) => o.id));
+    url = `/rest/v1/agenda_ocorrencias?serie_id=eq.${serieId}&tenant_id=eq.${s.tenantId}`;
+    if (scope === "future") url += `&data_prevista=gte.${occAtual.data_prevista}`;
+  }
+
+  if (!confirm(mensagem)) return;
   try {
-    const s = getSettings();
-    await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${editId}&tenant_id=eq.${s.tenantId}`, {
+    await fetchSupabase(url, {
       method: "DELETE",
       headers: { Prefer: "return=minimal" },
     });
-    state.agenda = state.agenda.filter((o) => o.id !== editId);
+    state.agenda = state.agenda.filter((o) => !idsParaRemover.has(o.id));
     closeModal("newEventModal");
-    setFeedback("Evento excluído.", "success");
+    setFeedback(idsParaRemover.size > 1 ? `${idsParaRemover.size} ocorrência(s) excluída(s).` : "Evento excluído.", "success");
     refreshCalendar();
     renderTables();
   } catch (err) {
@@ -724,13 +993,24 @@ async function bootstrap() {
   resetBuyerForm();
   resetSupplierForm();
   showSection("calendario");
-  await loadCategorias();
-  await loadPortalData({ silent: true });
-  ensureBuyerSelection();
-  renderTables();
-  renderCategoriasTable();
-  refreshCalendar();
-  ensureBuyerLoginSession();
+
+  const hasJwt = !!_store(storageKeys.jwt);
+  const hasTenant = !!_store(storageKeys.tenantId);
+
+  if (hasJwt && hasTenant) {
+    await loadCategorias();
+    await loadPortalData({ silent: true });
+    ensureBuyerSelection();
+    renderTables();
+    renderCategoriasTable();
+    refreshCalendar();
+    ensureBuyerLoginSession();
+  } else {
+    if (hasTenant) {
+      await loadClientMetaOnly();
+    }
+    openBuyerLoginModal();
+  }
   // Renova o JWT automaticamente a cada 50 min (expira em 60 min no Supabase)
   setInterval(refreshJWT, 50 * 60 * 1000);
 }

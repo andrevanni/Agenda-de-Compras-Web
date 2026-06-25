@@ -428,8 +428,9 @@ function parseSuppliersCsv(text) {
       return null;
     }
 
-    let safeEstoque = Number.isNaN(parametroEstoque) ? frequencia : parametroEstoque;
-    if (safeEstoque < frequencia) safeEstoque = frequencia;
+    const minimoEstoque = PARAMETRO_MINIMO_FREQUENCIA[frequencia] ?? frequencia;
+    let safeEstoque = Number.isNaN(parametroEstoque) ? minimoEstoque : parametroEstoque;
+    if (safeEstoque < minimoEstoque) safeEstoque = minimoEstoque;
     const safeLead = Number.isNaN(leadTime) || leadRaw === "" ? 1 : leadTime;
 
     return {
@@ -443,8 +444,8 @@ function parseSuppliersCsv(text) {
       comprador_id: buyer?.id ?? null,
       _dias_compra: diasCompra,
       _row_number: rowIndex + 2,
-      _import_warning: estoqueRaw !== "" && !Number.isNaN(parametroEstoque) && parametroEstoque < frequencia
-        ? `Fornecedor ${codigo}: parâmetro ajustado para ${frequencia} porque não pode ser menor que a frequência.`
+      _import_warning: estoqueRaw !== "" && !Number.isNaN(parametroEstoque) && parametroEstoque < minimoEstoque
+        ? `Fornecedor ${codigo}: parâmetro ajustado para ${minimoEstoque} dias (mínimo da frequência ${frequencia}).`
         : null,
     };
   }).filter(Boolean);
@@ -542,11 +543,14 @@ function buildAuditRecommendations(entries, allEntries = null) {
   const base = allEntries ?? entries;
   const recommendations = [];
 
+  // 1) Resumo executivo
+  const adimplencia = metrics.total > 0 ? Math.round((metrics.cumpridas / metrics.total) * 100) : 0;
   recommendations.push({
-    title: "Resumo executivo",
-    text: `${metrics.total} evento(s) auditado(s): ${metrics.cumpridas} cumprida(s), ${metrics.postergadas} postergada(s), ${metrics.antecipadas} antecipada(s). Ajustes de parâmetro: +${metrics.aumentos} aumento(s), −${metrics.reducoes} redução(ões).`,
+    title: "📊 Resumo executivo",
+    text: `${metrics.total} evento(s) auditado(s) — adimplência ${adimplencia}%: ${metrics.cumpridas} cumprida(s), ${metrics.postergadas} postergada(s), ${metrics.antecipadas} antecipada(s). Ajustes de parâmetro: +${metrics.aumentos} aumento(s), −${metrics.reducoes} redução(ões).`,
   });
 
+  // 2) Risco de atraso acumulado
   if (metrics.postergadas >= 3) {
     const taxa = metrics.total > 0 ? Math.round((metrics.postergadas / metrics.total) * 100) : 0;
     recommendations.push({
@@ -555,7 +559,7 @@ function buildAuditRecommendations(entries, allEntries = null) {
     });
   }
 
-  // Análise por comprador — destaca o mais sobrecarregado
+  // 3) Comprador mais postergador
   const byBuyer = new Map();
   base.forEach((e) => {
     if (!byBuyer.has(e.buyerName)) byBuyer.set(e.buyerName, { total: 0, postergadas: 0, aumentos: 0 });
@@ -570,24 +574,28 @@ function buildAuditRecommendations(entries, allEntries = null) {
   if (maisPostergado && maisPostergado[1].postergadas > 0) {
     const [nome, v] = maisPostergado;
     const pct = Math.round((v.postergadas / v.total) * 100);
-    recommendations.push({
-      title: `📋 Atenção: ${nome}`,
-      text: `${pct}% das agendas de ${nome} foram postergadas no período (${v.postergadas} de ${v.total}). Recomenda-se revisão da carteira desse comprador.`,
-    });
+    if (pct >= 30) {
+      recommendations.push({
+        title: `📋 Comprador sobrecarregado: ${nome}`,
+        text: `${pct}% das agendas de ${nome} foram postergadas (${v.postergadas} de ${v.total}). Sinal de carga excessiva ou carteira difícil — vale revisar distribuição.`,
+      });
+    }
   }
 
-  if (metrics.aumentos > metrics.reducoes) {
+  // 4) Pressão vs. enxugar estoque
+  if (metrics.aumentos > metrics.reducoes && metrics.aumentos >= 3) {
     recommendations.push({
       title: "📈 Pressão de estoque",
-      text: "Os aumentos de parâmetro superaram as reduções. Vale revisar fornecedores com ajuste recorrente para elevar o parâmetro base ou o lead time esperado.",
+      text: `${metrics.aumentos} aumento(s) contra ${metrics.reducoes} redução(ões). Vale revisar fornecedores com ajuste recorrente para elevar o parâmetro base ou o lead time esperado.`,
     });
-  } else if (metrics.reducoes > metrics.aumentos) {
+  } else if (metrics.reducoes > metrics.aumentos && metrics.reducoes >= 3) {
     recommendations.push({
       title: "📉 Espaço para enxugar estoque",
-      text: "As reduções de parâmetro estão predominando. Considere revisar fornecedores com sobrecobertura e ajustar a política base de parâmetro.",
+      text: `${metrics.reducoes} redução(ões) contra ${metrics.aumentos} aumento(s). Considere revisar fornecedores com sobrecobertura e ajustar a política base de parâmetro.`,
     });
   }
 
+  // 5) Carteira sem dono
   const semComprador = entries.filter((e) => e.buyerId === "sem-comprador").length;
   if (semComprador) {
     recommendations.push({
@@ -596,20 +604,89 @@ function buildAuditRecommendations(entries, allEntries = null) {
     });
   }
 
-  // Fornecedor com mais aumentos de parâmetro
-  const bySupplier = new Map();
+  // 6) Fornecedor "elástico" — muitos ajustes (aumento + redução) no período
+  const supplierStats = new Map();
   entries.forEach((e) => {
-    if (!bySupplier.has(e.supplierName)) bySupplier.set(e.supplierName, 0);
-    bySupplier.set(e.supplierName, bySupplier.get(e.supplierName) + e.metrics.aumentoParametro);
+    const name = e.supplierName || "(sem fornecedor)";
+    if (!supplierStats.has(name)) supplierStats.set(name, { ajustes: 0, aumentos: 0, reducoes: 0, antecipadas: 0, postergadas: 0, total: 0, dows: {} });
+    const s = supplierStats.get(name);
+    s.ajustes += e.metrics.aumentoParametro + e.metrics.reducaoParametro;
+    s.aumentos += e.metrics.aumentoParametro;
+    s.reducoes += e.metrics.reducaoParametro;
+    s.antecipadas += e.metrics.antecipada;
+    s.postergadas += e.metrics.postergada;
+    s.total += 1;
+    if (e.actionDate) {
+      const dow = new Date(e.actionDate + "T00:00:00").getDay();
+      s.dows[dow] = (s.dows[dow] ?? 0) + (e.metrics.postergada || 0);
+    }
   });
-  const maisAumento = Array.from(bySupplier.entries()).sort(([, a], [, b]) => b - a)[0];
-  if (maisAumento && maisAumento[1] >= 2) {
+
+  const elasticos = Array.from(supplierStats.entries())
+    .filter(([, s]) => s.ajustes >= 4)
+    .sort((a, b) => b[1].ajustes - a[1].ajustes)[0];
+  if (elasticos) {
+    const [nome, s] = elasticos;
     recommendations.push({
-      title: `🏭 Fornecedor em alerta: ${maisAumento[0]}`,
-      text: `${maisAumento[1]} ajuste(s) de aumento de parâmetro registrado(s). Considere revisar o parâmetro base ou o lead time desse fornecedor.`,
+      title: `📐 Fornecedor com parâmetro instável: ${nome}`,
+      text: `${s.ajustes} ajuste(s) de parâmetro no período (${s.aumentos} aumento(s) + ${s.reducoes} redução(ões)). Frequência de revisão pode estar mal calibrada — vale recalcular.`,
     });
   }
 
+  // 7) Fornecedor sempre antecipado — sugere reduzir parâmetro
+  const sempreAntecipado = Array.from(supplierStats.entries())
+    .filter(([, s]) => s.total >= 3 && s.antecipadas >= Math.ceil(s.total * 0.6) && s.antecipadas > s.postergadas)
+    .sort((a, b) => b[1].antecipadas - a[1].antecipadas)[0];
+  if (sempreAntecipado) {
+    const [nome, s] = sempreAntecipado;
+    recommendations.push({
+      title: `♻️ Parâmetro alto demais? ${nome}`,
+      text: `${s.antecipadas} de ${s.total} agendas foram antecipadas (>60%). Esse fornecedor pode estar com parâmetro de compra maior que o necessário — considere reduzir.`,
+    });
+  }
+
+  // 8) Fornecedor concentrando atrasos num dia da semana
+  const sazonal = Array.from(supplierStats.entries())
+    .filter(([, s]) => s.postergadas >= 3)
+    .map(([nome, s]) => {
+      const dias = Object.entries(s.dows).sort((a, b) => b[1] - a[1]);
+      if (!dias.length) return null;
+      const [dowTop, qtd] = dias[0];
+      const taxa = qtd / s.postergadas;
+      return { nome, dow: Number(dowTop), qtd, total: s.postergadas, taxa };
+    })
+    .filter((x) => x && x.taxa >= 0.6)
+    .sort((a, b) => b.qtd - a.qtd)[0];
+  if (sazonal) {
+    recommendations.push({
+      title: `🔁 Padrão semanal: ${sazonal.nome}`,
+      text: `${sazonal.qtd} das ${sazonal.total} agendas postergadas de ${sazonal.nome} caem em ${DIAS_SEMANA_HEATMAP[sazonal.dow]}. Considere mover o pedido para outro dia.`,
+    });
+  }
+
+  // 9) Fornecedor com mais aumentos de parâmetro (mantém — independente do elástico)
+  const maisAumento = Array.from(supplierStats.entries())
+    .filter(([, s]) => s.aumentos >= 2)
+    .sort((a, b) => b[1].aumentos - a[1].aumentos)[0];
+  if (maisAumento && (!elasticos || maisAumento[0] !== elasticos[0])) {
+    const [nome, s] = maisAumento;
+    recommendations.push({
+      title: `🏭 Fornecedor em alerta: ${nome}`,
+      text: `${s.aumentos} ajuste(s) de aumento de parâmetro. Considere revisar o parâmetro base ou o lead time desse fornecedor.`,
+    });
+  }
+
+  // 10) Execução fora da carteira — auditoria de governança
+  const foraDaCarteira = entries.filter((e) => e.meta?.executado_fora_da_carteira).length;
+  if (foraDaCarteira >= 2) {
+    const pct = Math.round((foraDaCarteira / metrics.total) * 100);
+    recommendations.push({
+      title: "🛡️ Execução fora da carteira",
+      text: `${foraDaCarteira} evento(s) (${pct}%) foram tratados por alguém diferente do comprador titular. Confirme se isso reflete substituição planejada ou se há gargalo.`,
+    });
+  }
+
+  // Fallback: operação estável
   if (recommendations.length === 1) {
     recommendations.push({
       title: "✅ Operação estável",
@@ -687,10 +764,14 @@ function syncAuditPeriodInputs() {
 
 let _auditChartPie = null;
 let _auditChartBar = null;
+let _auditChartTimeline = null;
+let _auditChartTopFornecedores = null;
 
 function _destroyAuditCharts() {
   if (_auditChartPie) { _auditChartPie.destroy(); _auditChartPie = null; }
   if (_auditChartBar) { _auditChartBar.destroy(); _auditChartBar = null; }
+  if (_auditChartTimeline) { _auditChartTimeline.destroy(); _auditChartTimeline = null; }
+  if (_auditChartTopFornecedores) { _auditChartTopFornecedores.destroy(); _auditChartTopFornecedores = null; }
 }
 
 function _renderAuditCharts(entries) {
@@ -706,7 +787,7 @@ function _renderAuditCharts(entries) {
         labels: ["Cumpridas", "Postergadas", "Antecipadas"],
         datasets: [{ data: [metrics.cumpridas, metrics.postergadas, metrics.antecipadas], backgroundColor: ["#10b981", "#ef4444", "#f59e0b"], borderWidth: 2 }],
       },
-      options: { plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } }, cutout: "60%" },
+      options: { responsive: false, plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } }, cutout: "60%" },
     });
   }
 
@@ -735,11 +816,151 @@ function _renderAuditCharts(entries) {
       options: {
         indexAxis: "y",
         responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } },
         scales: { x: { stacked: true, ticks: { precision: 0 } }, y: { stacked: true } },
       },
     });
   }
+}
+
+function _renderAuditTimelineChart(entries, range) {
+  if (typeof Chart === "undefined") return;
+  const ctx = document.getElementById("auditChartTimeline")?.getContext("2d");
+  if (!ctx) return;
+  if (!entries.length || !range.start || !range.end) return;
+
+  // Gera lista de dias entre start e end
+  const days = [];
+  const cursor = new Date(range.start + "T00:00:00");
+  const endDate = new Date(range.end + "T00:00:00");
+  while (cursor <= endDate) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  if (days.length > 90) return; // Períodos muito longos: pula gráfico
+
+  const cumpridas = days.map(() => 0);
+  const postergadas = days.map(() => 0);
+  const antecipadas = days.map(() => 0);
+  entries.forEach((e) => {
+    const idx = days.indexOf(e.actionDate);
+    if (idx === -1) return;
+    if (e.metrics.cumprida) cumpridas[idx] += 1;
+    if (e.metrics.postergada) postergadas[idx] += 1;
+    if (e.metrics.antecipada) antecipadas[idx] += 1;
+  });
+
+  _auditChartTimeline = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: days.map((d) => formatDate(d).slice(0, 5)),
+      datasets: [
+        { label: "Cumpridas", data: cumpridas, borderColor: "#10b981", backgroundColor: "rgba(16,185,129,.15)", tension: .3, fill: true },
+        { label: "Postergadas", data: postergadas, borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,.15)", tension: .3, fill: true },
+        { label: "Antecipadas", data: antecipadas, borderColor: "#f59e0b", backgroundColor: "rgba(245,158,11,.15)", tension: .3, fill: true },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+    },
+  });
+}
+
+const DIAS_SEMANA_HEATMAP = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+function _renderAuditHeatmap(entries) {
+  const wrap = document.getElementById("auditHeatmap");
+  if (!wrap) return;
+  if (!entries.length) {
+    wrap.innerHTML = `<div class="muted" style="padding:24px;text-align:center;font-size:12px;">Sem dados no período.</div>`;
+    return;
+  }
+
+  // matrix[metric][weekday] = count
+  const metricas = [
+    { key: "cumprida", label: "✅ Cumpridas", color: [16, 185, 129] },
+    { key: "postergada", label: "⏰ Postergadas", color: [239, 68, 68] },
+    { key: "aumentoParametro", label: "⬆ Aumentos", color: [245, 158, 11] },
+    { key: "reducaoParametro", label: "⬇ Reduções", color: [59, 130, 246] },
+  ];
+  const matrix = metricas.map(() => Array(7).fill(0));
+  entries.forEach((e) => {
+    if (!e.actionDate) return;
+    const dow = new Date(e.actionDate + "T00:00:00").getDay();
+    metricas.forEach((m, i) => {
+      if (e.metrics[m.key]) matrix[i][dow] += 1;
+    });
+  });
+  const maxPorLinha = matrix.map((row) => Math.max(1, ...row));
+
+  let html = `<div class="audit-heatmap-grid">`;
+  html += `<div class="audit-heatmap-cell audit-heatmap-corner"></div>`;
+  DIAS_SEMANA_HEATMAP.forEach((d) => {
+    html += `<div class="audit-heatmap-cell audit-heatmap-header">${d}</div>`;
+  });
+  metricas.forEach((m, i) => {
+    html += `<div class="audit-heatmap-cell audit-heatmap-rowlabel">${m.label}</div>`;
+    for (let d = 0; d < 7; d++) {
+      const v = matrix[i][d];
+      const intensity = v / maxPorLinha[i];
+      const alpha = v === 0 ? 0.06 : 0.25 + intensity * 0.65;
+      const [r, g, b] = m.color;
+      const bg = `rgba(${r},${g},${b},${alpha})`;
+      const textColor = intensity > 0.55 ? "#fff" : "var(--text)";
+      html += `<div class="audit-heatmap-cell audit-heatmap-value" style="background:${bg};color:${textColor};">${v || ""}</div>`;
+    }
+  });
+  html += `</div>`;
+  wrap.innerHTML = html;
+}
+
+function _renderAuditTopFornecedores(entries) {
+  if (typeof Chart === "undefined") return;
+  const ctx = document.getElementById("auditChartTopFornecedores")?.getContext("2d");
+  if (!ctx) return;
+  if (!entries.length) return;
+
+  // Agrupa por fornecedor: postergadas, aumentos, reduções
+  const grouped = new Map();
+  entries.forEach((e) => {
+    const name = e.supplierName || "(sem fornecedor)";
+    if (!grouped.has(name)) grouped.set(name, { postergadas: 0, aumentos: 0, reducoes: 0, total: 0 });
+    const g = grouped.get(name);
+    g.postergadas += e.metrics.postergada;
+    g.aumentos += e.metrics.aumentoParametro;
+    g.reducoes += e.metrics.reducaoParametro;
+    g.total += e.metrics.postergada + e.metrics.aumentoParametro + e.metrics.reducaoParametro;
+  });
+
+  const top = Array.from(grouped.entries())
+    .filter(([, g]) => g.total > 0)
+    .sort((a, b) => b[1].total - a[1].total)
+    .slice(0, 5);
+
+  if (!top.length) return;
+
+  _auditChartTopFornecedores = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: top.map(([n]) => n.length > 24 ? n.slice(0, 22) + "…" : n),
+      datasets: [
+        { label: "Postergadas", data: top.map(([, g]) => g.postergadas), backgroundColor: "#ef4444" },
+        { label: "Aumentos", data: top.map(([, g]) => g.aumentos), backgroundColor: "#f59e0b" },
+        { label: "Reduções", data: top.map(([, g]) => g.reducoes), backgroundColor: "#3b82f6" },
+      ],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } },
+      scales: { x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }, y: { stacked: true } },
+    },
+  });
 }
 
 function _populateAuditBuyerFilter() {
@@ -748,6 +969,38 @@ function _populateAuditBuyerFilter() {
   const current = sel.value;
   sel.innerHTML = '<option value="">Todos</option>' +
     state.buyers.map((b) => `<option value="${b.id}"${b.id === current ? " selected" : ""}>${b.nome_comprador}</option>`).join("");
+}
+
+function _populateAuditSupplierFilter(filterBuyerId = "") {
+  const sel = document.getElementById("auditSupplierFilter");
+  if (!sel) return;
+  const current = sel.value;
+  const base = filterBuyerId
+    ? state.auditOccurrences.filter((o) => o.comprador_id === filterBuyerId)
+    : state.auditOccurrences;
+  const usedIds = new Set(base.map((o) => o.fornecedor_id).filter(Boolean));
+  const suppliers = state.suppliers
+    .filter((s) => usedIds.has(s.id))
+    .sort((a, b) => a.nome_fornecedor.localeCompare(b.nome_fornecedor));
+  const validCurrent = suppliers.some((s) => s.id === current) ? current : "";
+  sel.innerHTML = '<option value="">Todos</option>' +
+    suppliers.map((s) => `<option value="${s.id}"${s.id === validCurrent ? " selected" : ""}>${s.nome_fornecedor}</option>`).join("");
+}
+
+function renderPedidoCell(entry) {
+  if (entry.pedidoRealizado === true) {
+    const qtd = entry.pedidoQuantidade ?? "—";
+    const val = entry.pedidoValor != null
+      ? "R$ " + entry.pedidoValor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : "—";
+    return `<span style="color:#10b981;font-weight:600">✅</span> ${qtd} un · <strong>${val}</strong>`;
+  }
+  if (entry.pedidoRealizado === false) {
+    const motivo = PEDIDO_MOTIVO_LABEL[entry.pedidoMotivoNao] ?? "Sem motivo";
+    const detalhe = entry.pedidoMotivoDetalhe ? ` <span class="muted" title="${entry.pedidoMotivoDetalhe.replace(/"/g, '&quot;')}">📝</span>` : "";
+    return `<span style="color:#ef4444;font-weight:600">❌</span> <span style="font-size:12px">${motivo}</span>${detalhe}`;
+  }
+  return `<span class="muted">—</span>`;
 }
 
 function exportAuditToExcel(entries, range) {
@@ -759,6 +1012,11 @@ function exportAuditToExcel(entries, range) {
     "Data ação": e.actionDate ? formatDate(e.actionDate) : "-",
     "Data prevista": e.plannedDate ? formatDate(e.plannedDate) : "-",
     "Tipo": e.tipo,
+    "Pedido": e.pedidoRealizado === true ? "Sim" : e.pedidoRealizado === false ? "Não" : "",
+    "Quantidade pedida": e.pedidoQuantidade ?? "",
+    "Valor pedido (R$)": e.pedidoValor ?? "",
+    "Motivo não pedido": PEDIDO_MOTIVO_LABEL[e.pedidoMotivoNao] ?? "",
+    "Detalhe motivo": e.pedidoMotivoDetalhe ?? "",
     "Δ Parâmetro (dias)": Number(e.meta?.incremento_parametro_dias ?? 0),
     "Δ Próxima data (dias)": Number(e.meta?.ajuste_proxima_data_dias ?? 0),
     "Detalhe": e.resumo,
@@ -792,10 +1050,13 @@ function renderAuditDashboard() {
   const buyerGroups = document.getElementById("auditBuyerGroups");
   syncAuditPeriodInputs();
   _populateAuditBuyerFilter();
-  const range = getAuditRange();
   const filterBuyerId = document.getElementById("auditBuyerFilter")?.value ?? "";
+  _populateAuditSupplierFilter(filterBuyerId);
+  const range = getAuditRange();
+  const filterSupplierId = document.getElementById("auditSupplierFilter")?.value ?? "";
 
   const allEntries = state.auditOccurrences
+    .filter((raw) => !filterSupplierId || raw.fornecedor_id === filterSupplierId)
     .map(classifyAuditEvent)
     .filter((entry) => entry.status !== "PENDENTE" || entry.meta)
     .filter((entry) => {
@@ -809,6 +1070,9 @@ function renderAuditDashboard() {
   const entries = filterBuyerId ? allEntries.filter((e) => e.buyerId === filterBuyerId) : allEntries;
 
   const metrics = aggregateAuditMetrics(entries);
+  const pedidosRespondidos = metrics.pedidosSim + metrics.pedidosNao;
+  const taxaPedido = pedidosRespondidos > 0 ? Math.round((metrics.pedidosSim / pedidosRespondidos) * 100) : null;
+  const valorTotalFmt = "R$ " + metrics.valorTotalPedidos.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   summaryGrid.innerHTML = [
     ["Eventos", metrics.total],
     ["Cumpridas", metrics.cumpridas],
@@ -816,6 +1080,8 @@ function renderAuditDashboard() {
     ["Aumentos", metrics.aumentos],
     ["Reduções", metrics.reducoes],
     ["Antecipadas", metrics.antecipadas],
+    ["Taxa de pedido", taxaPedido === null ? "—" : `${taxaPedido}%`],
+    ["Valor total", valorTotalFmt],
   ].map(([label, value]) => `
     <div class="kpi-card">
       <span class="muted">${label}</span>
@@ -824,6 +1090,9 @@ function renderAuditDashboard() {
   `).join("");
 
   _renderAuditCharts(entries);
+  _renderAuditTimelineChart(entries, range);
+  _renderAuditHeatmap(entries);
+  _renderAuditTopFornecedores(entries);
 
   // Leitura sintética
   const txAdimplencia = metrics.total > 0 ? Math.round((metrics.cumpridas / metrics.total) * 100) : 0;
@@ -885,6 +1154,7 @@ function renderAuditDashboard() {
                   <th>Data</th>
                   <th>Fornecedor</th>
                   <th>Evento</th>
+                  <th>Pedido</th>
                   <th>Δ Parâm.</th>
                   <th>Δ Data</th>
                   <th>Detalhe</th>
@@ -905,6 +1175,7 @@ function renderAuditDashboard() {
                       <td>${entry.actionDate ? formatDate(entry.actionDate) : "-"}</td>
                       <td>${entry.supplierCode} — ${entry.supplierName}</td>
                       <td>${entry.tipo}</td>
+                      <td class="audit-pedido-cell">${renderPedidoCell(entry)}</td>
                       <td style="${dpColor};font-weight:600">${dp > 0 ? "+" : ""}${dp}d</td>
                       <td style="${ddColor};font-weight:600">${dd > 0 ? "+" : ""}${dd}d</td>
                       <td class="audit-event-note">${detalheHtml}</td>
@@ -966,8 +1237,9 @@ function renderAuditDashboard() {
   // Bind export button
   document.getElementById("exportAuditButton")?.addEventListener("click", () => exportAuditToExcel(entries, range), { once: true });
 
-  // Bind buyer filter change
+  // Bind filter changes
   document.getElementById("auditBuyerFilter")?.addEventListener("change", renderAuditDashboard, { once: true });
+  document.getElementById("auditSupplierFilter")?.addEventListener("change", renderAuditDashboard, { once: true });
 }
 
 function refreshSupplierSuggestion() {
@@ -980,6 +1252,29 @@ function refreshSupplierSuggestion() {
   }
   const suggested = calculateSuggestedDate(baseDate, frequency, days);
   sugestaoProximaData.textContent = suggested ? `${formatDate(suggested)} (${DIAS_LABEL[parseIsoToWeekdayName(suggested)]})` : "Não foi possível calcular.";
+}
+
+function updateParametroEstoqueHint() {
+  const freqInput = document.getElementById("fornecedorFrequencia");
+  const estoqueInput = document.getElementById("fornecedorParametroEstoque");
+  const hint = document.getElementById("fornecedorParametroEstoqueHint");
+  if (!freqInput || !estoqueInput || !hint) return;
+  const freq = Number(freqInput.value || 0);
+  if (!freq || !PARAMETRO_MINIMO_FREQUENCIA[freq]) {
+    hint.textContent = "";
+    estoqueInput.min = "0";
+    return;
+  }
+  const minimo = PARAMETRO_MINIMO_FREQUENCIA[freq];
+  estoqueInput.min = String(minimo);
+  const atual = Number(estoqueInput.value || 0);
+  if (atual && atual < minimo) {
+    hint.textContent = `Mínimo para frequência ${freq}: ${minimo} dias`;
+    hint.style.color = "#dc2626";
+  } else {
+    hint.textContent = `Mínimo para essa frequência: ${minimo} dias`;
+    hint.style.color = "var(--muted)";
+  }
 }
 
 async function synchronizePendingAgendaSeeds() {

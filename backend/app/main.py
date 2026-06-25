@@ -5,18 +5,12 @@ from app.api.router import api_router
 from app.api.v1.redirect import router as redirect_router
 from app.core.config import settings
 
-app = FastAPI(title=settings.app_name, version="0.4.0")
+app = FastAPI(title=settings.app_name, version="0.4.1")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://agenda-compras-cliente.vercel.app",
-        "https://agenda-compras-admin.vercel.app",
-        "http://localhost:5500",
-        "http://localhost:3000",
-        "http://127.0.0.1:5500",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

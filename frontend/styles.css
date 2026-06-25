@@ -453,6 +453,15 @@ body[data-theme="light"] .btn-outline {
   color: #fff;
 }
 
+.btn-success {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+}
+.btn-success:hover {
+  background: #15803d;
+}
+
 .postit-button {
   border: 1px solid rgba(247, 208, 84, 0.34);
   background: linear-gradient(180deg, #f8e98f 0%, #f1d257 100%);
@@ -919,6 +928,125 @@ textarea::placeholder {
   max-width: 620px;
 }
 
+.audit-modal-card #auditSummaryGrid {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 160px));
+}
+
+.audit-modal-card .kpi-card strong {
+  font-size: 20px;
+}
+
+.audit-modal-card .kpi-card {
+  min-height: 48px;
+  padding: 10px 12px;
+}
+
+.audit-charts-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.audit-chart-box {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.audit-chart-bar-box {
+  flex: 1;
+  min-width: 260px;
+  align-items: stretch;
+}
+
+.audit-chart-bar-box canvas {
+  height: 220px !important;
+  width: 100% !important;
+}
+
+.audit-chart-full {
+  width: 100%;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+
+.audit-chart-full canvas {
+  width: 100% !important;
+  height: 160px !important;
+}
+
+.audit-heatmap {
+  width: 100%;
+  align-self: stretch;
+}
+
+.audit-heatmap-grid {
+  display: grid;
+  grid-template-columns: 110px repeat(7, minmax(36px, 1fr));
+  gap: 4px;
+  width: 100%;
+}
+
+.audit-heatmap-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 8px 6px;
+  min-height: 32px;
+}
+
+.audit-heatmap-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--muted);
+  background: transparent;
+  padding: 4px 0;
+  min-height: 0;
+}
+
+.audit-heatmap-rowlabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  justify-content: flex-start;
+  background: transparent;
+  padding-left: 0;
+}
+
+.audit-heatmap-corner {
+  background: transparent;
+  min-height: 0;
+}
+
+.audit-heatmap-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: transform .12s;
+}
+
+.audit-heatmap-value:hover {
+  transform: scale(1.06);
+}
+
+.audit-chart-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 10px;
+  align-self: flex-start;
+}
+
 .audit-modal-card {
   max-width: min(1320px, calc(100vw - 28px));
 }
@@ -941,7 +1069,7 @@ textarea::placeholder {
 
 .audit-filter-bar {
   display: grid;
-  grid-template-columns: 220px 180px 180px 1fr;
+  grid-template-columns: 220px 180px 180px 1fr 1fr;
   gap: 12px;
   align-items: end;
   margin-bottom: 16px;
@@ -1095,8 +1223,8 @@ textarea::placeholder {
   flex-direction: column;
   gap: 4px;
   padding: 14px 16px;
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
   border-radius: 8px;
   margin-top: 4px;
 }
@@ -1108,6 +1236,17 @@ textarea::placeholder {
   text-transform: uppercase;
   letter-spacing: .5px;
   margin: 0 0 6px;
+}
+
+.comprador-notif-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  background: var(--panel-soft);
+  border-left: 3px solid #6366f1;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin: 0 0 8px;
 }
 
 .checkbox-row {
@@ -1149,12 +1288,130 @@ textarea::placeholder {
 }
 
 .audit-pre-treat {
-  background: var(--surface-alt, #f8fafc);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px 14px;
   display: grid;
   gap: 8px;
+}
+
+.audit-pedido-cell {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* === Modal "Deu pedido?" === */
+.pedido-modal .modal-card {
+  max-width: 520px;
+}
+
+.pedido-modal-body {
+  display: grid;
+  gap: 16px;
+  padding: 4px 0 8px;
+}
+
+.pedido-modal-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pedido-modal-btn {
+  padding: 18px 12px;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .03em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform .12s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+}
+
+.pedido-modal-btn:hover {
+  transform: translateY(-1px);
+}
+
+.pedido-modal-btn-sim.justify-active {
+  background: #10b981;
+  border-color: #047857;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(16,185,129,.4);
+}
+
+.pedido-modal-btn-nao.justify-active {
+  background: #ef4444;
+  border-color: #b91c1c;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(239,68,68,.4);
+}
+
+.pedido-modal-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 14px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.pedido-modal-fields-stack {
+  grid-template-columns: 1fr;
+}
+
+.pedido-modal-fields label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pedido-modal-fields input,
+.pedido-modal-fields select,
+.pedido-modal-fields textarea {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.pedido-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+}
+
+#modalPedidoConfirmarBtn {
+  background: #10b981;
+  color: #fff;
+  font-weight: 700;
+  padding: 10px 20px;
+}
+
+#modalPedidoConfirmarBtn:hover {
+  background: #047857;
+}
+
+/* Botão de fechar inferior do detail modal */
+.detail-bottom-actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.detail-bottom-actions .btn {
+  min-width: 160px;
 }
 
 .audit-pre-treat-title {
@@ -1194,11 +1451,13 @@ textarea::placeholder {
   width: 100%;
   min-height: 68px;
   border-radius: 6px;
-  border: 1px solid var(--border, #e2e8f0);
+  border: 1px solid var(--line);
   padding: 8px 10px;
   font-size: 13px;
   resize: vertical;
   box-sizing: border-box;
+  background: var(--panel);
+  color: var(--text);
 }
 
 .date-input-group {
@@ -1524,6 +1783,83 @@ body[data-theme="light"] .postit-note-shell textarea {
 
 .fc .fc-event:hover {
   opacity: 0.85;
+}
+
+.fc .fc-event.fc-event-concluido {
+  opacity: 0.55;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+.fc .fc-event.fc-event-concluido:hover {
+  opacity: 0.75;
+}
+
+/* Menu Versões */
+.versoes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+.versao-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+.versao-card-atual {
+  border-color: #16a34a;
+  box-shadow: 0 2px 8px rgba(22,163,74,.12);
+}
+.versao-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.versao-card-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.versao-card-tag {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--panel-soft);
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+}
+.versao-badge-atual {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #fff;
+  background: #16a34a;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.versao-card-data {
+  font-size: 12px;
+  color: var(--muted);
+}
+.versao-card-notas {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.versao-card-notas li {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
 }
 
 .fc .fc-daygrid-event-dot {

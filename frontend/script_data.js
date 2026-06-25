@@ -1,3 +1,28 @@
+async function loadClientMetaOnly() {
+  const settings = getSettings();
+  if (!settings.tenantId) return;
+  try {
+    const [tenantRows, clientRows] = await Promise.all([
+      fetchSupabase(`/rest/v1/tenants?select=id,nome&id=eq.${settings.tenantId}&limit=1`),
+      fetchSupabase(`/rest/v1/clientes?select=id,nome_fantasia,razao_social,email_responsavel,observacoes&tenant_id=eq.${settings.tenantId}&limit=1`),
+    ]);
+    const clientRow = clientRows[0] ?? null;
+    const clientMeta = parseClientObservacoes(clientRow?.observacoes);
+    state.clientRecordId = clientRow?.id ?? null;
+    state.clientAdminEmail = clientRow?.email_responsavel ?? "";
+    state.tenantName = clientRow?.nome_fantasia ?? tenantRows[0]?.nome ?? "";
+    state.clientMeta = clientMeta;
+    if (state.clientAdminEmail) {
+      state.clientMeta.admin_email = state.clientAdminEmail;
+    }
+    if (tenantNameLabel) {
+      tenantNameLabel.textContent = state.tenantName;
+    }
+  } catch (error) {
+    // Falha silenciosa — login modal abre normalmente, admin_client primeiro acesso fica sem dica de UX
+  }
+}
+
 async function loadPortalData({ silent = false, preserveFeedback = false } = {}) {
   if (!silent) {
     setFeedback("Sincronizando o portal do cliente com o Supabase...", "info");
@@ -5,22 +30,23 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
   const settings = getSettings();
   try {
     await detectSupplierNotesColumn();
-    const [tenantRows, clientRows, buyersRows, supplierRowsRaw, agendaRowsRaw, auditRows, feriadosRows, auditLogRows] = await Promise.all([
+    const [tenantRows, clientRows, buyersRows, supplierRowsRaw, agendaRowsRaw, auditRows, feriadosRows, auditLogRows, notasLivresRows] = await Promise.all([
       fetchSupabase(`/rest/v1/tenants?select=id,nome&id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/clientes?select=id,nome_fantasia,razao_social,email_responsavel,observacoes&tenant_id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/compradores?select=id,nome_comprador,telefone,email,foto_path,senha_hash,is_gestor,receber_auditoria,receber_agenda_proximo&tenant_id=eq.${settings.tenantId}&order=nome_comprador.asc`),
       fetchSupabase(`/rest/v1/fornecedores?select=id,codigo_fornecedor,nome_fornecedor,data_primeiro_pedido,frequencia_revisao,parametro_estoque,lead_time_entrega,parametro_compra,comprador_id,hora_inicio,hora_fim,compradores(nome_comprador),fornecedor_dias_compra(dia_semana)&tenant_id=eq.${settings.tenantId}&order=nome_fornecedor.asc`),
-      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`),
-      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,observacao,data_realizacao,created_at,updated_at&tenant_id=eq.${settings.tenantId}&order=updated_at.desc`),
+      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota,serie_id&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`),
+      fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,observacao,data_realizacao,created_at,updated_at,nota,titulo,hora_inicio,hora_fim,categoria_id,serie_id,pedido_realizado,pedido_quantidade,pedido_valor,pedido_motivo_nao,pedido_motivo_detalhe&tenant_id=eq.${settings.tenantId}&status=in.(REALIZADA,ADIADA)&order=data_realizacao.desc.nullslast`),
       fetchSupabase(`/rest/v1/feriados?select=id,data,nome,tipo&tenant_id=eq.${settings.tenantId}&order=data.asc`),
       fetchSupabase(`/rest/v1/audit_log?select=id,tipo_objeto,objeto_id,objeto_nome,acao,campos_alterados,executor_role,executor_nome,comprador_id,created_at&tenant_id=eq.${settings.tenantId}&order=created_at.desc&limit=500`),
+      fetchSupabase(`/rest/v1/notas_painel?select=id,comprador_id,texto,created_at,updated_at&tenant_id=eq.${settings.tenantId}&order=updated_at.desc`),
     ]);
 
     const supplierRows = supplierRowsRaw.map(mapSupplier);
     let agendaRows = agendaRowsRaw;
     const createdSeeds = await backfillMissingPendingOccurrences(supplierRows, agendaRowsRaw);
     if (createdSeeds > 0) {
-      agendaRows = await fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`);
+      agendaRows = await fetchSupabase(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota,serie_id&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`);
       if (!silent && !preserveFeedback) {
         setFeedback(`Portal do cliente carregado com sucesso. ${createdSeeds} agenda(s) pendente(s) foram geradas automaticamente.`, "success");
       }
@@ -60,6 +86,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
     state.auditOccurrences = auditRows;
     state.auditLogs = auditLogRows ?? [];
     state.feriados = feriadosRows ?? [];
+    state.notasLivres = notasLivresRows ?? [];
 
     if (clientMeta.logo_url) {
       localStorage.setItem(storageKeys.logoUrl, clientMeta.logo_url);
@@ -248,6 +275,8 @@ function bindStaticEvents() {
   });
 
   document.getElementById("fornecedorFrequencia").addEventListener("change", refreshSupplierSuggestion);
+  document.getElementById("fornecedorFrequencia").addEventListener("change", updateParametroEstoqueHint);
+  document.getElementById("fornecedorParametroEstoque").addEventListener("input", updateParametroEstoqueHint);
   document.getElementById("fornecedorDataPrimeiroPedido").addEventListener("change", refreshSupplierSuggestion);
   fornecedorCompradorSelect.addEventListener("change", refreshSupplierSuggestion);
   setupDatePickerField("fornecedorDataPrimeiroPedido", "fornecedorDataPrimeiroPedidoNative", "fornecedorDataPrimeiroPedidoPickerButton");
@@ -334,6 +363,10 @@ function bindStaticEvents() {
   document.getElementById("exportarFornecedoresButton").addEventListener("click", exportarFornecedores);
   document.getElementById("gerarExcelButton").addEventListener("click", gerarExcelFornecedores);
   document.getElementById("fornecedorSearch").addEventListener("input", renderSuppliers);
+  document.getElementById("fornecedorToggleScope").addEventListener("click", () => {
+    suppliersShowAll = !suppliersShowAll;
+    renderSuppliers();
+  });
   document.getElementById("importFornecedoresButton").addEventListener("click", () => {
     document.getElementById("importFornecedorFile").click();
   });
@@ -353,7 +386,10 @@ function bindStaticEvents() {
   });
 
   document.getElementById("proximaDataInput").addEventListener("change", updateAgendaAdjustment);
-  document.getElementById("tratarAgendaButton").addEventListener("click", tratarAgendaAtual);
+  document.getElementById("tratarAgendaButton").addEventListener("click", openPedidoModal);
+  document.getElementById("saveAgendaNotaButton")?.addEventListener("click", saveAgendaNota);
+  document.getElementById("novaNotaLivreButton")?.addEventListener("click", createNotaLivre);
+  document.getElementById("compromissosMostrarConcluidos")?.addEventListener("change", renderCompromissos);
 
   // Calendário
   document.getElementById("newEventButton")?.addEventListener("click", () => openNewEventModal());
@@ -570,6 +606,7 @@ async function loginBuyer() {
       localStorage.setItem(storageKeys.loggedPortalRole, "buyer");
       localStorage.setItem(storageKeys.loggedPortalEmail, email);
       closeModal("buyerLoginModal");
+      await loadCategorias();
       await loadPortalData({ silent: true });
       ensureBuyerSelection();
       updateBuyerCard();
@@ -577,8 +614,9 @@ async function loginBuyer() {
       refreshCalendar();
       setFeedback("Comprador autenticado com sucesso.", "success");
       return;
-    } catch {
-      // Se a API falhar, cai no modo legado abaixo
+    } catch (error) {
+      setFeedback(error.message || "Não foi possível conectar ao servidor. Tente novamente.", "error", feedbackTarget);
+      return;
     }
   }
 
