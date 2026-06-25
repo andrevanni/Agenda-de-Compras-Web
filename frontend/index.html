@@ -800,18 +800,21 @@
               <details class="ajuda-item">
                 <summary>📈 Efici&ecirc;ncia da Agenda</summary>
                 <div class="ajuda-corpo">
-                  <p>O menu <strong>Efici&ecirc;ncia</strong> (na barra lateral, dispon&iacute;vel para todos os usu&aacute;rios) mede se a Agenda de Compras est&aacute; realmente funcionando &mdash; e aponta o que ajustar.</p>
-                  <h4>O que ela analisa</h4>
+                  <p>O menu <strong>Efici&ecirc;ncia</strong> (na barra lateral, dispon&iacute;vel para todos os usu&aacute;rios) valida se a <strong>frequ&ecirc;ncia cadastrada de cada fornecedor est&aacute; funcionando na pr&aacute;tica</strong>.</p>
+                  <h4>Como funciona</h4>
+                  <p>Cada frequ&ecirc;ncia determina um <strong>intervalo-alvo</strong> entre pedidos: Semanal = a cada 7 dias, Quinzenal = 14, Mensal = 28, 2&times;/semana &asymp; 3,5 e 3&times;/semana &asymp; 2,3 dias. A Efici&ecirc;ncia compara o <strong>intervalo real</strong> entre os pedidos que de fato sa&iacute;ram com esse alvo.</p>
+                  <h4>Status de cada fornecedor</h4>
                   <ul>
-                    <li><strong>Ader&ecirc;ncia de frequ&ecirc;ncia</strong>: compara os pedidos esperados pela frequ&ecirc;ncia cadastrada com os que de fato aconteceram. Um fornecedor configurado como semanal (4 pedidos/m&ecirc;s) que s&oacute; rende 3 pedidos aparece destacado &mdash; sinal de frequ&ecirc;ncia errada.</li>
-                    <li><strong>Sugest&atilde;o de frequ&ecirc;ncia</strong>: com base no ritmo real, o sistema sugere a frequ&ecirc;ncia mais adequada.</li>
-                    <li><strong>Taxa de convers&atilde;o</strong>: quantas agendas viraram pedido de verdade.</li>
-                    <li><strong>Valores</strong>: valor m&eacute;dio, total e o quanto os pedidos variam entre si (desvio).</li>
-                    <li><strong>Pontualidade</strong>: desvio entre a data programada e a data em que o pedido foi feito.</li>
-                    <li><strong>Intervalo real &times; te&oacute;rico</strong> entre pedidos e <strong>fornecedores sem pedido</strong> no per&iacute;odo.</li>
+                    <li><strong>✅ No ritmo</strong> &mdash; o intervalo real est&aacute; pr&oacute;ximo do alvo (margem de 10%).</li>
+                    <li><strong>⚠️ Abaixo do esperado</strong> &mdash; os pedidos est&atilde;o saindo <strong>mais espa&ccedil;ados</strong> que o previsto (acima de 10% j&aacute; alerta, pois o estoque de seguran&ccedil;a n&atilde;o cobre). Inclui quem teve poucos pedidos no per&iacute;odo.</li>
+                    <li><strong>🔵 Acima do esperado</strong> &mdash; pedidos mais frequentes que o cadastrado.</li>
+                    <li><strong>🔴 Vencido</strong> &mdash; j&aacute; passou do prazo do intervalo sem um novo pedido.</li>
+                    <li><strong>⚪ Sem pedido</strong> &mdash; nenhum pedido no per&iacute;odo.</li>
+                    <li><strong>Baixa convers&atilde;o</strong> &mdash; a agenda gerou a revis&atilde;o mas n&atilde;o virou pedido; tamb&eacute;m sinaliza que a frequ&ecirc;ncia pode n&atilde;o estar funcionando.</li>
                   </ul>
+                  <p>Quando o ritmo real diverge, o sistema <strong>sugere a frequ&ecirc;ncia mais adequada</strong>. Cada card mostra a frequ&ecirc;ncia cadastrada, intervalo real &times; alvo, &uacute;ltimo pedido, convers&atilde;o e valores (m&eacute;dio, total e desvio).</p>
                   <h4>Como usar</h4>
-                  <p>Filtre por per&iacute;odo, comprador e fornecedor. Os gr&aacute;ficos resumem o cen&aacute;rio; a tabela detalha por comprador e, ao expandir, por fornecedor e por pedido. Use <strong>Exportar</strong> para baixar tudo em Excel.</p>
+                  <p>Escolha o per&iacute;odo (90 dias por padr&atilde;o; tamb&eacute;m 30, 60, 120, 180 ou entre datas) e filtre por comprador/fornecedor. Os gr&aacute;ficos resumem; a tabela por comprador mostra a fra&ccedil;&atilde;o no ritmo (ex.: 2 de 6) e, ao expandir, detalha por fornecedor e por pedido. Use <strong>Exportar</strong> para baixar tudo em Excel.</p>
                 </div>
               </details>
 

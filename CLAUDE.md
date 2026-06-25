@@ -83,7 +83,10 @@ Arquivos JS carregados em ordem no `index.html` — escopo global compartilhado 
 | `script_render.js` | Render tabelas, fornecedores, compradores, `saveBuyer()`, `renderCompromissos()`, `deleteCompromisso()` |
 | `script_forms.js` | Formulários (saveSupplier), importação CSV/Excel, exportação, `ensureBuyerSelection()`, `renderAuditDashboard()`, `loadEmailLog()` |
 | `script_data.js` | `loadPortalData()`, `loadClientMetaOnly()` (carga leve só de tenants+clientes sem JWT), `loginBuyer()` (chama `loadCategorias` + `loadPortalData` após auth), `bindEvents()`, configurações |
-| `script_main.js` | `bootstrap()` com gate de sessão (sem JWT/tenant não carrega agenda/fornecedores/categorias, só abre login), auth, calendário, categorias, PWA install, `refreshJWT` interval, `saveNewEvent()`, `deleteGenericEvent()` |
+| `script_main.js` | `bootstrap()` com gate de sessão (sem JWT/tenant não carrega agenda/fornecedores/categorias, só abre login), auth, calendário, categorias, PWA install, `refreshJWT` interval, `saveNewEvent()`, `deleteGenericEvent()`, rodapé dinâmico (`footerVersionChip` = `VERSOES[0].versao`) |
+| `script_eficiencia.js` | Menu **Eficiência da Agenda** — `renderEficiencia()`, `computeEficiencia()`, gráficos Chart.js, export Excel, `applyEficienciaAccess()`. Ver seção "Eficiência da Agenda" |
+
+⚠️ **Ordem de carregamento dos `<script>` importa**: `script_eficiencia.js` é carregado **antes** de `script_data.js` e `script_main.js` (não por último). Motivo: `bindEvents()` (data) e o IIFE `bootstrap()` (main) referenciam `renderEficiencia`/`applyEficienciaAccess` no boot — se o eficiência carregasse depois, dava `ReferenceError` e **abortava o carregamento dos dados** (bug real jun/2026, "portal abria sem compradores"). Funções de um arquivo só podem ser referenciadas no boot por arquivos carregados antes.
 
 Outros arquivos estáticos:
 
@@ -292,6 +295,21 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - `renderAuditDashboard()` em `script_forms.js`; `classifyAuditEvent()`, `aggregateAuditMetrics()`, `updateAuditSummary()` em `script_render.js`
 - `state.auditLogs` carregado em `loadPortalData()` (500 registros mais recentes de `audit_log`)
 
+## Eficiência da Agenda (`script_eficiencia.js`, jun/2026)
+
+Menu **📈 Eficiência** na sidebar do portal cliente — valida se a **frequência cadastrada de cada fornecedor está funcionando na prática**. Visível para **todos os usuários** (`canSeeEficiencia()` retorna `true`; decisão de produto 25/jun). Reusa `state.auditOccurrences` + `state.suppliers` + `state.buyers` — **não faz query nova**.
+
+- **Conceito (NÃO é contagem por ciclo de 28 dias)**: cada frequência define um **intervalo-alvo** entre pedidos — `INTERVALO_ALVO_FREQ = { 1: 28, 2: 14, 4: 7, 8: 3.5, 12: 2.33 }` (dias). Compara o **intervalo real** entre pedidos consecutivos (`pedido_realizado=true`, ordenados por `data_realizacao`) com esse alvo. ⚠️ O conceito original "X pedidos esperados por 28 dias" foi **descartado** — o usuário corrigiu: validar pela frequência de CADA fornecedor, não por ciclo fixo.
+- **Tolerância 10%** (`EF_TOLERANCIA`): acima de +10% do alvo já alerta — o estoque de segurança não cobre pedidos mais espaçados.
+- **Status por fornecedor**: `no_ritmo` (real ≈ alvo ±10%) · `abaixo` (mais espaçado que o alvo — **inclui** quem teve só 1 pedido num período que esperava ≥2) · `acima` (mais frequente) · `sem_pedido` (0 pedidos) · `dados_limitados` (1 pedido em período curto p/ a frequência). Flags extras: **vencido** (`diasDesdeUltimo > alvo×1.1`) e **baixaConversao** (`conversão < 60%` com ≥2 agendas — "não deu pedido" também sinaliza frequência não funcionando).
+- **`% no ritmo` é sobre o TOTAL de fornecedores** do comprador, não só os "analisáveis" (bug corrigido jun/2026: dividir só por no_ritmo+abaixo+acima mostrava 100% quando os 2 avaliados estavam ok mas havia 4 sem pedido). Tabela/resumo mostram a fração (ex.: "2 de 6").
+- **Sugestão de frequência**: `sugerirFrequenciaPorIntervalo()` — a frequência cujo intervalo-alvo é o mais próximo do real. Card mostra a **frequência cadastrada em destaque** + sugestão quando diverge.
+- **Período**: default **90 dias**; opções 30/60/90/120/180 + entre datas. `getEficienciaRange()` parseia `(\d+)dias`. O `<select>` tem `selected` no 90dias (sem isso, caía na 1ª opção).
+- **Gráficos** (Chart.js, ids no index.html): `efChartStatus` (pizza status), `efChartMotivos` (pizza motivos não-pedido), `efChartDesvio` (barras intervalo real × alvo), `efChartValor` (valor por comprador), `efChartTendencia` (pedidos/mês). Destruir o chart anterior antes de recriar (`_efDestroy`).
+- **Drill**: `<details>` por comprador → `<details>` por fornecedor → tabela por pedido (com coluna "Intervalo" entre pedidos consecutivos).
+- **Export Excel**: 3 abas (Por Fornecedor / Por Comprador / Pedidos).
+- Wiring: `showSection("eficiencia")` chama `renderEficiencia()` ([script_render.js](frontend/script_render.js)); listeners + `setupDatePickerField` em `bindEvents()` ([script_data.js](frontend/script_data.js)); `applyEficienciaAccess()` no `bootstrap` e `loginBuyer`.
+
 ## Audit Log — eventos de cadastro (`audit_log`)
 
 - Tabela criada em `schema_v12_audit_log.sql`; RLS com `app.user_belongs_to_tenant(tenant_id)`
@@ -432,7 +450,8 @@ Painel filtra pelo `activeBuyerId` (ambas as fontes). Renderização única em [
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v62` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
+- Cache cliente: `agenda-compras-v66` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
+- **Rodapé mostra a versão atual**: `footerVersionChip` (em [index.html](frontend/index.html)) recebe `VERSOES[0].versao` no `bootstrap` ([script_main.js](frontend/script_main.js)) — antes era fixo "v0.1.0". É o indicador para o usuário confirmar que está no mais novo. O **nº do SW (cache) pode ficar à frente** do nº do rodapé (changelog) quando há deploy só de infra/ajuda sem entrada nova em `VERSOES` — normal, o rodapé reflete o changelog.
 - Cache admin: `agenda-admin-v14` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - **Estratégia NETWORK-FIRST (desde v62 / jun/2026)**: o handler `fetch` tenta a rede primeiro e só cai no cache offline. Substituiu o `cache-first` antigo, que causava um estado "Frankenstein" — mistura de arquivos de versões diferentes presos no cache (ex.: `index.html` novo + `script_state.js` velho → menu aparece mas dados/Versões quebram). Não voltar para cache-first.
 - **Instalação RESILIENTE (desde v62)**: `install` faz `addAll` só dos assets **locais** (mesmo domínio, sempre 200) e os assets de **CDN externa** (fontes, FullCalendar) via `Promise.allSettled` best-effort. Motivo: com `cache.addAll([...CDN])` num passo único, se uma CDN falhasse (comum no **Safari**), o `addAll` rejeitava, a versão nova **nunca instalava/ativava** e o usuário ficava preso na antiga — causa real de "atualização não chega" (jun/2026, validação da Eficiência). **Nunca** colocar URL de CDN externa no `addAll` obrigatório.
@@ -513,6 +532,18 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 ## Pendências
 
+### Entregue em 25/jun/2026 (sessão nova — máquina Mac)
+
+- **Ambiente Mac novo**: `.gitattributes` (LF) resolveu 22 arquivos "modificados" que eram só CRLF; venv Python 3.14 + deps; `.env` convertido p/ LF; vercel CLI; `.claude/` no `.gitignore` (commit `a6bb261`).
+- **Auth `definir-senha` blindado** (commit `fea31c3`): `email_confirm:True` + logging server-side com traceback em cada etapa + verificação pós-update (sign_in) + mensagem honesta no lugar de "Senha definida". Resolve a causa-raiz dos casos Raquel/Caio/Elias. **Validação pendente**: no próximo convite real, ver logs `[definir-senha]` no Vercel.
+- **Fix Auditoria — compromissos genéricos vazando** (commit `674069e`): desde o botão Concluir (v48), genéricos (sem fornecedor) ficavam REALIZADA e apareciam na "Auditoria por comprador" como "Fornecedor não localizado". Filtro `raw.fornecedor_id` no pipeline de `renderAuditDashboard`. Caso real: 160 eventos da Lívia (Drogaria SV) em 2 dias.
+- **Staging sincronizado** com main (estava 79 commits atrás) e mantido alinhado a cada deploy.
+- **🆕 Menu Eficiência da Agenda** (SW v59→v66 ao longo da sessão): feature completa — ver seção "Eficiência da Agenda". Concept corrigido p/ intervalo real × alvo da frequência. **Em validação pelo usuário.**
+- **SW reescrito: network-first + instalação resiliente** (ver seção Service Worker) — corrige o "atualização não chega" / estado Frankenstein de cache (era cache-first + CDN no addAll obrigatório, que travava no Safari). `/?limpar=1` virou reset nuclear (desregistra SW + limpa caches).
+- **Bug de ordem de scripts** (corrigido): `script_eficiencia.js` carregava por último e o boot referenciava `renderEficiencia` antes → ReferenceError → portal sem dados. Detectado via Playwright na produção. Movido p/ antes de data/main.
+- **Rodapé com versão dinâmica** (`footerVersionChip` = `VERSOES[0].versao`) — era fixo "v0.1.0".
+- ⚠️ **Lição**: para depurar "não atualiza" / erros de runtime em produção, usar Playwright (instalado em scratchpad: `chromium`) carregando a URL e lendo `pageerror`/console — evita ficar no escuro. Não confiar só em "limpar cache".
+
 ### Entregue em 06/jun/2026 (commits `c63d23f`, `e3abaa1`)
 
 - **Botão "Trocar/Adicionar logo" em cliente já cadastrado** (commit `c63d23f`, SW admin v13→v14): faltava o controle — a logo só podia ser definida no cadastro inicial. Cada card de cliente no painel admin (Base Operacional → Clientes) ganhou botão ao lado de "Senha da auditoria"; `trocarLogo()` em [frontend_admin/script.js](frontend_admin/script.js) reaproveita `uploadLogo()` e grava `logo_url` por PATCH em `clientes.observacoes`. **Não conserta logos de clientes pré-existentes** — só dá a ferramenta pra trocar daqui pra frente.
@@ -557,15 +588,17 @@ Resolução do incidente Total Socorro + 4 sugestões do cliente:
 
 ### Próxima sessão (prioridade máxima)
 
+0. **Concluir validação do menu Eficiência da Agenda** (em andamento 25/jun) — usuário validando com dados reais (Drogaria SV). Conferir se os status (No ritmo / Abaixo / Vencido / Sem pedido / Baixa conversão) batem com a realidade dos fornecedores e se a sugestão de frequência faz sentido. Possíveis ajustes pedidos: margem por frequência, prioridade/cores dos status, colunas do drill, escopo por comprador (hoje todos veem tudo). Conceito atual e arquitetura na seção "Eficiência da Agenda".
+
 1. **Validar o fluxo "Deu pedido?" em produção** — após `andre@servicefarma.far.br` tratar agendas reais com o novo bloco, conferir: (a) PATCH grava as 5 colunas novas corretamente, (b) coluna "Pedido" aparece na Auditoria por comprador com ✅/❌, (c) KPIs "Taxa de pedido" e "Valor total" no summary atualizam, (d) PDF do relatório diário mostra a 3ª linha de KPIs com valores reais (não mais zerados). Disparo de validação: `POST /api/v1/cron/relatorio-diario?tenant_id=f0d557c6-9dd9-4e80-96e0-2094da4a40ff&admin_only=true` com `X-Cron-Secret: agenda-cron-2026-sfx`.
 
-2. **Justificativa de tratamento não aparece na coluna "Detalhe" da Auditoria por comprador**: usuário relatou em 26/mai/2026 que ao tratar agenda preenchendo a justificativa via botão "Sim" no modal, ela não é renderizada no detalhe da Auditoria. Código de render existe e parece correto ([script_forms.js:919-922](frontend/script_forms.js#L919-L922)) — lê `entry.meta?.justificativa`, classe `.audit-justificativa` existe. Diagnóstico precisa SQL: `SELECT id, observacao::jsonb -> 'justificativa' FROM agenda_ocorrencias WHERE status='REALIZADA' AND observacao::jsonb ? 'justificativa' ORDER BY data_realizacao DESC LIMIT 5;`. Se vazio → bug de gravação. Se preenchido → bug de render/parsing.
+2. **~~Justificativa de tratamento não aparece na Auditoria~~** — ✅ **DIAGNOSTICADO/RESOLVIDO em 25/jun/2026**. Via SQL: a justificativa **é gravada** (59 ocorrências com texto real em `observacao::jsonb->'justificativa'`), o SELECT traz `observacao`, `classifyAuditEvent` monta `entry.meta`, o render lê `entry.meta.justificativa` e o CSS `.audit-justificativa` (`#6366f1`) é visível. Caminho íntegro. O relato de 26/mai foi no dia do lançamento (sem dados ainda). Não reproduzível no código atual.
 
-3. **Implementar fluxo de staging de verdade** — branch `staging` está 23+ commits atrás de `main` desde 26/mai/2026 (SW v17 vs v38; falta vários fixes de SW, backfill, login, audit log, novo fluxo de pedido, etc.). Toda alteração ainda vai direto para `main` por hábito. Sincronizar staging via `git merge main` num momento controlado, depois decidir: (a) criar projeto Supabase separado para staging, OU (b) reservar tenant exclusivo de teste com variáveis de ambiente apontando para ele; padronizar `staging` como destino obrigatório antes de `main`.
+3. **~~Sincronizar staging~~ / padronizar fluxo staging→main** — ✅ staging **sincronizado** em 25/jun (estava 79 commits atrás) e mantido alinhado a cada deploy da sessão. Falta ainda: decidir isolamento de dados (projeto Supabase separado OU tenant de teste) e adotar staging como destino obrigatório antes de main. ⚠️ As URLs de **preview do staging exigem login do Vercel** — por isso o usuário valida direto em produção; considerar tornar o preview público ou usar a URL de produção para validação.
 
 4. **~~Corrigir `defaultSettings.tenantId` hardcoded como Service Farma~~** — ✅ **RESOLVIDO em 27/mai/2026** (commit `691c1a9`). Além do troca direta para `""`, foi implementado gate de bootstrap que impede `loadPortalData` sem JWT — `loadClientMetaOnly` carrega só `tenants`+`clientes` para preservar UX de admin_client em primeiro acesso. Validado em produção em aba anônima.
 
-5. **Investigar falha silenciosa do `instalar.html` / `POST /auth/definir-senha` — ⚠️ URGENTE (3º caso em 9 dias)** — casos Raquel (26/mai), Caio (26-27/mai) e provavelmente Elias (mai/2026) revelaram que o fluxo permite o usuário "concluir" o convite sem efetivamente gravar a senha em `auth.users.encrypted_password`. Padrão observado: `auth.users` criado no envio do convite com `encrypted_password=NULL`, `email_confirmed_at=NULL`, `last_sign_in_at=NULL`. Hipóteses: (a) `sb.auth.admin.update_user_by_id` lançando exceção silenciada, (b) erro de rede interpretado como sucesso, (c) Supabase Auth retornando 200 sem persistir, (d) usuário fechando aba antes do POST completar. Adicionar logging server-side com `print(traceback)` + verificação pós-update (re-fetch do user para confirmar `encrypted_password` foi gravado) + validação client-side antes de redirecionar. Workaround atual: receita SQL direta (ver Caso Raquel/Caio).
+5. **`instalar.html` / `POST /auth/definir-senha`** — ✅ **BLINDADO em 25/jun/2026** (commit `fea31c3`): `email_confirm:True` + logging com traceback por etapa + verificação pós-update (sign_in) + mensagem honesta. **Validação pendente**: no próximo convite real, abrir os logs da API no Vercel e procurar `[definir-senha]` — dirá `OK` ou exatamente qual etapa falhou (era 0 usuários presos no momento da correção). Workaround SQL (Caso Raquel/Caio) segue válido se reaparecer.
 
 6. **`saveSupplier` — feedback inconsistente em falha parcial**: relato pontual em 26/mai/2026 (cadastro do fornecedor "MAM") de "erro mas fornecedor apareceu cadastrado". Não reproduzível depois. Refator defensivo arquivado: isolar passos secundários (`fornecedor_dias_compra`, `persistSupplierNote`, `ensurePendingOccurrenceForSupplier`) em try/catch internos que não propagam — mostrar warnings em vez de erro genérico, e chamar `loadPortalData()` sempre. Implementar quando o erro voltar a aparecer com mensagem capturada.
 
