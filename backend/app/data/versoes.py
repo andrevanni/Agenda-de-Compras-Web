@@ -9,6 +9,15 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v65",
+        "dataHora": "25/06/2026 — tarde",
+        "notas": [
+            "Eficiência da Agenda: o período passa a ser 90 dias por padrão, com opções de 30, 60, 90, 120 e 180 dias (ou entre datas).",
+            "Correção no indicador '% no ritmo': agora considera TODOS os fornecedores do comprador (antes ignorava os sem pedido e os com poucos dados, o que podia mostrar 100% indevidamente). A tabela e o resumo passam a exibir a fração (ex.: 2 de 6).",
+            "Fornecedor com apenas 1 pedido num período em que deveria ter vários agora é classificado como 'Abaixo do esperado' (antes ficava como 'Dados limitados').",
+        ],
+    },
+    {
         "versao": "v64",
         "dataHora": "25/06/2026 — tarde",
         "notas": [

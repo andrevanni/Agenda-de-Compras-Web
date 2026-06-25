@@ -24,6 +24,7 @@ const EF_STATUS = {
 };
 
 let efFilter = { preset: "90dias", startDate: "", endDate: "" };
+const EF_PERIODO_PADRAO_DIAS = 90;
 let _efChartStatus = null;
 let _efChartMotivos = null;
 let _efChartDesvio = null;
@@ -72,20 +73,15 @@ function getEficienciaRange() {
   const customEnd = brToIso(document.getElementById("efEndDate")?.value ?? "");
   const today = todayLocalIso();
 
-  if (preset === "28dias") {
-    return { start: addDaysLocalIso(today, -27), end: today, label: "Últimos 28 dias" };
-  }
-  if (preset === "ultimo_mes") {
-    const r = previousMonthRange();
-    return { start: r.start, end: r.end, label: `Último mês: ${formatDate(r.start)} até ${formatDate(r.end)}` };
-  }
   if (preset === "personalizado") {
     return {
       start: customStart || "", end: customEnd || "",
       label: customStart && customEnd ? `Período: ${formatDate(customStart)} até ${formatDate(customEnd)}` : "Período personalizado em aberto",
     };
   }
-  return { start: addDaysLocalIso(today, -89), end: today, label: "Últimos 90 dias (recomendado p/ ritmo)" };
+  const m = /^(\d+)dias$/.exec(preset || "");
+  const dias = m ? parseInt(m[1], 10) : EF_PERIODO_PADRAO_DIAS;
+  return { start: addDaysLocalIso(today, -(dias - 1)), end: today, label: `Últimos ${dias} dias` };
 }
 
 function syncEficienciaPeriodInputs() {
@@ -127,6 +123,7 @@ function _populateEfSupplierFilter(filterBuyerId = "") {
 function computeEficiencia(range) {
   const startIso = range.start;
   const endIso = range.end || todayLocalIso();
+  const periodDays = (startIso && endIso) ? Math.max(1, diffDays(endIso, startIso) + 1) : EF_PERIODO_PADRAO_DIAS;
   const filterBuyerId = document.getElementById("efBuyerFilter")?.value ?? "";
   const filterSupplierId = document.getElementById("efSupplierFilter")?.value ?? "";
 
@@ -166,9 +163,14 @@ function computeEficiencia(range) {
     const vencido = alvo != null && diasDesdeUltimo != null && diasDesdeUltimo > alvo * (1 + EF_TOLERANCIA);
 
     // Status de aderência à frequência
+    const esperadoNoPeriodo = alvo ? periodDays / alvo : 0;   // quantos pedidos eram esperados
     let status;
     if (nPedidos === 0) status = "sem_pedido";
-    else if (intervaloReal == null) status = "dados_limitados";        // só 1 pedido no período
+    else if (intervaloReal == null) {
+      // Só 1 pedido: se o período já esperava vários (≥2), é sub-pedido (Abaixo);
+      // só fica "Dados limitados" quando o período é curto p/ a frequência.
+      status = esperadoNoPeriodo >= 2 ? "abaixo" : "dados_limitados";
+    }
     else if (desvioPct > EF_TOLERANCIA) status = "abaixo";             // mais espaçado que o alvo
     else if (desvioPct < -EF_TOLERANCIA) status = "acima";            // mais frequente que o alvo
     else status = "no_ritmo";
@@ -213,7 +215,7 @@ function computeEficiencia(range) {
   fornRows.forEach((r) => {
     if (!byBuyer.has(r.buyerId)) byBuyer.set(r.buyerId, {
       buyerId: r.buyerId, buyerName: r.buyerName, fornecedores: [],
-      noRitmo: 0, abaixo: 0, acima: 0, semPedido: 0, vencidos: 0, valorTotal: 0, nPedidos: 0, tratadas: 0,
+      noRitmo: 0, abaixo: 0, acima: 0, semPedido: 0, dadosLimitados: 0, vencidos: 0, valorTotal: 0, nPedidos: 0, tratadas: 0,
     });
     const g = byBuyer.get(r.buyerId);
     g.fornecedores.push(r);
@@ -221,24 +223,25 @@ function computeEficiencia(range) {
     else if (r.status === "abaixo") g.abaixo++;
     else if (r.status === "acima") g.acima++;
     else if (r.status === "sem_pedido") g.semPedido++;
+    else if (r.status === "dados_limitados") g.dadosLimitados++;
     if (r.vencido) g.vencidos++;
     g.valorTotal += r.valorTotal; g.nPedidos += r.nPedidos; g.tratadas += r.tratadas;
   });
   const buyerRows = Array.from(byBuyer.values()).map((g) => {
-    const analisaveis = g.noRitmo + g.abaixo + g.acima;
+    const total = g.fornecedores.length;
     return {
-      ...g, nFornecedores: g.fornecedores.length,
-      pctNoRitmo: analisaveis > 0 ? g.noRitmo / analisaveis : null,
+      ...g, nFornecedores: total,
+      // % no ritmo sobre o TOTAL de fornecedores (não só os "analisáveis")
+      pctNoRitmo: total > 0 ? g.noRitmo / total : null,
       conversao: g.tratadas > 0 ? g.nPedidos / g.tratadas : null,
     };
   }).sort((a, b) => (b.pctNoRitmo ?? -1) - (a.pctNoRitmo ?? -1));
 
   // KPIs
-  const analisaveis = fornRows.filter((r) => ["no_ritmo", "abaixo", "acima"].includes(r.status));
   const totTratadas = fornRows.reduce((a, r) => a + r.tratadas, 0);
   const totPedidos = fornRows.reduce((a, r) => a + r.nPedidos, 0);
   const kpis = {
-    pctNoRitmo: analisaveis.length ? analisaveis.filter((r) => r.status === "no_ritmo").length / analisaveis.length : null,
+    pctNoRitmo: fornRows.length ? fornRows.filter((r) => r.status === "no_ritmo").length / fornRows.length : null,
     noRitmo: fornRows.filter((r) => r.status === "no_ritmo").length,
     abaixo: fornRows.filter((r) => r.status === "abaixo").length,
     acima: fornRows.filter((r) => r.status === "acima").length,
@@ -283,7 +286,7 @@ function _renderEfKpis(k) {
   const grid = document.getElementById("efSummaryGrid");
   if (!grid) return;
   const cards = [
-    { label: "Fornecedores no ritmo", value: _efPct(k.pctNoRitmo), hint: `${k.noRitmo} de ${k.noRitmo + k.abaixo + k.acima} analisáveis` },
+    { label: "Fornecedores no ritmo", value: _efPct(k.pctNoRitmo), hint: `${k.noRitmo} de ${k.nFornecedores} fornecedores` },
     { label: "Abaixo do esperado", value: String(k.abaixo), hint: "pedidos mais espaçados que a frequência" },
     { label: "Vencidos agora", value: String(k.vencidos), hint: "passou do intervalo sem novo pedido" },
     { label: "Sem pedido no período", value: String(k.semPedido), hint: `de ${k.nFornecedores} fornecedores` },
@@ -382,17 +385,18 @@ function _renderEfBuyerTable(buyerRows) {
     <table class="audit-event-table ef-table">
       <thead><tr>
         <th>Comprador</th><th>% no ritmo</th><th>✅</th><th>⚠️ Abaixo</th><th>🔵 Acima</th>
-        <th>⚪ Sem pedido</th><th>🔴 Vencidos</th><th>Conversão</th><th>Valor total</th><th>Fornec.</th>
+        <th>⚪ Sem pedido</th><th>⏳ Dados lim.</th><th>🔴 Vencidos</th><th>Conversão</th><th>Valor total</th><th>Fornec.</th>
       </tr></thead>
       <tbody>
         ${buyerRows.map((b) => `
           <tr>
             <td><strong>${escapeHtml(b.buyerName)}</strong></td>
-            <td>${_efPct(b.pctNoRitmo)}</td>
+            <td>${_efPct(b.pctNoRitmo)} <span class="muted">(${b.noRitmo}/${b.nFornecedores})</span></td>
             <td>${b.noRitmo}</td>
             <td class="${b.abaixo ? "ef-alert" : ""}">${b.abaixo}</td>
             <td>${b.acima}</td>
-            <td>${b.semPedido}</td>
+            <td class="${b.semPedido ? "ef-alert" : ""}">${b.semPedido}</td>
+            <td>${b.dadosLimitados}</td>
             <td class="${b.vencidos ? "ef-alert" : ""}">${b.vencidos}</td>
             <td>${_efPct(b.conversao)}</td>
             <td>${_efBRL(b.valorTotal)}</td>
@@ -412,7 +416,7 @@ function _renderEfDetalhe(buyerRows) {
     <details class="ef-buyer-group" open>
       <summary>
         <span class="ef-buyer-name">${escapeHtml(b.buyerName)}</span>
-        <span class="ef-buyer-meta muted">${b.nFornecedores} fornec. · ${_efPct(b.pctNoRitmo)} no ritmo · ${b.abaixo} abaixo · ${b.vencidos} vencidos · ${_efBRL(b.valorTotal)}</span>
+        <span class="ef-buyer-meta muted">${b.nFornecedores} fornec. · ${b.noRitmo}/${b.nFornecedores} no ritmo (${_efPct(b.pctNoRitmo)}) · ${b.abaixo} abaixo · ${b.semPedido} sem pedido · ${b.dadosLimitados} dados lim. · ${b.vencidos} vencidos · ${_efBRL(b.valorTotal)}</span>
       </summary>
       <div class="ef-forn-list">
         ${b.fornecedores.slice().sort((a, c) => (Number(c.problema) - Number(a.problema)) || (_EF_STATUS_ORDER[a.status] - _EF_STATUS_ORDER[c.status]) || (Math.abs(c.desvioPct ?? 0) - Math.abs(a.desvioPct ?? 0))).map(_renderEfFornCard).join("")}
