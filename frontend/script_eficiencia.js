@@ -609,12 +609,10 @@ function exportEficienciaToExcel() {
   XLSX.writeFile(wb, `eficiencia_${range.start}_${range.end}.xlsx`);
 }
 
-/* ----- visibilidade do menu (admin/gestor) ----- */
+/* ----- visibilidade do menu ----- */
+// Visível para todos os usuários do portal (decisão de produto, 25/06/2026).
 function canSeeEficiencia() {
-  const role = getLoggedPortalRole();
-  if (role === "admin_portal" || role === "admin_client") return true;
-  if (role === "buyer") return !!loggedBuyer()?.is_gestor;
-  return false;
+  return true;
 }
 
 function applyEficienciaAccess() {
