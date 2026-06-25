@@ -1005,6 +1005,7 @@ async function bootstrap() {
     renderCategoriasTable();
     refreshCalendar();
     ensureBuyerLoginSession();
+    applyEficienciaAccess();
   } else {
     if (hasTenant) {
       await loadClientMetaOnly();

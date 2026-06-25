@@ -55,6 +55,7 @@
           <button class="nav-link" data-section="sem-comprador" title="Sem Comprador"><span class="nav-icon">👤</span><span class="nav-label">Sem Comprador</span></button>
           <button class="nav-link" data-section="fornecedores" title="Fornecedores"><span class="nav-icon">🏪</span><span class="nav-label">Fornecedores</span></button>
           <button class="nav-link" data-section="compradores" title="Compradores"><span class="nav-icon">👥</span><span class="nav-label">Compradores</span></button>
+          <button class="nav-link" id="navEficiencia" data-section="eficiencia" title="Eficiência da Agenda" style="display:none"><span class="nav-icon">📈</span><span class="nav-label">Efici&ecirc;ncia</span></button>
           <button class="nav-link" data-section="painel" title="Painel de Notas"><span class="nav-icon">📌</span><span class="nav-label">Painel de Notas</span></button>
           <button class="nav-link" data-section="compromissos" title="Compromissos"><span class="nav-icon">🗒️</span><span class="nav-label">Compromissos</span></button>
           <button class="nav-link" data-section="categorias" title="Categorias"><span class="nav-icon">🎨</span><span class="nav-label">Categorias</span></button>
@@ -797,6 +798,24 @@
               </details>
 
               <details class="ajuda-item">
+                <summary>📈 Efici&ecirc;ncia da Agenda</summary>
+                <div class="ajuda-corpo">
+                  <p>O menu <strong>Efici&ecirc;ncia</strong> (lateral, vis&iacute;vel para gestores e administradores) mede se a Agenda de Compras est&aacute; realmente funcionando &mdash; e aponta o que ajustar.</p>
+                  <h4>O que ela analisa</h4>
+                  <ul>
+                    <li><strong>Ader&ecirc;ncia de frequ&ecirc;ncia</strong>: compara os pedidos esperados pela frequ&ecirc;ncia cadastrada com os que de fato aconteceram. Um fornecedor configurado como semanal (4 pedidos/m&ecirc;s) que s&oacute; rende 3 pedidos aparece destacado &mdash; sinal de frequ&ecirc;ncia errada.</li>
+                    <li><strong>Sugest&atilde;o de frequ&ecirc;ncia</strong>: com base no ritmo real, o sistema sugere a frequ&ecirc;ncia mais adequada.</li>
+                    <li><strong>Taxa de convers&atilde;o</strong>: quantas agendas viraram pedido de verdade.</li>
+                    <li><strong>Valores</strong>: valor m&eacute;dio, total e o quanto os pedidos variam entre si (desvio).</li>
+                    <li><strong>Pontualidade</strong>: desvio entre a data programada e a data em que o pedido foi feito.</li>
+                    <li><strong>Intervalo real &times; te&oacute;rico</strong> entre pedidos e <strong>fornecedores sem pedido</strong> no per&iacute;odo.</li>
+                  </ul>
+                  <h4>Como usar</h4>
+                  <p>Filtre por per&iacute;odo, comprador e fornecedor. Os gr&aacute;ficos resumem o cen&aacute;rio; a tabela detalha por comprador e, ao expandir, por fornecedor e por pedido. Use <strong>Exportar</strong> para baixar tudo em Excel.</p>
+                </div>
+              </details>
+
+              <details class="ajuda-item">
                 <summary>⚙️ Configura&ccedil;&otilde;es Avan&ccedil;adas</summary>
                 <div class="ajuda-corpo">
                   <h4>Sidebar recolh&iacute;vel</h4>
@@ -872,6 +891,90 @@
                 </thead>
                 <tbody id="feriadosTable"></tbody>
               </table>
+            </div>
+          </section>
+
+          <section id="eficiencia" class="section-view hidden">
+            <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+              <div>
+                <h2>📈 Efici&ecirc;ncia da Agenda</h2>
+                <p class="muted">Efetividade da Agenda de Compras: ader&ecirc;ncia de frequ&ecirc;ncia, convers&atilde;o em pedido, valores e desvios &mdash; por comprador e fornecedor.</p>
+              </div>
+              <div class="actions">
+                <button id="efExportButton" class="btn btn-outline btn-sm" type="button">&#128228; Exportar</button>
+                <button id="efRefreshButton" class="btn btn-outline btn-sm" type="button">Atualizar</button>
+              </div>
+            </div>
+
+            <div class="audit-filter-bar">
+              <label>Per&iacute;odo<br>
+                <select id="efPeriodPreset">
+                  <option value="28dias">Últimos 28 dias (1 ciclo)</option>
+                  <option value="90dias">Últimos 90 dias</option>
+                  <option value="ultimo_mes">Último mês</option>
+                  <option value="personalizado">Entre datas</option>
+                </select>
+              </label>
+              <label>In&iacute;cio<br>
+                <div class="date-input-group">
+                  <input id="efStartDate" type="text" inputmode="numeric" placeholder="DD/MM/AAAA" disabled>
+                  <button id="efStartDatePickerButton" class="date-picker-button" type="button" aria-label="Abrir calendário da data inicial">&#128197;</button>
+                  <input id="efStartDateNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+                </div>
+              </label>
+              <label>Fim<br>
+                <div class="date-input-group">
+                  <input id="efEndDate" type="text" inputmode="numeric" placeholder="DD/MM/AAAA" disabled>
+                  <button id="efEndDatePickerButton" class="date-picker-button" type="button" aria-label="Abrir calendário da data final">&#128197;</button>
+                  <input id="efEndDateNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+                </div>
+              </label>
+              <label>Comprador<br>
+                <select id="efBuyerFilter"><option value="">Todos os compradores</option></select>
+              </label>
+              <label>Fornecedor<br>
+                <select id="efSupplierFilter"><option value="">Todos os fornecedores</option></select>
+              </label>
+              <div id="efPeriodSummary" class="audit-period-summary muted"></div>
+            </div>
+
+            <div id="efSummaryGrid" class="kpi-grid"></div>
+
+            <div class="audit-charts-row">
+              <div class="audit-chart-box">
+                <div class="audit-chart-label">Convers&atilde;o em pedido</div>
+                <div class="ef-canvas-wrap"><canvas id="efChartConversao"></canvas></div>
+              </div>
+              <div class="audit-chart-box">
+                <div class="audit-chart-label">Motivos de n&atilde;o-pedido</div>
+                <div class="ef-canvas-wrap"><canvas id="efChartMotivos"></canvas></div>
+              </div>
+            </div>
+
+            <div class="audit-charts-row">
+              <div class="audit-chart-box audit-chart-bar-box">
+                <div class="audit-chart-label">Esperado &times; realizado (maiores lacunas)</div>
+                <div class="ef-canvas-wrap"><canvas id="efChartGap"></canvas></div>
+              </div>
+              <div class="audit-chart-box audit-chart-bar-box">
+                <div class="audit-chart-label">Valor comprado por comprador</div>
+                <div class="ef-canvas-wrap"><canvas id="efChartValor"></canvas></div>
+              </div>
+            </div>
+
+            <div class="audit-chart-box audit-chart-full">
+              <div class="audit-chart-label">Tend&ecirc;ncia mensal de ader&ecirc;ncia</div>
+              <div class="ef-canvas-wrap"><canvas id="efChartTendencia"></canvas></div>
+            </div>
+
+            <div class="audit-block">
+              <div class="section-title"><div><h3>Ranking por comprador</h3></div></div>
+              <div id="efBuyerTable" class="table-wrap"></div>
+            </div>
+
+            <div class="audit-block">
+              <div class="section-title"><div><h3>Detalhe por comprador &rsaquo; fornecedor &rsaquo; pedido</h3><p class="muted">Clique para expandir. Fornecedores ineficientes e sem pedido aparecem destacados.</p></div></div>
+              <div id="efDetalhe"></div>
             </div>
           </section>
 
@@ -1466,6 +1569,7 @@
     <script src="script_forms.js"></script>
     <script src="script_data.js"></script>
     <script src="script_main.js"></script>
+    <script src="script_eficiencia.js"></script>
     <script>
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js');

@@ -9,6 +9,16 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v59",
+        "dataHora": "25/06/2026 — tarde",
+        "notas": [
+            "Novo menu 📈 Eficiência da Agenda (visível para gestores e administradores): avalia se a Agenda de Compras está funcionando bem.",
+            "Destaca fornecedores em que a frequência cadastrada não condiz com a realidade — ex.: configurado para gerar pedido toda semana mas, na prática, só rende pedido 3 vezes no mês — e já sugere a frequência mais adequada.",
+            "Mostra a taxa de conversão (quantas agendas viraram pedido), o valor médio dos pedidos e o quanto eles variam entre si, além do desvio entre a data programada e a data em que o pedido foi feito de fato.",
+            "Tudo detalhado por comprador e por fornecedor, com a opção de abrir cada pedido individualmente, gráficos de pizza e colunas, e exportação para Excel.",
+        ],
+    },
+    {
         "versao": "v58",
         "dataHora": "01/06/2026 — tarde",
         "notas": [

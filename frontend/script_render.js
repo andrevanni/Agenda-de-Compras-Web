@@ -256,6 +256,9 @@ function showSection(sectionId) {
   if (sectionId === "versoes") {
     renderVersoes();
   }
+  if (sectionId === "eficiencia") {
+    renderEficiencia();
+  }
 }
 
 function renderVersoes() {

@@ -283,6 +283,15 @@ function bindStaticEvents() {
   setupDatePickerField("proximaDataInput", "proximaDataInputNative", "proximaDataInputPickerButton");
   setupDatePickerField("auditStartDate", "auditStartDateNative", "auditStartDatePickerButton");
   setupDatePickerField("auditEndDate", "auditEndDateNative", "auditEndDatePickerButton");
+  setupDatePickerField("efStartDate", "efStartDateNative", "efStartDatePickerButton");
+  setupDatePickerField("efEndDate", "efEndDateNative", "efEndDatePickerButton");
+  document.getElementById("efPeriodPreset")?.addEventListener("change", renderEficiencia);
+  document.getElementById("efStartDate")?.addEventListener("change", renderEficiencia);
+  document.getElementById("efEndDate")?.addEventListener("change", renderEficiencia);
+  document.getElementById("efBuyerFilter")?.addEventListener("change", renderEficiencia);
+  document.getElementById("efSupplierFilter")?.addEventListener("change", renderEficiencia);
+  document.getElementById("efRefreshButton")?.addEventListener("click", renderEficiencia);
+  document.getElementById("efExportButton")?.addEventListener("click", exportEficienciaToExcel);
   document.getElementById("fornecedorForm").addEventListener("submit", saveSupplier);
   document.getElementById("compradorForm").addEventListener("submit", saveBuyer);
   document.getElementById("resetFornecedorFormButton").addEventListener("click", resetSupplierForm);
@@ -612,6 +621,7 @@ async function loginBuyer() {
       updateBuyerCard();
       renderTables();
       refreshCalendar();
+      applyEficienciaAccess();
       setFeedback("Comprador autenticado com sucesso.", "success");
       return;
     } catch (error) {
