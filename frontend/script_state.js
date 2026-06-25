@@ -121,6 +121,15 @@ const mockAgenda = [
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
   {
+    versao: "v63",
+    dataHora: "25/06/2026 — tarde",
+    notas: [
+      "Correção: em alguns acessos o portal abria sem carregar os dados (compradores, fornecedores, calendário) por causa da ordem de carregamento dos arquivos do novo menu Eficiência — resolvido.",
+      "O número da versão atual agora aparece no rodapé do portal (antes mostrava sempre 'versão inicial').",
+      "Melhoria técnica: as atualizações do app passam a chegar automaticamente, sem precisar limpar o cache do navegador.",
+    ],
+  },
+  {
     versao: "v60",
     dataHora: "25/06/2026 — tarde",
     notas: [

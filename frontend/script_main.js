@@ -996,6 +996,9 @@ async function bootstrap() {
 
   applyTheme();
   initSidebarState();
+  // Rodapé mostra a versão atual (antes era fixo "v0.1.0")
+  const _vchip = document.getElementById("footerVersionChip");
+  if (_vchip && typeof VERSOES !== "undefined" && VERSOES[0]) _vchip.textContent = "Versão " + VERSOES[0].versao;
   renderSupplierDayCheckboxes([]);
   populateSettings();
   bindStaticEvents();
