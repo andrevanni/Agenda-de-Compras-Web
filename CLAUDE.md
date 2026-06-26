@@ -412,6 +412,15 @@ Painel filtra pelo `activeBuyerId` (ambas as fontes). Renderização única em [
 - **Antecipação do tratamento conta**: agenda para amanhã tratada hoje → `base = +1` → parâmetro sobe 1 dia.
 - Lógica implementada em `script_render.js` (`openAgendaDetail`, `updateAgendaAdjustment`, `tratarAgendaAtual`).
 
+## Aviso de tratamento antecipado (jun/2026)
+
+Confirmação (não-bloqueante) exibida quando o comprador trata uma agenda **muito antes da data prevista** — evita o erro de tratar um fornecedor adiantado por engano, o que o faz **sair dos pendentes** e não reaparecer no período seguinte (caso real Drogaria SV: agenda mensal de jun tratada 10 dias antes, em mai → não apareceu em junho; sistema estava correto, foi erro de uso).
+
+- `confirmarAntecipacaoTratamento()` em [script_render.js](frontend/script_render.js): chamada no início de `openPedidoModal()` com `if (!confirmarAntecipacaoTratamento()) return;`. Retorna `true` para prosseguir, `false` se o comprador cancelar (aí o modal de pedido não abre).
+- **Gatilho proporcional à frequência** — `ALERTA_ANTECIPACAO_DIAS_FREQ = { 1: 4, 2: 4, 4: 3, 8: 3, 12: 3 }` em [script_state.js](frontend/script_state.js) (dias de antecipação a partir dos quais avisa). Antecipação = `diffDays(data_prevista, todayIso())` (positivo = dias à frente). Abaixo do limiar passa direto, sem atrito; **atraso (negativo) e agenda do dia (0) nunca disparam**.
+- A mensagem (`window.confirm`) mostra a data prevista, quantos dias faltam, para qual data a próxima agenda irá e o novo `parametro_compra` (lê `#proximaDataInput` e `#novoParametro`, já calculados pelo modal de detalhe). Mostrar a **consequência** é o ponto — foi o que pegou o cliente de surpresa.
+- **Guard puramente de UX no frontend** — não toca na lógica de cálculo nem no backend. Validado via Playwright (12 cenários, incl. limiares por frequência e o caso real) antes do deploy.
+
 ## Feriados
 
 - Importação de feriados nacionais via BrasilAPI com timeout de 10s
@@ -450,7 +459,7 @@ Painel filtra pelo `activeBuyerId` (ambas as fontes). Renderização única em [
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v66` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
+- Cache cliente: `agenda-compras-v67` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
 - **Rodapé mostra a versão atual**: `footerVersionChip` (em [index.html](frontend/index.html)) recebe `VERSOES[0].versao` no `bootstrap` ([script_main.js](frontend/script_main.js)) — antes era fixo "v0.1.0". É o indicador para o usuário confirmar que está no mais novo. O **nº do SW (cache) pode ficar à frente** do nº do rodapé (changelog) quando há deploy só de infra/ajuda sem entrada nova em `VERSOES` — normal, o rodapé reflete o changelog.
 - Cache admin: `agenda-admin-v14` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - **Estratégia NETWORK-FIRST (desde v62 / jun/2026)**: o handler `fetch` tenta a rede primeiro e só cai no cache offline. Substituiu o `cache-first` antigo, que causava um estado "Frankenstein" — mistura de arquivos de versões diferentes presos no cache (ex.: `index.html` novo + `script_state.js` velho → menu aparece mas dados/Versões quebram). Não voltar para cache-first.
@@ -531,6 +540,10 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 - Cron manual: `POST /api/v1/cron/relatorio-diario?tenant_id=c2f65634-b7e0-47f0-8937-94446540701a&data_ref=2026-04-30` com `X-Cron-Secret: agenda-cron-2026-sfx`
 
 ## Pendências
+
+### Entregue em 26/jun/2026
+
+- **Aviso de tratamento antecipado** (SW v66→v67, entrada Versões v67): confirmação não-bloqueante ao tratar uma agenda muito antes da data prevista — ver seção "Aviso de tratamento antecipado". Motivado por auditoria do caso Drogaria SV / Lívia (fornecedor Bio Extratus, freq. mensal): a agenda de 04/06 foi **tratada adiantada em 25/05** pela própria compradora, saiu dos pendentes e não reapareceu em junho. **Sistema estava correto** — foi erro de uso (tratamento antecipado de 10 dias avança o ciclo p/ 02/07 e incrementa o parâmetro). O aviso ataca exatamente esse erro. Limiar por frequência `{1:4, 2:4, 4:3, 8:3, 12:3}` definido pelo usuário. Validado via Playwright (12 cenários) antes do deploy.
 
 ### Entregue em 25/jun/2026 (sessão nova — máquina Mac)
 

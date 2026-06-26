@@ -487,9 +487,32 @@ function openPedidoModal() {
     setFeedback("Informe a próxima data no formato DD/MM/AAAA antes de tratar.", "error", agendaDetailFeedback);
     return;
   }
+  // Aviso de tratamento antecipado — não bloqueia, só confirma (ver confirmarAntecipacaoTratamento)
+  if (!confirmarAntecipacaoTratamento()) return;
   resetPedidoModal();
   setupPedidoModalHandlers();
   document.getElementById("pedidoModal").showModal();
+}
+
+// Confirma antes de tratar uma agenda muito antecipada (data_prevista bem à frente de hoje).
+// Retorna true para prosseguir, false se o comprador cancelar. Limiar por frequência em
+// ALERTA_ANTECIPACAO_DIAS_FREQ. Antecipações pequenas (abaixo do limiar) passam direto, sem atrito.
+function confirmarAntecipacaoTratamento() {
+  const row = occurrenceRows().find((item) => item.id === state.selectedOccurrenceId);
+  if (!row) return true;
+  const antecipacao = diffDays(row.data_prevista, todayIso()); // positivo = dias de antecipação
+  const limiar = ALERTA_ANTECIPACAO_DIAS_FREQ[row.supplier?.frequencia_revisao] ?? 3;
+  if (antecipacao < limiar) return true;
+
+  const proximaData = document.getElementById("proximaDataInput").value;
+  const novoParametro = document.getElementById("novoParametro")?.textContent ?? "";
+  const msg =
+    "⚠️ Tratamento antecipado\n\n" +
+    `Esta agenda está prevista para ${formatDate(row.data_prevista)} — faltam ${antecipacao} dia(s).\n\n` +
+    `Se tratar hoje, ela sai da lista de pendentes e a próxima agenda ficará para ${proximaData}` +
+    (novoParametro ? `, com o parâmetro de compra indo para ${novoParametro}` : "") +
+    ".\n\nDeseja tratar mesmo assim?";
+  return window.confirm(msg);
 }
 
 function setupPedidoModalHandlers() {

@@ -9,6 +9,15 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v67",
+        "dataHora": "26/06/2026 — manhã",
+        "notas": [
+            "Agenda de Compras: ao tratar uma agenda muito antes da data prevista, o sistema agora pede uma confirmação antes de prosseguir.",
+            "O aviso mostra quantos dias faltam para a data prevista, para qual data a próxima agenda será gerada e qual será o novo parâmetro de compra — assim fica claro o efeito de tratar adiantado.",
+            "Objetivo: evitar que um fornecedor seja tratado cedo demais por engano e acabe não aparecendo para revisão no período seguinte. Antecipações pequenas continuam passando direto, sem interrupção.",
+        ],
+    },
+    {
         "versao": "v65",
         "dataHora": "25/06/2026 — tarde",
         "notas": [

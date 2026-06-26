@@ -12,6 +12,10 @@ const DIAS_LABEL = {
 const DIAS_POR_FREQUENCIA = { 1: 1, 2: 1, 4: 1, 8: 2, 12: 3 };
 const INTERVALO_DIAS_FREQUENCIA = { 1: 28, 2: 14, 4: 7 };
 const PARAMETRO_MINIMO_FREQUENCIA = { 1: 28, 2: 14, 4: 7, 8: 4, 12: 3 };
+// Alerta de tratamento antecipado: dias de antecipação (data_prevista - hoje) a partir dos quais
+// o sistema confirma antes de tratar — evita o comprador tratar uma agenda muito antes da data por
+// engano (ela sai dos pendentes e o ciclo avança sem perceber). Limiar por frequência.
+const ALERTA_ANTECIPACAO_DIAS_FREQ = { 1: 4, 2: 4, 4: 3, 8: 3, 12: 3 };
 const DEFAULT_DAYS_BY_FREQUENCY = {
   1: ["SEGUNDA"],
   2: ["SEGUNDA"],
@@ -120,6 +124,15 @@ const mockAgenda = [
 // NUNCA citar nomes de clientes, fornecedores ou pessoas reais nas notas
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
+  {
+    versao: "v67",
+    dataHora: "26/06/2026 — manhã",
+    notas: [
+      "Agenda de Compras: ao tratar uma agenda muito antes da data prevista, o sistema agora pede uma confirmação antes de prosseguir.",
+      "O aviso mostra quantos dias faltam para a data prevista, para qual data a próxima agenda será gerada e qual será o novo parâmetro de compra — assim fica claro o efeito de tratar adiantado.",
+      "Objetivo: evitar que um fornecedor seja tratado cedo demais por engano e acabe não aparecendo para revisão no período seguinte. Antecipações pequenas continuam passando direto, sem interrupção.",
+    ],
+  },
   {
     versao: "v65",
     dataHora: "25/06/2026 — tarde",
