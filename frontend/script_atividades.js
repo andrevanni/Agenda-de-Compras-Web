@@ -319,7 +319,34 @@ function _renderAtTarefasTable(tarefas) {
       </tbody>
     </table>`;
 }
-function exportAtividadesToExcel() { /* Task 5 */ }
+/* ----- exportação Excel ----- */
+function exportAtividadesToExcel() {
+  if (typeof XLSX === "undefined") { setFeedback("Biblioteca de exportação indisponível.", "warning"); return; }
+  if (!_atLastData || !_atLastData.tarefas.length) { setFeedback("Nenhuma tarefa para exportar.", "warning"); return; }
+  const { catRows, buyerRows, tarefas } = _atLastData;
+
+  const catSheet = catRows.map((c) => ({
+    "Categoria": c.nome, "Total": c.total, "Concluídas": c.concluida, "Pendentes": c.pendente, "Atrasadas": c.atrasada,
+  }));
+  const buyerSheet = buyerRows.map((b) => ({
+    "Comprador": b.buyerName, "Total": b.total, "Concluídas": b.concluida, "Pendentes": b.pendente, "Atrasadas": b.atrasada,
+    "Taxa conclusão %": b.taxaConclusao != null ? Math.round(b.taxaConclusao * 100) : "",
+  }));
+  const tarefaSheet = tarefas.map((t) => ({
+    "Comprador": t.buyerName, "Categoria": t.catNome, "Tarefa": t.titulo,
+    "Data prevista": t.dataPrevista ? formatDate(t.dataPrevista) : "",
+    "Data realizada": t.dataRealizacao ? formatDate(t.dataRealizacao) : "",
+    "Status": AT_ESTADO[t.estado].label,
+    "Horário": t.horaInicio ? (t.horaInicio + (t.horaFim ? "–" + t.horaFim : "")) : "",
+  }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(catSheet), "Por Categoria");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buyerSheet), "Por Comprador");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tarefaSheet), "Tarefas");
+  const range = _atLastRange || { start: "", end: "" };
+  XLSX.writeFile(wb, `atividades_${range.start}_${range.end}.xlsx`);
+}
 
 /* ----- troca de abas do modal de Auditoria ----- */
 function switchAuditTab(tab) {
