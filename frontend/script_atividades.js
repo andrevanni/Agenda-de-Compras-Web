@@ -221,7 +221,55 @@ function _atDestroy(c) { if (c) { try { c.destroy(); } catch { /* noop */ } } }
 /* Stubs substituídos nas Tasks 3, 4 e 5. Precisam existir já aqui porque
    renderAtividades() os chama e o listener de export referencia a função no
    boot (senão dá ReferenceError em bindEvents). */
-function _renderAtCharts() { /* Task 3 */ }
+function _renderAtCharts(data) {
+  if (typeof Chart === "undefined") return;
+  const { catRows, buyerRows, tendencia } = data;
+
+  // 1. Tarefas por categoria (rosca) — cores reais das categorias
+  const ctxCat = document.getElementById("atChartCategoria")?.getContext("2d");
+  if (ctxCat) {
+    _atDestroy(_atChartCategoria);
+    const cores = catRows.map((c, i) => c.cor || AT_FALLBACK_CORES[i % AT_FALLBACK_CORES.length]);
+    _atChartCategoria = new Chart(ctxCat, {
+      type: "doughnut",
+      data: { labels: catRows.map((c) => c.nome), datasets: [{ data: catRows.map((c) => c.total), backgroundColor: cores }] },
+      options: { plugins: { legend: { position: "bottom" } }, responsive: true, maintainAspectRatio: false },
+    });
+  }
+
+  // 2. Tarefas por comprador — barras horizontais empilhadas por estado
+  const ctxBuyer = document.getElementById("atChartComprador")?.getContext("2d");
+  if (ctxBuyer) {
+    _atDestroy(_atChartComprador);
+    _atChartComprador = new Chart(ctxBuyer, {
+      type: "bar",
+      data: {
+        labels: buyerRows.map((b) => b.buyerName),
+        datasets: [
+          { label: AT_ESTADO.concluida.label, data: buyerRows.map((b) => b.concluida), backgroundColor: AT_ESTADO.concluida.cor },
+          { label: AT_ESTADO.pendente.label,  data: buyerRows.map((b) => b.pendente),  backgroundColor: AT_ESTADO.pendente.cor },
+          { label: AT_ESTADO.atrasada.label,  data: buyerRows.map((b) => b.atrasada),  backgroundColor: AT_ESTADO.atrasada.cor },
+        ],
+      },
+      options: {
+        indexAxis: "y", responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom" } },
+        scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true } },
+      },
+    });
+  }
+
+  // 3. Concluídas por semana (linha)
+  const ctxTend = document.getElementById("atChartTendencia")?.getContext("2d");
+  if (ctxTend) {
+    _atDestroy(_atChartTendencia);
+    _atChartTendencia = new Chart(ctxTend, {
+      type: "line",
+      data: { labels: tendencia.map((t) => t.label), datasets: [{ label: "Concluídas", data: tendencia.map((t) => t.concluidas), borderColor: "#2563eb", backgroundColor: "rgba(37,99,235,.15)", fill: true, tension: 0.3 }] },
+      options: { plugins: { legend: { display: false } }, responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
+    });
+  }
+}
 function _renderAtDrill() { /* Task 4 */ }
 function exportAtividadesToExcel() { /* Task 5 */ }
 
