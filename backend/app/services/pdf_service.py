@@ -118,12 +118,13 @@ def _empty_msg(text_str: str, width: int) -> Table:
 
 
 def _bar_chart(labels: list, values: list, width: int, height: int = 160, color: str = "#1d4ed8"):
-    """Gráfico de barras vertical simples. Degrada para mensagem se não houver dados."""
-    labels = [str(x) for x in (labels or [])]
-    values = [float(x or 0) for x in (values or [])]
-    if not labels or not any(values):
-        return _empty_msg("Sem dados para exibir no gráfico.", width)
+    """Gráfico de barras vertical simples. Degrada para mensagem se não houver dados
+    ou se qualquer erro ocorrer (incl. valores não-numéricos) — nunca levanta."""
     try:
+        labels = [str(x) for x in (labels or [])]
+        values = [float(x or 0) for x in (values or [])]
+        if not labels or not any(values):
+            return _empty_msg("Sem dados para exibir no gráfico.", width)
         d = Drawing(width, height)
         bc = VerticalBarChart()
         bc.x = 32
