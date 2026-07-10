@@ -117,7 +117,9 @@ function computeAtividades(range) {
     };
   };
 
-  // Concluídas: pelo período (por data_realizacao)
+  // Concluídas: pelo período (por data_realizacao). Só REALIZADA — compromissos
+  // genéricos usam o ciclo PENDENTE↔REALIZADA; ADIADA é conceito da Agenda de
+  // Compras (sempre com fornecedor_id, já excluído por ehGenerico).
   const concluidas = (state.auditOccurrences ?? [])
     .filter((o) => o.status === "REALIZADA" && ehGenerico(o) && matchFilters(o) && o.data_realizacao &&
       (!startIso || o.data_realizacao >= startIso) && (!endIso || o.data_realizacao <= endIso))
@@ -345,7 +347,9 @@ function exportAtividadesToExcel() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buyerSheet), "Por Comprador");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tarefaSheet), "Tarefas");
   const range = _atLastRange || { start: "", end: "" };
-  XLSX.writeFile(wb, `atividades_${range.start}_${range.end}.xlsx`);
+  const fnDe = range.start || todayLocalIso();
+  const fnAte = range.end || todayLocalIso();
+  XLSX.writeFile(wb, `atividades_${fnDe}_${fnAte}.xlsx`);
 }
 
 /* ----- troca de abas do modal de Auditoria ----- */
