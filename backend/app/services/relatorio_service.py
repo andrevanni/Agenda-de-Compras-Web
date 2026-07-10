@@ -14,7 +14,7 @@ EMAIL_PARALLEL_WORKERS = 5
 from app.core.config import settings
 from app.db.supabase_client import get_supabase
 from app.services.email_service import send_html
-from app.services.pdf_service import build_relatorio_pdf
+from app.services.pdf_service import build_relatorio_pdf, build_relatorio_semanal_pdf
 
 DIAS_PT = {0: "Segunda", 1: "Terça", 2: "Quarta", 3: "Quinta", 4: "Sexta", 5: "Sábado", 6: "Domingo"}
 MESES_PT = {
@@ -864,3 +864,186 @@ def enviar_relatorios_todos_tenants(
         if r["sent"] or r["errors"]:
             results.append(r)
     return {"tenants_processados": len(tenants), "sent": total_sent, "errors": total_errors, "detalhe": results}
+
+
+def _build_html_email_semanal(
+    nome_destinatario: str, is_gestor: bool, inicio: date, fim: date,
+    kpis_semana: dict, atividades_kpis: dict, tenant_name: str,
+) -> str:
+    periodo = f"{_fmt(inicio)} a {_fmt(fim)}"
+    escopo = "consolidado de todos os compradores" if is_gestor else "sua carteira"
+    valor = kpis_semana.get("valor_total_pedidos") or 0
+    valor_fmt = "R$ " + f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    taxa_p = kpis_semana.get("taxa_pedido")
+    taxa_c = atividades_kpis.get("taxa_conclusao")
+    return f"""\
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#0f172a">
+  <div style="background:#0f172a;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
+    <div style="font-size:12px;letter-spacing:1px;color:#94a3b8">RELATÓRIO SEMANAL · {tenant_name}</div>
+    <div style="font-size:20px;font-weight:bold;margin-top:4px">Panorama da semana — {periodo}</div>
+    <div style="font-size:13px;color:#cbd5e1;margin-top:6px">Olá, {nome_destinatario} — {escopo}.</div>
+  </div>
+  <div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;padding:20px 24px">
+    <h3 style="color:#0f766e;margin:0 0 8px">Agenda de Compras</h3>
+    <p style="font-size:14px;line-height:1.5;margin:0 0 16px">
+      Realizadas: <b>{kpis_semana.get('realizadas', 0)}</b> ·
+      Atrasadas: <b>{kpis_semana.get('atrasadas', 0)}</b> ·
+      Pedidos: <b>{kpis_semana.get('pedidos_sim', 0)}</b> ·
+      Taxa de pedido: <b>{f'{taxa_p}%' if taxa_p is not None else '—'}</b> ·
+      Valor total: <b>{valor_fmt}</b>
+    </p>
+    <h3 style="color:#1d4ed8;margin:0 0 8px">Outras Atividades</h3>
+    <p style="font-size:14px;line-height:1.5;margin:0 0 16px">
+      Total: <b>{atividades_kpis.get('total', 0)}</b> ·
+      Concluídas: <b>{atividades_kpis.get('concluidas', 0)}</b> ·
+      Pendentes: <b>{atividades_kpis.get('pendentes', 0)}</b> ·
+      Atrasadas: <b>{atividades_kpis.get('atrasadas', 0)}</b> ·
+      Taxa de conclusão: <b>{f'{taxa_c}%' if taxa_c is not None else '—'}</b>
+    </p>
+    <p style="font-size:13px;color:#64748b;margin:0">O PDF em anexo traz o detalhamento completo por comprador e por categoria, com gráficos.</p>
+  </div>
+</div>"""
+
+
+def enviar_relatorio_semanal_tenant(
+    db: Session,
+    tenant_id: str,
+    semana_ref: Optional[date] = None,
+    admin_only: bool = False,
+    comprador_id: Optional[str] = None,
+) -> dict:
+    from datetime import datetime
+    if semana_ref is None:
+        semana_ref = datetime.now().date() - timedelta(days=7)  # alguma data da semana passada
+    inicio, fim = _semana_util(semana_ref)
+    hoje = datetime.now().date()
+
+    tenant_row = db.execute(
+        text("SELECT nome FROM tenants WHERE id = cast(:tid as uuid)"),
+        {"tid": tenant_id},
+    ).mappings().first()
+    tenant_name = tenant_row["nome"] if tenant_row else "Agenda de Compras"
+
+    filtro_comprador = "AND id = cast(:cid as uuid)" if comprador_id else ""
+    params_compradores: dict = {"tid": tenant_id}
+    if comprador_id:
+        params_compradores["cid"] = comprador_id
+    compradores = db.execute(
+        text(f"""
+            SELECT id::text AS id, nome_comprador, email, is_gestor,
+                   receber_auditoria, receber_agenda_proximo
+            FROM compradores
+            WHERE tenant_id = cast(:tid as uuid)
+              AND email IS NOT NULL
+              AND (receber_auditoria = true OR receber_agenda_proximo = true)
+              {filtro_comprador}
+            ORDER BY nome_comprador
+        """),
+        params_compradores,
+    ).mappings().all()
+
+    # Dados gerais (gestor/admin) — carregados uma vez
+    kpis_semana_geral = _kpis_query(db, tenant_id, inicio, fim)
+    kpis_por_comprador_geral = _kpis_por_comprador_semana(db, tenant_id, inicio, fim)
+    atividades_geral = _atividades_semana(db, tenant_id, inicio, fim, hoje)
+
+    subject = f"Agenda de Compras — Relatório Semanal {_fmt(inicio)} a {_fmt(fim)}"
+    pdf_filename = f"relatorio_semanal_{inicio.isoformat()}_{fim.isoformat()}.pdf"
+    payloads: list[dict] = []
+
+    def _monta_payload(nome, email, is_gestor, kpis_semana, kpis_por_comp, atividades, tipo, cid):
+        html = _build_html_email_semanal(nome, is_gestor, inicio, fim, kpis_semana, atividades["kpis"], tenant_name)
+        pdf_bytes: Optional[bytes] = None
+        try:
+            pdf_bytes = build_relatorio_semanal_pdf(
+                nome_destinatario=nome, is_gestor=is_gestor, inicio=inicio, fim=fim,
+                kpis_semana=kpis_semana, kpis_por_comprador=kpis_por_comp,
+                atividades=atividades, tenant_name=tenant_name,
+            )
+        except Exception:
+            pdf_bytes = None
+        payloads.append({
+            "email": email, "html": html,
+            "attachments": [(pdf_filename, pdf_bytes)] if pdf_bytes else None,
+            "comprador_id": cid, "tipo": tipo,
+        })
+
+    for c in ([] if admin_only else compradores):
+        is_gestor = bool(c["is_gestor"])
+        if is_gestor:
+            _monta_payload(c["nome_comprador"], c["email"], True,
+                           kpis_semana_geral, kpis_por_comprador_geral, atividades_geral,
+                           "semanal_gestor", c["id"])
+        else:
+            cid = c["id"]
+            kpis_c = _kpis_query(db, tenant_id, inicio, fim, cid)
+            kpis_pc = _kpis_por_comprador_semana(db, tenant_id, inicio, fim, cid)
+            ativ_c = _atividades_semana(db, tenant_id, inicio, fim, hoje, cid)
+            _monta_payload(c["nome_comprador"], c["email"], False,
+                           kpis_c, kpis_pc, ativ_c, "semanal_auditoria", cid)
+
+    # Admins inscritos (consolidado). Pulado em envio pontual (comprador_id).
+    try:
+        if comprador_id:
+            admin_emails = []
+        else:
+            sb = get_supabase()
+            resp = sb.table("admin_report_subscriptions").select("admin_email").eq("tenant_id", tenant_id).execute()
+            admin_emails = [r["admin_email"] for r in (resp.data or [])]
+    except Exception:
+        admin_emails = []
+
+    for admin_email in admin_emails:
+        _monta_payload("Administrador", admin_email, True,
+                       kpis_semana_geral, kpis_por_comprador_geral, atividades_geral,
+                       "semanal_admin_copia", None)
+
+    # FASE 2 — envio paralelo
+    def _send_one(p: dict) -> tuple[str, Optional[str]]:
+        try:
+            send_html([p["email"]], subject, p["html"], attachments=p["attachments"])
+            return ("enviado", None)
+        except Exception as exc:
+            return ("erro", str(exc)[:500])
+
+    results: list[tuple[str, Optional[str]]] = []
+    if payloads:
+        with ThreadPoolExecutor(max_workers=EMAIL_PARALLEL_WORKERS) as pool:
+            results = list(pool.map(_send_one, payloads))
+
+    # FASE 3 — log em série
+    sent = 0
+    errors = 0
+    for payload, (status, erro) in zip(payloads, results):
+        _log_envio(db, tenant_id, payload["comprador_id"], payload["tipo"], inicio, payload["email"], status, erro)
+        if status == "enviado":
+            sent += 1
+        else:
+            errors += 1
+
+    return {
+        "tenant_id": tenant_id,
+        "semana_inicio": str(inicio),
+        "semana_fim": str(fim),
+        "sent": sent,
+        "errors": errors,
+    }
+
+
+def enviar_relatorio_semanal_todos_tenants(
+    db: Session,
+    semana_ref: Optional[date] = None,
+) -> dict:
+    tenants = db.execute(
+        text("SELECT id::text AS id FROM tenants WHERE envio_relatorio_ativo = true ORDER BY nome")
+    ).mappings().all()
+    total_sent = 0
+    total_errors = 0
+    results = []
+    for t in tenants:
+        r = enviar_relatorio_semanal_tenant(db, t["id"], semana_ref)
+        total_sent += r["sent"]
+        total_errors += r["errors"]
+        if r["sent"] or r["errors"]:
+            results.append(r)
+    return {"total_sent": total_sent, "total_errors": total_errors, "tenants": results}
