@@ -1244,6 +1244,12 @@
           </div>
         </div>
 
+        <div class="audit-tabs" role="tablist">
+          <button id="auditTabAgenda" class="audit-tab active" type="button" role="tab" aria-selected="true">Agenda de Compras</button>
+          <button id="auditTabAtividades" class="audit-tab" type="button" role="tab" aria-selected="false">Outras Atividades</button>
+        </div>
+
+        <div id="auditPaneAgenda">
         <div class="audit-filter-bar">
           <label>
             Per&iacute;odo<br>
@@ -1355,6 +1361,72 @@
           </div>
           <div id="auditCadastroSection" class="table-wrap"></div>
         </section>
+        </div>
+
+        <div id="auditPaneAtividades" hidden>
+          <div class="audit-filter-bar">
+            <label>Per&iacute;odo<br>
+              <select id="atPeriodPreset">
+                <option value="30dias">Últimos 30 dias</option>
+                <option value="60dias">Últimos 60 dias</option>
+                <option value="90dias" selected>Últimos 90 dias</option>
+                <option value="120dias">Últimos 120 dias</option>
+                <option value="180dias">Últimos 180 dias</option>
+                <option value="personalizado">Entre datas</option>
+              </select>
+            </label>
+            <label>In&iacute;cio<br>
+              <div class="date-input-group">
+                <input id="atStartDate" type="text" inputmode="numeric" placeholder="DD/MM/AAAA" disabled>
+                <button id="atStartDatePickerButton" class="date-picker-button" type="button" aria-label="Abrir calendário da data inicial">&#128197;</button>
+                <input id="atStartDateNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+              </div>
+            </label>
+            <label>Fim<br>
+              <div class="date-input-group">
+                <input id="atEndDate" type="text" inputmode="numeric" placeholder="DD/MM/AAAA" disabled>
+                <button id="atEndDatePickerButton" class="date-picker-button" type="button" aria-label="Abrir calendário da data final">&#128197;</button>
+                <input id="atEndDateNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
+              </div>
+            </label>
+            <label>Comprador<br>
+              <select id="atBuyerFilter"><option value="">Todos os compradores</option></select>
+            </label>
+            <label>Categoria<br>
+              <select id="atCategoriaFilter"><option value="">Todas as categorias</option></select>
+            </label>
+            <div class="actions" style="display:flex;gap:8px;align-items:flex-end;">
+              <button id="atExportButton" class="btn btn-outline btn-sm" type="button">&#128228; Exportar</button>
+              <button id="atRefreshButton" class="btn btn-outline btn-sm" type="button">Atualizar</button>
+            </div>
+            <div id="atPeriodSummary" class="audit-period-summary muted"></div>
+          </div>
+
+          <p class="muted" style="margin:-4px 0 12px;">Concluídas contam pelo período selecionado. Pendentes e atrasadas são o retrato atual (todas em aberto), independente do período.</p>
+
+          <div id="atSummaryGrid" class="kpi-grid"></div>
+
+          <div class="audit-charts-row">
+            <div class="audit-chart-box">
+              <div class="audit-chart-label">Tarefas por categoria</div>
+              <div class="ef-canvas-wrap"><canvas id="atChartCategoria"></canvas></div>
+            </div>
+            <div class="audit-chart-box audit-chart-bar-box">
+              <div class="audit-chart-label">Tarefas por comprador (status)</div>
+              <div class="ef-canvas-wrap"><canvas id="atChartComprador"></canvas></div>
+            </div>
+          </div>
+
+          <div class="audit-chart-box audit-chart-full">
+            <div class="audit-chart-label">Concluídas por semana</div>
+            <div class="ef-canvas-wrap"><canvas id="atChartTendencia"></canvas></div>
+          </div>
+
+          <div class="audit-block">
+            <div class="section-title"><div><h3>Detalhe por comprador &rsaquo; categoria &rsaquo; tarefa</h3><p class="muted">Clique para expandir.</p></div></div>
+            <div id="atDrill"></div>
+          </div>
+        </div>
       </form>
     </dialog>
 
@@ -1573,6 +1645,7 @@
     <script src="script_render.js"></script>
     <script src="script_forms.js"></script>
     <script src="script_eficiencia.js"></script>
+    <script src="script_atividades.js"></script>
     <script src="script_data.js"></script>
     <script src="script_main.js"></script>
     <script>

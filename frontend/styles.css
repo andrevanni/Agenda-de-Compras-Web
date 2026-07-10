@@ -2152,3 +2152,28 @@ body[data-theme="light"] .postit-note-shell textarea {
   font-size: 13px;
 }
 body[data-theme="dark"] .ef-sugestao { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+
+/* Abas do modal de Auditoria (Agenda de Compras / Outras Atividades) */
+.audit-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin: 4px 0 16px;
+}
+.audit-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.audit-tab:hover { color: var(--text); }
+.audit-tab.active {
+  color: var(--text);
+  border-bottom-color: #2563eb;
+}
