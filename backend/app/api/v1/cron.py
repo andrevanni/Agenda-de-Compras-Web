@@ -9,6 +9,8 @@ from app.db.session import get_db_session
 from app.services.relatorio_service import (
     enviar_relatorios_tenant,
     enviar_relatorios_todos_tenants,
+    enviar_relatorio_semanal_tenant,
+    enviar_relatorio_semanal_todos_tenants,
 )
 
 router = APIRouter(prefix="/cron", tags=["cron"])
@@ -68,3 +70,42 @@ def cron_relatorio_diario_post(
     admin_only=true envia apenas para admins inscritos, sem disparar e-mails aos compradores.
     comprador_id=<uuid> envia somente para aquele comprador (validação pontual), sem admins."""
     return _executar(db, tenant_id, data_ref, admin_only=admin_only, comprador_id=comprador_id)
+
+
+def _executar_semanal(
+    db: Session,
+    tenant_id: Optional[str],
+    semana_ref: Optional[date],
+    admin_only: bool = False,
+    comprador_id: Optional[str] = None,
+) -> dict:
+    if tenant_id:
+        return enviar_relatorio_semanal_tenant(
+            db, tenant_id, semana_ref, admin_only=admin_only, comprador_id=comprador_id
+        )
+    return enviar_relatorio_semanal_todos_tenants(db, semana_ref)
+
+
+@router.get("/relatorio-semanal")
+def cron_relatorio_semanal_get(
+    semana_ref: Optional[date] = Query(default=None),
+    tenant_id: Optional[str] = Query(default=None),
+    _: None = Depends(_verificar_auth),
+    db: Session = Depends(get_db_session),
+) -> dict:
+    """Chamado pelo Vercel Cron Job (GET). Segunda 10:00 UTC = 07:00 BRT. Consolida a semana útil anterior."""
+    return _executar_semanal(db, tenant_id, semana_ref)
+
+
+@router.post("/relatorio-semanal")
+def cron_relatorio_semanal_post(
+    semana_ref: Optional[date] = Query(default=None),
+    tenant_id: Optional[str] = Query(default=None),
+    admin_only: bool = Query(default=False),
+    comprador_id: Optional[str] = Query(default=None),
+    _: None = Depends(_verificar_auth),
+    db: Session = Depends(get_db_session),
+) -> dict:
+    """Disparo manual (POST + X-Cron-Secret). semana_ref = qualquer data da semana-alvo (default: semana passada).
+    admin_only=true envia só para admins inscritos; comprador_id=<uuid> envia só para aquele comprador."""
+    return _executar_semanal(db, tenant_id, semana_ref, admin_only=admin_only, comprador_id=comprador_id)
