@@ -125,6 +125,16 @@ const mockAgenda = [
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
   {
+    versao: "v69",
+    dataHora: "10/07/2026 — tarde",
+    notas: [
+      "Novo relatório semanal por e-mail para gestores, toda segunda de manhã.",
+      "Ele consolida a semana útil anterior (segunda a sexta) num PDF com dois panoramas: a Agenda de Compras (realizadas, atrasadas, pedidos, valor e taxa de pedido) e as Outras Atividades (tarefas gerais: concluídas, pendentes, atrasadas e taxa de conclusão).",
+      "Traz tabelas por comprador e por categoria, além de gráficos, para acompanhar o desempenho da equipe na semana.",
+      "Vai para os mesmos destinatários do relatório diário; gestores recebem o consolidado de todos os compradores.",
+    ],
+  },
+  {
     versao: "v68",
     dataHora: "10/07/2026 — tarde",
     notas: [
