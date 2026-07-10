@@ -9,6 +9,16 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v68",
+        "dataHora": "10/07/2026 — manhã",
+        "notas": [
+            "Auditoria: nova aba \"Outras Atividades\" ao lado de \"Agenda de Compras\".",
+            "Ela analisa os compromissos que não são de fornecedores (tarefas gerais da operação): total, concluídas, pendentes e atrasadas, com taxa de conclusão.",
+            "Gráficos por categoria (com as cores de cada categoria), por comprador (mostrando o status de cada um) e a evolução de concluídas por semana.",
+            "É possível abrir o detalhe por comprador e por categoria até a lista de tarefas, e exportar tudo para Excel.",
+        ],
+    },
+    {
         "versao": "v67",
         "dataHora": "26/06/2026 — manhã",
         "notas": [
