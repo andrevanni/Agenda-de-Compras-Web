@@ -270,7 +270,55 @@ function _renderAtCharts(data) {
     });
   }
 }
-function _renderAtDrill() { /* Task 4 */ }
+function _atEstadoPill(estado) {
+  const e = AT_ESTADO[estado];
+  return `<span class="ef-flag" style="background:${e.cor}22;color:${e.cor}">${e.label}</span>`;
+}
+
+function _renderAtDrill(buyerRows) {
+  const el = document.getElementById("atDrill");
+  if (!el) return;
+  if (!buyerRows.length) { el.innerHTML = `<div class="msg info">Nenhuma tarefa para os filtros selecionados.</div>`; return; }
+  el.innerHTML = buyerRows.map((b) => `
+    <details class="ef-buyer-group" open>
+      <summary>
+        <span class="ef-buyer-name">${escapeHtml(b.buyerName)}</span>
+        <span class="ef-buyer-meta muted">${b.total} tarefa(s) · ${b.concluida} concluída(s) · ${b.pendente} pendente(s) · ${b.atrasada} atrasada(s) · ${_atPct(b.taxaConclusao)} conclusão</span>
+      </summary>
+      <div class="ef-forn-list">
+        ${b.categorias.map((c) => `
+          <details class="ef-forn-card">
+            <summary>
+              <span class="ef-forn-title"><span class="cat-pill" style="background:${c.cor}22;color:${c.cor}">${escapeHtml(c.nome)}</span></span>
+              <span class="ef-forn-flags muted">${c.total} · ${c.concluida}✓ ${c.pendente}⏳ ${c.atrasada}⚠️</span>
+            </summary>
+            <div class="ef-forn-body">
+              ${_renderAtTarefasTable(c.tarefas)}
+            </div>
+          </details>`).join("")}
+      </div>
+    </details>`).join("");
+}
+
+function _renderAtTarefasTable(tarefas) {
+  if (!tarefas.length) return `<p class="muted ef-empty">Sem tarefas.</p>`;
+  const ordenadas = tarefas.slice().sort((a, b) => (b.dataRealizacao || b.dataPrevista || "").localeCompare(a.dataRealizacao || a.dataPrevista || ""));
+  return `
+    <table class="audit-event-table ef-pedidos-table">
+      <thead><tr><th>Tarefa</th><th>Categoria</th><th>Prevista</th><th>Realizada</th><th>Status</th><th>Horário</th></tr></thead>
+      <tbody>
+        ${ordenadas.map((t) => `
+          <tr>
+            <td>${escapeHtml(t.titulo)}</td>
+            <td><span class="cat-pill" style="background:${t.catCor}22;color:${t.catCor}">${escapeHtml(t.catNome)}</span></td>
+            <td>${t.dataPrevista ? formatDate(t.dataPrevista) : "—"}</td>
+            <td>${t.dataRealizacao ? formatDate(t.dataRealizacao) : "—"}</td>
+            <td>${_atEstadoPill(t.estado)}</td>
+            <td>${t.horaInicio ? escapeHtml(t.horaInicio) + (t.horaFim ? "–" + escapeHtml(t.horaFim) : "") : "—"}</td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
 function exportAtividadesToExcel() { /* Task 5 */ }
 
 /* ----- troca de abas do modal de Auditoria ----- */

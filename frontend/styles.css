@@ -2177,3 +2177,12 @@ body[data-theme="dark"] .ef-sugestao { background: rgba(245, 158, 11, 0.15); col
   color: var(--text);
   border-bottom-color: #2563eb;
 }
+
+.cat-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.82em;
+  font-weight: 600;
+  white-space: nowrap;
+}
