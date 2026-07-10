@@ -10,12 +10,13 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 VERSOES = [
     {
         "versao": "v68",
-        "dataHora": "10/07/2026 — manhã",
+        "dataHora": "10/07/2026 — tarde",
         "notas": [
-            "Auditoria: nova aba \"Outras Atividades\" ao lado de \"Agenda de Compras\".",
-            "Ela analisa os compromissos que não são de fornecedores (tarefas gerais da operação): total, concluídas, pendentes e atrasadas, com taxa de conclusão.",
-            "Gráficos por categoria (com as cores de cada categoria), por comprador (mostrando o status de cada um) e a evolução de concluídas por semana.",
-            "É possível abrir o detalhe por comprador e por categoria até a lista de tarefas, e exportar tudo para Excel.",
+            "Novidade na Auditoria: agora ela tem duas abas — \"Agenda de Compras\" (a de sempre) e a nova \"Outras Atividades\".",
+            "A aba \"Outras Atividades\" dá uma visão gerencial das tarefas que não são de fornecedores (os compromissos gerais da operação): total, concluídas, pendentes, atrasadas e a taxa de conclusão.",
+            "Traz gráficos por categoria, por comprador (mostrando o status de cada um) e a evolução de tarefas concluídas por semana — ótimo para acompanhar a produtividade da equipe.",
+            "Permite abrir o detalhe por comprador e por categoria até cada tarefa, e exportar tudo para Excel para relatórios e reuniões.",
+            "Fica no mesmo lugar e com a mesma senha da Auditoria; a aba de fornecedores continua exatamente igual.",
         ],
     },
     {
