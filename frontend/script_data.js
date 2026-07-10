@@ -292,6 +292,18 @@ function bindStaticEvents() {
   document.getElementById("efSupplierFilter")?.addEventListener("change", renderEficiencia);
   document.getElementById("efRefreshButton")?.addEventListener("click", renderEficiencia);
   document.getElementById("efExportButton")?.addEventListener("click", exportEficienciaToExcel);
+  // Aba "Outras Atividades" da Auditoria
+  document.getElementById("auditTabAgenda")?.addEventListener("click", () => switchAuditTab("agenda"));
+  document.getElementById("auditTabAtividades")?.addEventListener("click", () => switchAuditTab("atividades"));
+  setupDatePickerField("atStartDate", "atStartDateNative", "atStartDatePickerButton");
+  setupDatePickerField("atEndDate", "atEndDateNative", "atEndDatePickerButton");
+  document.getElementById("atPeriodPreset")?.addEventListener("change", renderAtividades);
+  document.getElementById("atStartDate")?.addEventListener("change", renderAtividades);
+  document.getElementById("atEndDate")?.addEventListener("change", renderAtividades);
+  document.getElementById("atBuyerFilter")?.addEventListener("change", renderAtividades);
+  document.getElementById("atCategoriaFilter")?.addEventListener("change", renderAtividades);
+  document.getElementById("atRefreshButton")?.addEventListener("click", renderAtividades);
+  document.getElementById("atExportButton")?.addEventListener("click", exportAtividadesToExcel);
   document.getElementById("fornecedorForm").addEventListener("submit", saveSupplier);
   document.getElementById("compradorForm").addEventListener("submit", saveBuyer);
   document.getElementById("resetFornecedorFormButton").addEventListener("click", resetSupplierForm);

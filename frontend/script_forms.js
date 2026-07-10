@@ -113,6 +113,7 @@ function unlockAuditView() {
   closeModal("auditPasswordModal");
   syncAuditPeriodInputs();
   renderAuditDashboard();
+  if (typeof switchAuditTab === "function") switchAuditTab("agenda");
   document.getElementById("auditModal").showModal();
 }
 
