@@ -19,6 +19,7 @@ from datetime import date
 from io import BytesIO
 from typing import Optional
 
+from reportlab.graphics.charts.barcharts import VerticalBarChart
 from reportlab.graphics.shapes import Drawing, Line, Rect, String
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -116,9 +117,42 @@ def _empty_msg(text_str: str, width: int) -> Table:
     return tbl
 
 
+def _bar_chart(labels: list, values: list, width: int, height: int = 160, color: str = "#1d4ed8"):
+    """Gráfico de barras vertical simples. Degrada para mensagem se não houver dados."""
+    labels = [str(x) for x in (labels or [])]
+    values = [float(x or 0) for x in (values or [])]
+    if not labels or not any(values):
+        return _empty_msg("Sem dados para exibir no gráfico.", width)
+    try:
+        d = Drawing(width, height)
+        bc = VerticalBarChart()
+        bc.x = 32
+        bc.y = 28
+        bc.width = width - 64
+        bc.height = height - 48
+        bc.data = [values]
+        bc.categoryAxis.categoryNames = [(s[:14] + "…") if len(s) > 15 else s for s in labels]
+        bc.categoryAxis.labels.fontName = "Helvetica"
+        bc.categoryAxis.labels.fontSize = 7
+        bc.categoryAxis.labels.angle = 20
+        bc.categoryAxis.labels.dy = -7
+        bc.categoryAxis.labels.boxAnchor = "ne"
+        bc.valueAxis.valueMin = 0
+        bc.valueAxis.labels.fontName = "Helvetica"
+        bc.valueAxis.labels.fontSize = 7
+        bc.bars[0].fillColor = colors.HexColor(color)
+        bc.barWidth = 8
+        bc.groupSpacing = 6
+        d.add(bc)
+        return d
+    except Exception:
+        return _empty_msg("Gráfico indisponível.", width)
+
+
 # ── Componentes ───────────────────────────────────────────────────────────────
 
-def _hero_band(width: int, tenant_name: str, data_label: str, nome_comprador: str, is_gestor: bool) -> Drawing:
+def _hero_band(width: int, tenant_name: str, data_label: str, nome_comprador: str, is_gestor: bool,
+               titulo_faixa: str = "RELATÓRIO DIÁRIO", rodape_faixa: str = "AGENDA DE COMPRAS") -> Drawing:
     h = 120
     d = Drawing(width, h)
     d.add(Rect(0, 0, width, h, fillColor=C_NAVY, strokeColor=None))
@@ -128,7 +162,7 @@ def _hero_band(width: int, tenant_name: str, data_label: str, nome_comprador: st
         for dj in range(3):
             d.add(Rect(width - 58 + di * 13, h - 16 - dj * 13, 5, 5,
                        fillColor=colors.HexColor("#1e3a5f"), strokeColor=None))
-    saudacao = f"RELATÓRIO DIÁRIO — {nome_comprador.upper()}"
+    saudacao = f"{titulo_faixa} — {nome_comprador.upper()}"
     if is_gestor:
         saudacao += "  [GESTOR]"
     d.add(String(width / 2, h - 34, saudacao,
@@ -139,7 +173,7 @@ def _hero_band(width: int, tenant_name: str, data_label: str, nome_comprador: st
                  fillColor=C_WHITE, textAnchor="middle"))
     d.add(Line(width * 0.25, h - 64, width * 0.75, h - 64,
                strokeColor=C_TEAL, strokeWidth=1.2))
-    d.add(String(width / 2, h - 78, f"AGENDA DE COMPRAS  ·  {data_label.upper()}",
+    d.add(String(width / 2, h - 78, f"{rodape_faixa}  ·  {data_label.upper()}",
                  fontName="Helvetica", fontSize=9,
                  fillColor=colors.HexColor("#94a3b8"), textAnchor="middle"))
     return d
@@ -229,6 +263,49 @@ def _kpi_cards(kpis: dict, width: int) -> Table:
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
         ("TOPPADDING",   (0, 0), (-1, -1), 0),
         ("BOTTOMPADDING",(0, 0), (-1, -1), 6),
+    ]))
+    return wrapper
+
+
+def _kpi_cards_atividades(kpis: dict, width: int) -> Table:
+    taxa = kpis.get("taxa_conclusao")
+    cards_def = [
+        ("Total",          kpis.get("total", 0),      "#1e293b"),
+        ("Concluídas",     kpis.get("concluidas", 0),  "#059669"),
+        ("Pendentes",      kpis.get("pendentes", 0),   "#2563eb"),
+        ("Atrasadas",      kpis.get("atrasadas", 0),   "#dc2626"),
+        ("Taxa concl.",    f"{taxa}%" if taxa is not None else "—", "#0ea5e9"),
+        ("Categorias",     kpis.get("n_categorias", 0), "#7c3aed"),
+    ]
+    n = len(cards_def)
+    card_w = (width - (n - 1) * 5) / n
+
+    def card(label: str, value, accent: str) -> Table:
+        t_s = _s(f"at_{label}", fontName="Helvetica", fontSize=7.5, leading=10, textColor=C_SLATE)
+        v_s = _s(f"av_{label}", fontName="Helvetica-Bold", fontSize=16, leading=20, textColor=C_NAVY)
+        tbl = Table([[Paragraph(label, t_s)], [Paragraph(str(value), v_s)]], colWidths=[card_w])
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), C_BG_CARD),
+            ("BOX",           (0, 0), (-1, -1), 0.7, C_BORDER),
+            ("LINEABOVE",     (0, 0), (-1, 0), 3, colors.HexColor(accent)),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
+            ("TOPPADDING",    (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        return tbl
+
+    cards = [card(l, v, a) for l, v, a in cards_def]
+    g = Table([cards], colWidths=[card_w] * n)
+    g.setStyle(TableStyle([
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    wrapper = Table([[g]], colWidths=[width])
+    wrapper.setStyle(TableStyle([
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
     ]))
     return wrapper
 
@@ -500,6 +577,127 @@ def build_relatorio_pdf(
                 preserveAspectRatio=True,
                 mask="auto",
             )
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(colors.HexColor("#94a3b8"))
+        canvas.drawCentredString(pw / 2, 10, "Powered By Service Farma — Agenda de Compras — Direitos Reservados")
+        canvas.restoreState()
+
+    doc.build(content, onFirstPage=_draw_footer, onLaterPages=_draw_footer)
+    return buffer.getvalue()
+
+
+# ── Tabelas do relatório semanal ──────────────────────────────────────────────
+
+def _tabela_generica(headers: list, rows: list, colw: list, width: int, empty_txt: str):
+    if not rows:
+        return [_empty_msg(empty_txt, width)]
+    h_s = _s("thh", fontName="Helvetica-Bold", fontSize=8, leading=11, textColor=C_WHITE)
+    c_s = _s("tcc", fontName="Helvetica", fontSize=8, leading=11, textColor=C_SLATE)
+    data = [[Paragraph(str(h), h_s) for h in headers]]
+    for r in rows:
+        data.append([Paragraph(str(v), c_s) for v in r])
+    tbl = Table(data, colWidths=[width * f for f in colw])
+    style = [
+        ("BACKGROUND", (0, 0), (-1, 0), C_TEAL),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7), ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LINEBELOW", (0, 0), (-1, -1), 0.4, C_BORDER),
+        ("BOX", (0, 0), (-1, -1), 0.6, C_BORDER),
+    ]
+    for i in range(1, len(data)):
+        if i % 2 == 0:
+            style.append(("BACKGROUND", (0, i), (-1, i), C_BG_CARD))
+    tbl.setStyle(TableStyle(style))
+    return [tbl]
+
+
+def build_relatorio_semanal_pdf(
+    nome_destinatario: str,
+    is_gestor: bool,
+    inicio: date,
+    fim: date,
+    kpis_semana: dict,
+    kpis_por_comprador: list,
+    atividades: dict,
+    tenant_name: str,
+) -> bytes:
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=28, rightMargin=28, topMargin=22, bottomMargin=58)
+    W = int(doc.width)
+    periodo_label = f"{_fmt(inicio)} a {_fmt(fim)}"
+    content: list = []
+
+    # Hero
+    content.append(_hero_band(W, tenant_name, periodo_label, nome_destinatario, is_gestor,
+                              titulo_faixa="RELATÓRIO SEMANAL", rodape_faixa="PANORAMA DA SEMANA"))
+    content.append(Spacer(1, 12))
+
+    # ── PARTE A — Agenda de Compras
+    content.append(_section_banner("📦  Agenda de Compras — Semana",
+                                   f"Desempenho na compra de fornecedores de {periodo_label}.", W, "#0f766e"))
+    content.append(Spacer(1, 6))
+    content.append(_kpi_cards(kpis_semana, W))
+    content.append(Spacer(1, 8))
+    # Gráfico A: realizadas por comprador
+    labels_a = [c["comprador"] for c in kpis_por_comprador]
+    valores_a = [c.get("realizadas", 0) for c in kpis_por_comprador]
+    content.append(_bar_chart(labels_a, valores_a, W, color="#0f766e"))
+    content.append(Spacer(1, 8))
+    # Tabela por comprador
+    linhas_a = [[c["comprador"], c.get("realizadas", 0), c.get("atrasadas", 0),
+                 c.get("pedidos_sim", 0), (f"{c.get('taxa_pedido')}%" if c.get("taxa_pedido") is not None else "—")]
+                for c in kpis_por_comprador]
+    content.extend(_tabela_generica(
+        ["Comprador", "Realizadas", "Atrasadas", "Pedidos", "Taxa pedido"],
+        linhas_a, [0.36, 0.16, 0.16, 0.16, 0.16], W, "Sem dados de Agenda de Compras na semana."))
+    content.append(Spacer(1, 16))
+
+    # ── PARTE B — Outras Atividades
+    at_kpis = atividades.get("kpis", {})
+    por_cat = atividades.get("por_categoria", [])
+    por_comp = atividades.get("por_comprador", [])
+    content.append(CondPageBreak(220))
+    content.append(_section_banner("🗒️  Outras Atividades — Semana",
+                                   "Tarefas gerais da operação (fora de fornecedores). Concluídas na semana; pendentes/atrasadas em aberto agora.",
+                                   W, "#1d4ed8"))
+    content.append(Spacer(1, 6))
+    content.append(_kpi_cards_atividades(at_kpis, W))
+    content.append(Spacer(1, 8))
+    # Gráfico B: total por categoria
+    labels_b = [c["categoria"] for c in por_cat]
+    valores_b = [c.get("total", 0) for c in por_cat]
+    content.append(_bar_chart(labels_b, valores_b, W, color="#1d4ed8"))
+    content.append(Spacer(1, 8))
+    # Tabela por categoria
+    linhas_cat = [[c["categoria"], c.get("total", 0), c.get("concluida", 0), c.get("pendente", 0), c.get("atrasada", 0)]
+                  for c in por_cat]
+    content.extend(_tabela_generica(
+        ["Categoria", "Total", "Concluídas", "Pendentes", "Atrasadas"],
+        linhas_cat, [0.36, 0.16, 0.16, 0.16, 0.16], W, "Sem outras atividades na semana."))
+    content.append(Spacer(1, 8))
+    # Tabela por comprador
+    linhas_comp = [[c["comprador"], c.get("total", 0), c.get("concluida", 0), c.get("pendente", 0), c.get("atrasada", 0)]
+                   for c in por_comp]
+    content.extend(_tabela_generica(
+        ["Comprador", "Total", "Concluídas", "Pendentes", "Atrasadas"],
+        linhas_comp, [0.36, 0.16, 0.16, 0.16, 0.16], W, "Sem outras atividades por comprador."))
+
+    # Rodapé (reusa a mesma lógica do diário)
+    sf_logo_bytes = _fetch_sf_logo()
+    sf_logo_reader = None
+    if sf_logo_bytes:
+        try:
+            sf_logo_reader = ImageReader(BytesIO(sf_logo_bytes))
+        except Exception:
+            sf_logo_reader = None
+
+    def _draw_footer(canvas, doc_obj) -> None:
+        canvas.saveState()
+        pw = A4[0]
+        if sf_logo_reader is not None:
+            canvas.drawImage(sf_logo_reader, (pw - 88) / 2, 20, width=88, height=22,
+                             preserveAspectRatio=True, mask="auto")
         canvas.setFont("Helvetica", 7.5)
         canvas.setFillColor(colors.HexColor("#94a3b8"))
         canvas.drawCentredString(pw / 2, 10, "Powered By Service Farma — Agenda de Compras — Direitos Reservados")
