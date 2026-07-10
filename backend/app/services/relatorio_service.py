@@ -42,6 +42,148 @@ def _mes_anterior(data_ref: date) -> tuple[date, date]:
     return primeiro_anterior, ultimo_anterior
 
 
+def _semana_util(d: date) -> tuple[date, date]:
+    """(segunda, sexta) da semana ISO que contém d."""
+    monday = d - timedelta(days=d.weekday())  # weekday(): 0=segunda
+    return monday, monday + timedelta(days=4)
+
+
+def _get_atividades_concluidas_semana(
+    db: Session, tenant_id: str, inicio: date, fim: date, comprador_id: Optional[str] = None
+) -> list[dict]:
+    filtro = "AND ao.comprador_id = cast(:cid as uuid)" if comprador_id else ""
+    params: dict = {"tid": tenant_id, "inicio": inicio, "fim": fim}
+    if comprador_id:
+        params["cid"] = comprador_id
+    rows = db.execute(
+        text(f"""
+            SELECT
+                COALESCE(c.nome_comprador, 'Sem comprador') AS nome_comprador,
+                COALESCE(cat.nome, 'Sem categoria') AS categoria,
+                COALESCE(cat.cor, '#94a3b8') AS cor,
+                COALESCE(ao.titulo, 'Compromisso') AS titulo,
+                ao.data_realizacao::text AS data_realizacao
+            FROM agenda_ocorrencias ao
+            LEFT JOIN compradores c ON c.id = ao.comprador_id AND c.tenant_id = ao.tenant_id
+            LEFT JOIN categorias_agenda cat ON cat.id = ao.categoria_id
+            WHERE ao.tenant_id = cast(:tid as uuid)
+              AND ao.status = 'REALIZADA'
+              AND ao.fornecedor_id IS NULL
+              AND (cat.nome IS DISTINCT FROM 'Agenda de Compras')
+              AND ao.data_realizacao BETWEEN :inicio AND :fim
+              {filtro}
+        """),
+        params,
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def _get_atividades_abertas(
+    db: Session, tenant_id: str, hoje: date, comprador_id: Optional[str] = None
+) -> list[dict]:
+    filtro = "AND ao.comprador_id = cast(:cid as uuid)" if comprador_id else ""
+    params: dict = {"tid": tenant_id, "hoje": hoje}
+    if comprador_id:
+        params["cid"] = comprador_id
+    rows = db.execute(
+        text(f"""
+            SELECT
+                COALESCE(c.nome_comprador, 'Sem comprador') AS nome_comprador,
+                COALESCE(cat.nome, 'Sem categoria') AS categoria,
+                COALESCE(cat.cor, '#94a3b8') AS cor,
+                COALESCE(ao.titulo, 'Compromisso') AS titulo,
+                ao.data_prevista::text AS data_prevista,
+                (ao.data_prevista IS NOT NULL AND ao.data_prevista < :hoje) AS atrasada
+            FROM agenda_ocorrencias ao
+            LEFT JOIN compradores c ON c.id = ao.comprador_id AND c.tenant_id = ao.tenant_id
+            LEFT JOIN categorias_agenda cat ON cat.id = ao.categoria_id
+            WHERE ao.tenant_id = cast(:tid as uuid)
+              AND ao.status = 'PENDENTE'
+              AND ao.fornecedor_id IS NULL
+              AND (cat.nome IS DISTINCT FROM 'Agenda de Compras')
+              {filtro}
+        """),
+        params,
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def _agregar_atividades(concluidas: list[dict], abertas: list[dict]) -> dict:
+    """Puro: agrega concluídas + abertas em KPIs, por categoria e por comprador."""
+    pendentes = [r for r in abertas if not r.get("atrasada")]
+    atrasadas = [r for r in abertas if r.get("atrasada")]
+    total = len(concluidas) + len(pendentes) + len(atrasadas)
+
+    cats: dict = {}
+    buyers: dict = {}
+
+    def bump_cat(r, key):
+        nome = r.get("categoria") or "Sem categoria"
+        g = cats.setdefault(nome, {"categoria": nome, "cor": r.get("cor") or "#94a3b8",
+                                   "total": 0, "concluida": 0, "pendente": 0, "atrasada": 0})
+        g[key] += 1
+        g["total"] += 1
+
+    def bump_buyer(r, key):
+        nome = r.get("nome_comprador") or "Sem comprador"
+        g = buyers.setdefault(nome, {"comprador": nome, "total": 0, "concluida": 0, "pendente": 0, "atrasada": 0})
+        g[key] += 1
+        g["total"] += 1
+
+    for r in concluidas:
+        bump_cat(r, "concluida"); bump_buyer(r, "concluida")
+    for r in pendentes:
+        bump_cat(r, "pendente"); bump_buyer(r, "pendente")
+    for r in atrasadas:
+        bump_cat(r, "atrasada"); bump_buyer(r, "atrasada")
+
+    kpis = {
+        "total": total,
+        "concluidas": len(concluidas),
+        "pendentes": len(pendentes),
+        "atrasadas": len(atrasadas),
+        "taxa_conclusao": round(len(concluidas) / total * 100) if total else None,
+        "n_categorias": len(cats),
+    }
+    return {
+        "kpis": kpis,
+        "por_categoria": sorted(cats.values(), key=lambda x: -x["total"]),
+        "por_comprador": sorted(buyers.values(), key=lambda x: -x["total"]),
+    }
+
+
+def _atividades_semana(
+    db: Session, tenant_id: str, inicio: date, fim: date, hoje: date, comprador_id: Optional[str] = None
+) -> dict:
+    concluidas = _get_atividades_concluidas_semana(db, tenant_id, inicio, fim, comprador_id)
+    abertas = _get_atividades_abertas(db, tenant_id, hoje, comprador_id)
+    return _agregar_atividades(concluidas, abertas)
+
+
+def _kpis_por_comprador_semana(
+    db: Session, tenant_id: str, inicio: date, fim: date, comprador_id: Optional[str] = None
+) -> list[dict]:
+    filtro = "AND id = cast(:cid as uuid)" if comprador_id else ""
+    params: dict = {"tid": tenant_id}
+    if comprador_id:
+        params["cid"] = comprador_id
+    compradores = db.execute(
+        text(f"""
+            SELECT id::text AS id, nome_comprador
+            FROM compradores
+            WHERE tenant_id = cast(:tid as uuid)
+              {filtro}
+            ORDER BY nome_comprador
+        """),
+        params,
+    ).mappings().all()
+    out: list[dict] = []
+    for c in compradores:
+        k = _kpis_query(db, tenant_id, inicio, fim, c["id"])
+        out.append({"comprador": c["nome_comprador"], **k})
+    return out
+
+
 def _get_feriados(db: Session, tenant_id: str, ano: int) -> set[str]:
     rows = db.execute(
         text("SELECT data::text FROM feriados WHERE tenant_id = cast(:tid as uuid) AND EXTRACT(YEAR FROM data) = :ano"),
