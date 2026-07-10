@@ -386,6 +386,25 @@ async function fetchSupabase(path, options = {}) {
   }
 }
 
+// Igual ao fetchSupabase, mas pagina (limit/offset) até trazer TODAS as linhas —
+// contorna o teto de linhas do PostgREST/Supabase (~1000). Use em cargas que
+// podem passar de 1000 registros (ex.: agenda_ocorrencias de tenants grandes).
+async function fetchSupabaseAll(path, options = {}) {
+  const pageSize = options.pageSize ?? 1000;
+  const sep = path.includes("?") ? "&" : "?";
+  let all = [];
+  let offset = 0;
+  for (;;) {
+    const page = await fetchSupabase(`${path}${sep}limit=${pageSize}&offset=${offset}`, options);
+    if (!Array.isArray(page) || page.length === 0) break;
+    all = all.concat(page);
+    if (page.length < pageSize) break;
+    offset += pageSize;
+    if (offset > 500000) break; // guarda de segurança contra loop
+  }
+  return all;
+}
+
 function diffDays(isoA, isoB) {
   const msPerDay = 24 * 60 * 60 * 1000;
   const first = new Date(`${isoA}T12:00:00`);

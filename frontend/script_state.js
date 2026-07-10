@@ -125,6 +125,15 @@ const mockAgenda = [
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
   {
+    versao: "v71",
+    dataHora: "10/07/2026 — tarde",
+    notas: [
+      "O portal passa a carregar TODAS as ocorrências da agenda, mesmo quando há milhares (antes carregava no máximo 1000).",
+      "Isso corrige casos em que compromissos e ocorrências futuras de séries recorrentes não apareciam no calendário, na lista de Compromissos e na Eficiência.",
+      "As contagens da Auditoria e do relatório passam a considerar a base completa em qualquer período.",
+    ],
+  },
+  {
     versao: "v70",
     dataHora: "10/07/2026 — tarde",
     notas: [
