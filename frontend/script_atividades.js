@@ -125,10 +125,14 @@ function computeAtividades(range) {
       (!startIso || o.data_realizacao >= startIso) && (!endIso || o.data_realizacao <= endIso))
     .map((o) => buildTarefa(o, "concluida"));
 
-  // Pendentes/atrasadas: retrato atual (todas em aberto)
-  const abertas = (state.agenda ?? []).filter((o) => ehGenerico(o) && matchFilters(o));
-  const pendentes = abertas.filter((o) => !o.data_prevista || o.data_prevista >= today).map((o) => buildTarefa(o, "pendente"));
-  const atrasadas = abertas.filter((o) => o.data_prevista && o.data_prevista < today).map((o) => buildTarefa(o, "atrasada"));
+  // Pendentes/atrasadas: escopadas à janela do período (por data_prevista) —
+  // evita inflar com ocorrências recorrentes distantes e faz o total variar com
+  // o período. atrasada = vencida até hoje; pendente = ainda a vencer na janela.
+  const abertas = (state.agenda ?? []).filter((o) =>
+    ehGenerico(o) && matchFilters(o) && o.data_prevista &&
+    (!startIso || o.data_prevista >= startIso) && (!endIso || o.data_prevista <= endIso));
+  const pendentes = abertas.filter((o) => o.data_prevista >= today).map((o) => buildTarefa(o, "pendente"));
+  const atrasadas = abertas.filter((o) => o.data_prevista < today).map((o) => buildTarefa(o, "atrasada"));
 
   const tarefas = [...concluidas, ...pendentes, ...atrasadas];
 

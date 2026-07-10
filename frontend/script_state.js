@@ -125,6 +125,15 @@ const mockAgenda = [
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
   {
+    versao: "v70",
+    dataHora: "10/07/2026 — tarde",
+    notas: [
+      "Correção na contagem de tarefas das \"Outras Atividades\" (Auditoria e relatório semanal).",
+      "As pendentes e atrasadas agora contam pela data prevista dentro do período escolhido — antes somavam tudo que estava em aberto, inflando o total com compromissos recorrentes de datas distantes.",
+      "Com isso o total passa a mudar corretamente ao trocar o período (30, 60, 90 dias…) e reflete de fato a janela analisada.",
+    ],
+  },
+  {
     versao: "v69",
     dataHora: "10/07/2026 — tarde",
     notas: [

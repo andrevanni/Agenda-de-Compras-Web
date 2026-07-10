@@ -79,10 +79,12 @@ def _get_atividades_concluidas_semana(
 
 
 def _get_atividades_abertas(
-    db: Session, tenant_id: str, hoje: date, comprador_id: Optional[str] = None
+    db: Session, tenant_id: str, hoje: date, inicio: date, fim: date, comprador_id: Optional[str] = None
 ) -> list[dict]:
+    # Escopadas à janela analisada (data_prevista BETWEEN inicio E fim) para não
+    # inflar com ocorrências recorrentes distantes. atrasada = vencida até hoje.
     filtro = "AND ao.comprador_id = cast(:cid as uuid)" if comprador_id else ""
-    params: dict = {"tid": tenant_id, "hoje": hoje}
+    params: dict = {"tid": tenant_id, "hoje": hoje, "inicio": inicio, "fim": fim}
     if comprador_id:
         params["cid"] = comprador_id
     rows = db.execute(
@@ -101,6 +103,7 @@ def _get_atividades_abertas(
               AND ao.status = 'PENDENTE'
               AND ao.fornecedor_id IS NULL
               AND (cat.nome IS DISTINCT FROM 'Agenda de Compras')
+              AND ao.data_prevista BETWEEN :inicio AND :fim
               {filtro}
         """),
         params,
@@ -156,7 +159,7 @@ def _atividades_semana(
     db: Session, tenant_id: str, inicio: date, fim: date, hoje: date, comprador_id: Optional[str] = None
 ) -> dict:
     concluidas = _get_atividades_concluidas_semana(db, tenant_id, inicio, fim, comprador_id)
-    abertas = _get_atividades_abertas(db, tenant_id, hoje, comprador_id)
+    abertas = _get_atividades_abertas(db, tenant_id, hoje, inicio, fim, comprador_id)
     return _agregar_atividades(concluidas, abertas)
 
 

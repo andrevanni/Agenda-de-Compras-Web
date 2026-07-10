@@ -660,7 +660,7 @@ def build_relatorio_semanal_pdf(
     por_comp = atividades.get("por_comprador", [])
     content.append(CondPageBreak(220))
     content.append(_section_banner("🗒️  Outras Atividades — Semana",
-                                   "Tarefas gerais da operação (fora de fornecedores). Concluídas na semana; pendentes/atrasadas em aberto agora.",
+                                   "Tarefas gerais da operação (fora de fornecedores) referentes à semana relatada: concluídas, pendentes e atrasadas.",
                                    W, "#1d4ed8"))
     content.append(Spacer(1, 6))
     content.append(_kpi_cards_atividades(at_kpis, W))
