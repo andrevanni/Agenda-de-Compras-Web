@@ -187,12 +187,12 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 | `api/v1/portal_compradores.py` | `/api/v1/portal/compradores` | Envio de convite pelo portal cliente (requer JWT) |
 | `api/v1/portal_audit_log.py` | `/api/v1/portal/audit-log` | Grava evento em `audit_log` via SERVICE_ROLE — contorna RLS que bloqueava buyers |
 | `api/v1/agenda.py` | `/api/v1/agenda` | Listar próximas/atrasadas, sugerir data, tratar ocorrência |
-| `api/v1/cron.py` | `/api/v1/cron` | Endpoint de cron — dispara relatórios diários |
+| `api/v1/cron.py` | `/api/v1/cron` | Endpoints de cron — dispara relatórios **diário** (`/relatorio-diario`) e **semanal** (`/relatorio-semanal`) |
 | `api/v1/redirect.py` | `/portal` | Redirect 302 para `FRONTEND_URL` (URL estável do instalador) |
 | `services/agenda_service.py` | — | Lógica de tratamento: cálculo de datas, parâmetros |
 | `services/email_service.py` | — | `send_html()` — usa Resend se `RESEND_API_KEY` configurado, fallback para SMTP porta 465; inclui `text/plain` automático via `_html_to_text()`; suporta `attachments` (PDF). `_send_via_resend` tem **throttle ≤4/s** (`_resend_throttle`, gate thread-safe com espaçamento mínimo de 0,25s) + **retry com backoff** (0,5/1/2s) só em erro 429 — ver "Rate limit do Resend" abaixo |
-| `services/relatorio_service.py` | — | Monta e envia relatório diário (HTML + PDF anexo) |
-| `services/pdf_service.py` | — | Gera PDF com ReportLab (padrão visual SFI) |
+| `services/relatorio_service.py` | — | Monta e envia relatório **diário** (`enviar_relatorios_tenant`) e **semanal** (`enviar_relatorio_semanal_tenant`) — HTML + PDF anexo, arquitetura 3 fases (queries em série → envio paralelo `ThreadPoolExecutor(5)` → log em série). Semanal reusa `_kpis_query` e adiciona `_semana_util`, `_atividades_semana` (Outras Atividades), `_kpis_por_comprador_semana` |
+| `services/pdf_service.py` | — | Gera PDF com ReportLab (padrão visual SFI): `build_relatorio_pdf` (diário) e `build_relatorio_semanal_pdf` (semanal, 2 partes + gráficos de barra). `_hero_band` parametrizado (`titulo_faixa`/`rodape_faixa`, default = diário) |
 | `services/admin_clientes_service.py` | — | Queries SQL de clientes (raw SQL com `sqlalchemy.text()`) |
 | `db/supabase_client.py` | — | `get_supabase()` — cliente Supabase fresco por request |
 | `core/config.py` | — | Pydantic Settings — lê variáveis de ambiente |
@@ -231,6 +231,8 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 ### Cron (header `X-Cron-Secret` ou `Authorization: Bearer {CRON_SECRET}`)
 - `GET /api/v1/cron/relatorio-diario` — chamado pelo Vercel Cron (00:00 UTC = 21:00 BRT, seg-sex); schedule `0 0 * * 2-6` UTC
 - `POST /api/v1/cron/relatorio-diario` — chamada manual; aceita `?tenant_id=`, `?data_ref=`, `?admin_only=true` (envia só para admins inscritos, sem disparar compradores) e `?comprador_id=` (envio pontual a UM único comprador para validação — pula os demais compradores e as cópias de admin)
+- `GET /api/v1/cron/relatorio-semanal` — chamado pelo Vercel Cron (segunda 10:00 UTC = 07:00 BRT); schedule `0 10 * * 1`. Consolida a semana útil anterior (seg–sex)
+- `POST /api/v1/cron/relatorio-semanal` — chamada manual; aceita `?tenant_id=`, `?semana_ref=` (qualquer data da semana-alvo; sem ele = semana passada), `?admin_only=true` e `?comprador_id=` (mesma semântica do diário)
 
 ### Redirect (público)
 - `GET /portal` — redirect 302 para `FRONTEND_URL`
@@ -274,6 +276,35 @@ Arquivo único `script.js` (não dividido). Painel administrativo:
 - Tabela `relatorio_log` no Supabase
 - Visível em Portal Cliente → ⚙️ Configurações → "📧 Log de E-mails Enviados"
 - Filtro por 7 / 30 / 90 dias; chips ✅ Enviado / ❌ Erro
+
+## Relatório Semanal por E-mail (jul/2026)
+
+Panorama gerencial da **semana útil anterior (seg–sex)**, enviado por e-mail com PDF anexo. Reaproveita a infra do diário.
+
+- **Cron**: `GET /api/v1/cron/relatorio-semanal`, schedule `0 10 * * 1` (segunda 10:00 UTC = **07:00 BRT**) em [backend/vercel.json](backend/vercel.json). Consolida a semana útil anterior.
+- **Janela**: `_semana_util(d)` → `(segunda, sexta)` da semana de `d`. No cron (sem `semana_ref`), usa `hoje − 7 dias`. Manual: `?semana_ref=AAAA-MM-DD` (qualquer data da semana-alvo).
+- **Destinatários**: mesmos do diário (compradores com `receber_auditoria` OU `receber_agenda_proximo` + admins inscritos). Gestor recebe consolidado; não-gestor a própria carteira. **Conteúdo é panorama completo** (não faciona por flag — a flag só define quem recebe).
+- **PDF (2 partes)** — `build_relatorio_semanal_pdf`:
+  - **Parte A — Agenda de Compras**: KPIs da semana (`_kpis_query(inicio, fim)`), tabela por comprador (`_kpis_por_comprador_semana`), gráfico de barras.
+  - **Parte B — Outras Atividades**: compromissos genéricos da semana (`_atividades_semana` → `_agregar_atividades`), cards, gráfico por categoria, tabelas por categoria e por comprador.
+- **`relatorio_log.tipo`**: `'semanal_gestor'` / `'semanal_auditoria'` / `'semanal_admin_copia'` (migration `schema_v19`).
+- **Teste manual** (não afeta compradores): `POST /api/v1/cron/relatorio-semanal?tenant_id=X&admin_only=true[&semana_ref=AAAA-MM-DD]` com `X-Cron-Secret: agenda-cron-2026-sfx`.
+- Gráficos ReportLab degradam com segurança (`_bar_chart` em try/except → `_empty_msg`; nunca derruba o PDF).
+
+## Aba "Outras Atividades" na Auditoria (jul/2026)
+
+Segunda aba do modal `auditModal` (ao lado de "Agenda de Compras"), atrás da mesma senha. Analisa os **compromissos genéricos** (`!fornecedor_id && categoria ≠ "Agenda de Compras"`) — tarefas gerais da operação. Módulo autocontido [frontend/script_atividades.js](frontend/script_atividades.js) (padrão do `script_eficiencia.js`), reusa `state.agenda` + `state.auditOccurrences` + `state.buyers` + `state.categorias`.
+
+- **KPIs**: Total, Concluídas, Pendentes, Atrasadas, Taxa de conclusão, Nº de categorias.
+- **Gráficos** (Chart.js): rosca por categoria (cores reais das categorias), barras empilhadas por comprador (status), linha de concluídas por semana.
+- **Drill**: comprador → categoria → tabela de tarefas. **Export Excel** (3 abas).
+- **Regra de contagem (corrigida jul/2026)**: **todas** as tarefas contam pela **janela do período** — concluídas por `data_realizacao` na janela; pendentes/atrasadas por `data_prevista` **dentro da janela** (atrasada = `data_prevista < hoje`). ⚠️ **Não** usar "retrato atual" (todas em aberto) para pendentes — inflava o total com ocorrências recorrentes futuras distantes e fazia 30/90 dias darem o mesmo número. Backend (`_get_atividades_abertas`) e frontend (`computeAtividades`) mantêm a MESMA definição — paridade validada via Playwright com dados reais.
+- Wiring: aba/troca em `switchAuditTab`; `renderAtividades` chamado ao ativar a aba; listeners em [script_data.js](frontend/script_data.js).
+
+## Carga de dados paginada (`fetchSupabaseAll`)
+
+- **`fetchSupabaseAll(path)`** em [script_render.js](frontend/script_render.js) pagina por `limit`/`offset` (páginas de 1000) até trazer TODAS as linhas — contorna o **teto ~1000 do PostgREST/Supabase**.
+- Usado nas duas cargas de `agenda_ocorrencias` (PENDENTE + REALIZADA/ADIADA) e no re-fetch do backfill em [script_data.js](frontend/script_data.js). **Motivo (jul/2026)**: Drogaria SV tinha 3088 pendentes mas o `fetchSupabase` (GET simples) trazia só 1000 → calendário, Compromissos, Eficiência e Auditoria ficavam sem as ocorrências além da milésima (visível com séries recorrentes de horizonte longo). Custo: tenants grandes fazem ~N/1000 requisições na carga inicial. Validado via Playwright: 1000 → 3088 (sem duplicatas).
 
 ## Auditoria da Operação
 
@@ -459,7 +490,7 @@ Confirmação (não-bloqueante) exibida quando o comprador trata uma agenda **mu
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v67` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
+- Cache cliente: `agenda-compras-v71` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
 - **Rodapé mostra a versão atual**: `footerVersionChip` (em [index.html](frontend/index.html)) recebe `VERSOES[0].versao` no `bootstrap` ([script_main.js](frontend/script_main.js)) — antes era fixo "v0.1.0". É o indicador para o usuário confirmar que está no mais novo. O **nº do SW (cache) pode ficar à frente** do nº do rodapé (changelog) quando há deploy só de infra/ajuda sem entrada nova em `VERSOES` — normal, o rodapé reflete o changelog.
 - Cache admin: `agenda-admin-v14` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - **Estratégia NETWORK-FIRST (desde v62 / jun/2026)**: o handler `fetch` tenta a rede primeiro e só cai no cache offline. Substituiu o `cache-first` antigo, que causava um estado "Frankenstein" — mistura de arquivos de versões diferentes presos no cache (ex.: `index.html` novo + `script_state.js` velho → menu aparece mas dados/Versões quebram). Não voltar para cache-first.
@@ -515,6 +546,8 @@ Confirmação (não-bloqueante) exibida quando o comprador trata uma agenda **mu
 | `schema_v15_tratamento_pedido.sql` | Colunas `pedido_realizado` (bool), `pedido_quantidade` (int), `pedido_valor` (numeric), `pedido_motivo_nao` (CHECK), `pedido_motivo_detalhe` (text) em `agenda_ocorrencias`; CHECK de coerência (se Sim → qtd+valor obrigatórios; se Não → motivo obrigatório); índice por `(tenant_id, pedido_realizado)` |
 | `schema_v16_serie_recorrencia.sql` | Coluna `serie_id` (UUID nullable) em `agenda_ocorrencias` para agrupar ocorrências criadas no mesmo "Novo Evento"; índice parcial `(tenant_id, serie_id) WHERE serie_id IS NOT NULL`. Usado pelo radio de escopo "Esta / Esta e as próximas / Toda a série" no modal de edição |
 | `schema_v17_notas_painel.sql` | Tabela `notas_painel(id, tenant_id, comprador_id, texto, created_at, updated_at)` para post-its livres no Painel de Notas, desvinculados de `agenda_ocorrencias`. RLS `USING (true)` + GRANT pra `authenticated/anon/service_role`. Coexiste com a nota de ocorrência (cada uma com fluxo próprio) |
+| `schema_v18_versoes_notificacao.sql` | Tabela de controle de notificação de versões (painel admin) |
+| `schema_v19_relatorio_semanal_log.sql` | Atualiza o CHECK de `relatorio_log.tipo` para aceitar os 3 tipos do relatório **semanal**: `'semanal_gestor'`, `'semanal_auditoria'`, `'semanal_admin_copia'` (alteração aditiva de constraint — tabela existente, sem GRANT/RLS novos) |
 
 ## DATABASE_URL — Conexão com Supabase (⚠️ crítico)
 
@@ -540,6 +573,18 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 - Cron manual: `POST /api/v1/cron/relatorio-diario?tenant_id=c2f65634-b7e0-47f0-8937-94446540701a&data_ref=2026-04-30` com `X-Cron-Secret: agenda-cron-2026-sfx`
 
 ## Pendências
+
+### Entregue em 10/jul/2026 (sessão MacBook, brainstorm→spec→plan→subagentes)
+
+Specs/planos em [docs/superpowers/](docs/superpowers/). Fluxo: brainstorming → writing-plans → subagent-driven-development (implementer + reviewer por task + review final da branch) → deploy `staging`→`main`.
+
+- **Aba "Outras Atividades" na Auditoria** (Projeto A, SW v67→v68): dashboard dos compromissos genéricos dentro do modal de Auditoria — ver seção "Aba Outras Atividades". Validado via Playwright (frontend local + oráculo independente). Motivado pelo pedido de avaliar atividades fora da agenda de fornecedores.
+- **Relatório Semanal por PDF para gestores** (Projeto B, migration `schema_v19`): segunda 07h BRT, panorama seg–sex (Agenda de Compras + Outras Atividades) — ver seção "Relatório Semanal por E-mail". Endpoint `/cron/relatorio-semanal`. Validado em produção (disparo `admin_only=true` para Drogaria SV → `sent:1`). Migration aplicada no Supabase pelo usuário.
+- **Fix contagem "Outras Atividades"** (SW v69→v70): pendentes/atrasadas passaram a contar por `data_prevista` **dentro da janela** (antes: retrato atual = todas em aberto → total inflado por recorrentes futuras; 30/90 dias davam igual). Corrigido no relatório (backend) e no dashboard (frontend), com paridade validada.
+- **Fix truncamento de carga** (SW v70→v71): `fetchSupabaseAll` pagina as cargas de `agenda_ocorrencias` (Drogaria SV: 1000 de 3088 pendentes vinham truncados) — ver seção "Carga de dados paginada".
+- **Paridade dashboard × PDF confirmada via Playwright** com dados reais (chave anon pública + RLS `USING(true)`): mesma janela → mesmos números. Ver memória [[playwright-local-validation]].
+- **PDF-guia para gestores** (comunicação, não versionado): `~/Desktop/Agenda_Compras_Outras_Atividades_Guia.pdf`, gerado com ReportLab — pode ser regenerado.
+- ⚠️ **Lição**: o teto ~1000 do PostgREST afeta TODAS as cargas via `fetchSupabase` sem paginação; ao carregar coleções que podem passar de 1000 linhas, usar `fetchSupabaseAll`.
 
 ### Entregue em 26/jun/2026
 
@@ -622,7 +667,7 @@ Resolução do incidente Total Socorro + 4 sugestões do cliente:
 - `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites + agora o endpoint `/portal/audit-log`): Supabase → Settings → API → Reset `service_role` key → atualizar no Vercel.
 - Logo do cliente no PDF: atualmente só aparece a logo Service Farma no rodapé. Para incluir a logo do cliente, é necessário adicionar campo `logo_url` na tabela `tenants` e armazenar URL pública (Supabase Storage).
 - Ativar relatório para clientes reais (Grupo São Valentim e Grupo Velanes): apenas configuração operacional — toggle no Admin + checkboxes de notificação nos compradores.
-- **Relatório semanal aos domingos**: avaliar envio de um e-mail extra todo domingo com auditoria consolidada da semana anterior (seg–sex). Destinatários: gestores e admins inscritos. Requer nova query agregada no `relatorio_service.py`, nova seção no HTML/PDF e novo tipo no `relatorio_log`. Não urgente.
+- ~~**Relatório semanal aos domingos**~~ — ✅ **ENTREGUE em 10/jul/2026** (Projeto B), mas na **segunda de manhã** (07h BRT) em vez de domingo. Ver seção "Relatório Semanal por E-mail".
 - **Análise de IA real (Claude API) na Auditoria**: hoje é heurística. Considerar botão "🤖 Analisar com IA" (sob demanda, cacheado por dia/tenant) que chama Claude API para gerar insights em linguagem natural a partir dos `audit_log` e `agenda_ocorrencias` do período. Decidir pricing/limites antes (~$0.01-0.05 por chamada). Decisão adiada em 26/mai/2026.
 
 ## Caso Elias (Drogaria SV) — mai/2026
