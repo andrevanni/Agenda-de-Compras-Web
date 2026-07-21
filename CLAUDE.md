@@ -71,6 +71,7 @@ Routes (backend/app/api/v1/) → Services (backend/app/services/) → DB session
 - **`loadCategorias` cria "Agenda de Compras" automaticamente**: se o tenant não tiver nenhuma categoria no banco, `loadCategorias` insere a categoria "Agenda de Compras" (cor `#F59E0B`) via upsert. Essa é a categoria fundamental do sistema — todos os fornecedores são associados a ela. Nunca remover esse comportamento.
 - **`backfillMissingPendingOccurrences` só processa `missingCategoria` com UUID real**: IDs mock (ex.: `"cat-compras"` do fallback catch) não têm FK válida no banco e causariam loop infinito de GETs sem PATCH efetivo a cada carregamento. A função valida o formato UUID antes de incluir fornecedores sem `categoria_id` no backfill.
 - **`loginBuyer` exibe a mensagem real do backend em caso de erro** (`script_data.js` — `catch (error) { setFeedback(error.message ...) }`). Nunca trocar por `catch {}` silencioso: o "modo legado" (linhas 585-624, comparação de senha em texto plano) é vestígio pré-JWT e não funciona mais — engolir o erro fazia o usuário ver "Acesso não localizado" enganoso quando o motivo real era senha errada, comprador não cadastrado, API down, etc. Causou 1 semana de bloqueio da diretora da Drogaria SV (mai/2026). `fetchApi` já lança `Error(data.detail)` no `script_utils.js:77` — basta repassar `error.message`.
+- **NUNCA exibir dados de demonstração/mock como se fossem reais.** Até jul/2026 o `catch` de `loadPortalData` substituía `state.buyers/suppliers/agenda` por mocks — qualquer falha transitória virava *"sumiu a minha agenda e apareceu a de outra pessoa"* (era o comprador fictício "Marina Araujo"). A Conviva Viana reportou isso por meses como se fosse vazamento entre clientes; **não era** — era a tela de demonstração. Os mocks foram **removidos do código** (v72) e o estado inicial é vazio. Na falha, **preservar o último estado bom** + mensagem honesta. Não reintroduzir dados de exemplo no bundle.
 
 ## Estrutura do frontend cliente (`frontend/`)
 
@@ -305,6 +306,24 @@ Segunda aba do modal `auditModal` (ao lado de "Agenda de Compras"), atrás da me
 
 - **`fetchSupabaseAll(path)`** em [script_render.js](frontend/script_render.js) pagina por `limit`/`offset` (páginas de 1000) até trazer TODAS as linhas — contorna o **teto ~1000 do PostgREST/Supabase**.
 - Usado nas duas cargas de `agenda_ocorrencias` (PENDENTE + REALIZADA/ADIADA) e no re-fetch do backfill em [script_data.js](frontend/script_data.js). **Motivo (jul/2026)**: Drogaria SV tinha 3088 pendentes mas o `fetchSupabase` (GET simples) trazia só 1000 → calendário, Compromissos, Eficiência e Auditoria ficavam sem as ocorrências além da milésima (visível com séries recorrentes de horizonte longo). Custo: tenants grandes fazem ~N/1000 requisições na carga inicial. Validado via Playwright: 1000 → 3088 (sem duplicatas).
+- ⚠️ **Sempre incluir `&order=`** ao usar `fetchSupabaseAll`: sem sort determinístico, a paginação por `limit`/`offset` pode repetir ou pular linhas acima de 1000.
+
+## Carga progressiva da agenda — duas levas (jul/2026)
+
+`loadPortalData` carrega os PENDENTES em **duas levas** ([script_data.js](frontend/script_data.js)), porque a carga completa era a mais pesada (Conviva Viana: 3.975 linhas, ~2,5s) e uma **queda momentânea de conexão** dentro dessa janela derrubava tudo.
+
+- **Leva 1 (bloqueante)**: `data_prevista <= hoje+3meses`, **sem limite inferior** (todos os vencidos entram). Entra no `Promise.all` e destrava a tela. Conviva Viana: ~1.210 linhas, ~1,8s.
+- **Leva 2 (segundo plano)**: `data_prevista > hoje+3meses`, disparada **sem `await`** por `_carregarRestanteEmSegundoPlano`. Mescla por `id` (`_mesclarPorId`), re-renderiza e recalcula análises abertas. Tem **1 retry** após 2s; falhando de vez, só `console.warn` (o portal segue funcional com o essencial).
+- **`_cargaGeracao`**: contador de geração. `loadPortalData` é chamado de **17 lugares** e o logout **não recarrega a página** — sem o guard, uma carga antiga sobrescreveria o estado de uma mais nova (inclusive de outro tenant). O guard é checado **depois de cada `await` e ANTES de qualquer escrita em `state`** — tanto na leva 1 quanto na leva 2.
+- **Backfill roda só APÓS a leva 2**, com a agenda completa. Com dados parciais, `ensurePendingOccurrenceForSupplier` acharia que um fornecedor com pendência além de +3 meses está "sem ocorrência" e **puxaria a `data_prevista` legítima para trás**.
+
+### ⚠️ INVARIANTE: `state.agenda` pode estar PARCIAL
+
+Por alguns segundos após **cada** carga, `state.agenda` contém apenas a leva 1. Toda feature nova que leia `state.agenda` precisa considerar isso:
+
+- **Nunca** derivar dele uma **contagem mostrada ao usuário** antes de uma ação destrutiva, nem o alvo de uma **mutação server-side**. Foi exatamente esse o bug de jul/2026: a confirmação de exclusão de série contava por `state.agenda` (92) enquanto o DELETE era server-side por `serie_id` (352). Corrigido com `fetchIdsDaSerie(serieId, tenantId, apartirDe)` em [script_main.js](frontend/script_main.js), que conta **no servidor** — usado nos 3 pontos (rótulos de escopo, confirmação de exclusão e mensagem de atualização em massa).
+- Bônus da correção: `state.agenda` só guarda `PENDENTE`, mas o DELETE por `serie_id` **não filtra status** — a contagem já subestimava ao ignorar as ocorrências concluídas da série.
+- Análises abertas (Auditoria/Outras Atividades/Eficiência) são recalculadas quando a leva 2 chega.
 
 ## Auditoria da Operação
 
@@ -490,7 +509,7 @@ Confirmação (não-bloqueante) exibida quando o comprador trata uma agenda **mu
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v71` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
+- Cache cliente: `agenda-compras-v73` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
 - **Rodapé mostra a versão atual**: `footerVersionChip` (em [index.html](frontend/index.html)) recebe `VERSOES[0].versao` no `bootstrap` ([script_main.js](frontend/script_main.js)) — antes era fixo "v0.1.0". É o indicador para o usuário confirmar que está no mais novo. O **nº do SW (cache) pode ficar à frente** do nº do rodapé (changelog) quando há deploy só de infra/ajuda sem entrada nova em `VERSOES` — normal, o rodapé reflete o changelog.
 - Cache admin: `agenda-admin-v14` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - **Estratégia NETWORK-FIRST (desde v62 / jun/2026)**: o handler `fetch` tenta a rede primeiro e só cai no cache offline. Substituiu o `cache-first` antigo, que causava um estado "Frankenstein" — mistura de arquivos de versões diferentes presos no cache (ex.: `index.html` novo + `script_state.js` velho → menu aparece mas dados/Versões quebram). Não voltar para cache-first.
@@ -573,6 +592,23 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 - Cron manual: `POST /api/v1/cron/relatorio-diario?tenant_id=c2f65634-b7e0-47f0-8937-94446540701a&data_ref=2026-04-30` com `X-Cron-Secret: agenda-cron-2026-sfx`
 
 ## Pendências
+
+### Entregue em 21/jul/2026 — caso Conviva Viana ("some a agenda e aparece outra")
+
+Relato do cliente: *"do nada some a nossa agenda e aparece essa outra desse pessoal, e às vezes some e não aparece nada"*. Problema recorrente havia meses.
+
+**Diagnóstico (não era vazamento entre clientes):** "Marina Araujo" era um comprador **mock** do próprio app. Qualquer falha em `loadPortalData` caía no `catch`, que trocava o estado real pelos mocks. Como `loadPortalData` é chamado de 17 lugares (após tratar agenda, salvar fornecedor…), acontecia "do nada" no meio do trabalho.
+
+**Gatilho, achado por eliminação** (testes contra dados reais via Playwright + chave anon): 11 queries individuais OK; carga repetida 8× sem falha; renderização com os 3.975 pendentes reais OK; rede lenta até 400 kbps OK. **É queda momentânea de conexão** durante os 3–8s de carga (Wi-Fi da farmácia, máquina suspendendo). Não havia o que consertar no dado — por isso nunca "resolvia".
+
+- **v72** — mocks **removidos** do código; estado inicial vazio; falha preserva o último estado bom + mensagem honesta; guarda de tenant inválido; **retry 3× com backoff só em GET** (5xx/429/rede — nunca em escrita); passos secundários isolados por `_naoFatal`.
+- **v73** — **carga progressiva** (ver seção própria): leva 1 ~1.210 de 3.975 linhas → janela crítica −70%; contador de geração; backfill movido para depois da leva 2; **contagem de série passou para o servidor** (`fetchIdsDaSerie`) — a confirmação dizia 92 e apagaria 352.
+- **Achados dos reviews que eu não teria pego sozinho**: race no guard (escrita antes da checagem, com risco entre tenants); guard ausente no bloco da leva 1 (podia deixar a agenda **permanentemente truncada** sob mensagem de sucesso); `fetchSupabaseAll` sem `ORDER BY`; `await` fora do `try` no botão Excluir (botão morto em falha).
+- Validado com dados reais nos dois extremos: Conviva Viana (3.972 linhas) e Service Farma (15) — 7 renderizações OK, zero duplicatas, zero erros.
+
+**Dados da Conviva Viana** (`7075df8c-3b8b-49cb-9876-836c11f51eff`): 3.950 dos 3.975 pendentes são compromissos genéricos — **39 séries**, ~11 rotinas diárias de um comprador (FELIPE, 98% do volume) indo até 01/06/2027. Uso legítimo; **decidido não apagar**. Corte de 12 meses **não ajudaria** (tudo já cabe em 12 meses); só 6 meses (−40%) ou 3 meses (−70%) surtiriam efeito.
+
+**Minors pendentes** (do review final, não corrigidos): `occAtual` só é buscado em `state.agenda` — série de compromisso **concluído** cai para exclusão individual silenciosamente; backfill usa `getSettings().tenantId` em vez do tenant capturado; `openGenericEventDetail` faz 2 fetches paginados onde 1 bastaria.
 
 ### Entregue em 10/jul/2026 (sessão MacBook, brainstorm→spec→plan→subagentes)
 
