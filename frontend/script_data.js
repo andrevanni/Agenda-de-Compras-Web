@@ -85,8 +85,13 @@ async function _carregarRestanteEmSegundoPlano(settings, limite, geracao, suppli
     if (geracao !== _cargaGeracao) return;
 
     if (createdSeeds > 0) {
-      state.agenda = await fetchSupabaseAll(_pathPendentes(settings.tenantId, ""));
+      // Buscar ANTES de escrever: o alvo da atribuição só é avaliado depois do
+      // await, então escrever direto permitiria uma carga obsoleta sobrescrever
+      // o estado de uma carga mais nova (inclusive de outro tenant, após troca
+      // de login sem reload). O guard tem que vir entre a busca e a escrita.
+      const completa = await fetchSupabaseAll(_pathPendentes(settings.tenantId, ""));
       if (geracao !== _cargaGeracao) return;
+      state.agenda = completa;
       if (!silent && !preserveFeedback) {
         setFeedback(`${createdSeeds} agenda(s) pendente(s) foram geradas automaticamente.`, "success");
       }
