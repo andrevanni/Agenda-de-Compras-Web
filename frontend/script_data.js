@@ -72,7 +72,15 @@ function _mesclarPorId(atuais, novas) {
 // essencial e a próxima sincronização tenta de novo.
 async function _carregarRestanteEmSegundoPlano(settings, limite, geracao, supplierRows, { silent, preserveFeedback }) {
   try {
-    const restante = await fetchSupabaseAll(_pathPendentes(settings.tenantId, `&data_prevista=gt.${limite}`));
+    let restante;
+    try {
+      restante = await fetchSupabaseAll(_pathPendentes(settings.tenantId, `&data_prevista=gt.${limite}`));
+    } catch (primeiroErro) {
+      // Uma segunda chance: a leva 2 costuma falhar por oscilação momentânea.
+      await new Promise((r) => setTimeout(r, 2000));
+      if (geracao !== _cargaGeracao) return;
+      restante = await fetchSupabaseAll(_pathPendentes(settings.tenantId, `&data_prevista=gt.${limite}`));
+    }
     if (geracao !== _cargaGeracao) return; // carga obsoleta — descarta
     if (restante.length) {
       state.agenda = _mesclarPorId(state.agenda, restante);
@@ -100,6 +108,16 @@ async function _carregarRestanteEmSegundoPlano(settings, limite, geracao, suppli
     if (restante.length || createdSeeds > 0) {
       renderTables();
       refreshCalendar();
+      // Análises abertas leem state.agenda — precisam recalcular com a base completa.
+      try {
+        if (document.getElementById("auditModal")?.open) {
+          if (!document.getElementById("auditPaneAtividades")?.hidden) renderAtividades();
+          else renderAuditDashboard();
+        }
+        if (!document.getElementById("eficiencia")?.classList.contains("hidden")) renderEficiencia();
+      } catch (e) {
+        console.warn("[loadPortalData] falha ao atualizar análises após a leva 2:", e);
+      }
     }
   } catch (error) {
     console.warn("[loadPortalData] leva 2 (agenda futura) falhou; portal segue com o essencial:", error);
@@ -137,6 +155,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
       fetchSupabase(`/rest/v1/audit_log?select=id,tipo_objeto,objeto_id,objeto_nome,acao,campos_alterados,executor_role,executor_nome,comprador_id,created_at&tenant_id=eq.${settings.tenantId}&order=created_at.desc&limit=500`),
       fetchSupabase(`/rest/v1/notas_painel?select=id,comprador_id,texto,created_at,updated_at&tenant_id=eq.${settings.tenantId}&order=updated_at.desc`),
     ]);
+    if (geracao !== _cargaGeracao) return; // carga obsoleta — uma mais nova já assumiu
 
     const supplierRows = supplierRowsRaw.map(mapSupplier);
     const agendaRows = agendaRowsRaw; // leva 1: vencidos + próximos 3 meses
@@ -156,6 +175,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
 
     if (state.features.fornecedorNotasColuna) {
       const supplierNotesRows = await _naoFatal("notasFornecedor", () => fetchSupplierNotesRows());
+      if (geracao !== _cargaGeracao) return; // carga obsoleta — uma mais nova já assumiu
       const notesMap = new Map((supplierNotesRows ?? []).map((row) => [row.id, row.notas_relacionamento ?? ""]));
       supplierRows.forEach((supplier) => {
         if (notesMap.has(supplier.id)) {

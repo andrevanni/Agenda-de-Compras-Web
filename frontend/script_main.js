@@ -682,9 +682,14 @@ function openNewEventModal(dateStr = "") {
 // confirmação mostraria MENOS ocorrências do que serão afetadas (o DELETE/PATCH
 // em massa é server-side por serie_id). fetchSupabaseAll porque uma série pode
 // passar de 1000 ocorrências.
+// Evita que a resposta lenta de uma série A sobrescreva os rótulos de uma
+// série B aberta depois — só o token mais recente pode escrever no DOM.
+let _serieLabelToken = 0;
+
 async function fetchIdsDaSerie(serieId, tenantId, apartirDe = null) {
   let url = `/rest/v1/agenda_ocorrencias?select=id&serie_id=eq.${serieId}&tenant_id=eq.${tenantId}`;
   if (apartirDe) url += `&data_prevista=gte.${apartirDe}`;
+  url += "&order=id.asc";
   const rows = await fetchSupabaseAll(url);
   return (rows ?? []).map((r) => r.id);
 }
@@ -719,13 +724,16 @@ function openGenericEventDetail(occ) {
     allLabel.textContent = "Toda a série (…)";
     scopeWrap.classList.remove("hidden");
     const _s = getSettings();
+    const token = ++_serieLabelToken;
     Promise.all([
       fetchIdsDaSerie(occ.serie_id, _s.tenantId, occ.data_prevista),
       fetchIdsDaSerie(occ.serie_id, _s.tenantId),
     ]).then(([futuras, todas]) => {
+      if (token !== _serieLabelToken) return;
       futuraLabel.textContent = `Esta e as próximas (${futuras.length})`;
       allLabel.textContent = `Toda a série (${todas.length})`;
     }).catch(() => {
+      if (token !== _serieLabelToken) return;
       // Sem número é melhor do que número errado.
       futuraLabel.textContent = "Esta e as próximas";
       allLabel.textContent = "Toda a série";
@@ -846,6 +854,13 @@ async function saveNewEvent() {
         if (scope === "future") {
           url += `&data_prevista=gte.${occAtual.data_prevista}`;
         }
+        // Contagem ANTES do PATCH: mesmo filtro, mesmo conjunto de linhas. Se essa
+        // busca falhar DEPOIS do PATCH, o catch externo relata "não foi possível
+        // salvar" mesmo com a escrita já concluída — o usuário refaria uma ação
+        // que já tinha dado certo.
+        const afetadas = (await fetchIdsDaSerie(
+          serieId, s.tenantId, scope === "all" ? null : occAtual.data_prevista
+        )).length;
         // Edição em massa NÃO replica: data_prevista (cada uma tem a sua), nota
         // (post-it ad-hoc), comprador_id (intencional — para trocar carteira,
         // edita uma por vez).
@@ -860,9 +875,6 @@ async function saveNewEvent() {
             observacao,
           },
         });
-        const afetadas = (await fetchIdsDaSerie(
-          serieId, s.tenantId, scope === "all" ? null : occAtual.data_prevista
-        )).length;
         setFeedback(`${afetadas} ocorrência(s) da série atualizadas.`, "success");
       }
     } else {
@@ -937,10 +949,19 @@ async function deleteGenericEvent() {
   } else {
     const serieId = occAtual.serie_id;
     // Ids vêm do SERVIDOR: é o mesmo conjunto que o DELETE abaixo vai apagar.
-    const alvo = await fetchIdsDaSerie(
-      serieId, s.tenantId, scope === "all" ? null : occAtual.data_prevista
-    );
-    if (alvo.length === 0) return;
+    let alvo;
+    try {
+      alvo = await fetchIdsDaSerie(
+        serieId, s.tenantId, scope === "all" ? null : occAtual.data_prevista
+      );
+    } catch (e) {
+      setFeedback(`Não foi possível verificar a série: ${e.message}`, "error");
+      return;
+    }
+    if (!alvo.length) {
+      setFeedback("Nenhuma ocorrência encontrada para esta série.", "warning");
+      return;
+    }
     mensagem = scope === "all"
       ? `Excluir TODA a série "${titulo}" (${alvo.length} ocorrência(s))? Esta ação não pode ser desfeita.`
       : `Excluir "${titulo}" e as próximas ocorrências da série (${alvo.length} no total, a partir de ${isoToBr(occAtual.data_prevista)})? Esta ação não pode ser desfeita.`;
