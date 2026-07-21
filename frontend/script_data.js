@@ -35,6 +35,72 @@ async function _naoFatal(nome, fn) {
   }
 }
 
+// ── Carga progressiva da agenda ──────────────────────────────────────────────
+// A carga de PENDENTES é a mais pesada (Conviva Viana: 3.975 linhas, ~2,5s) e é
+// majoritariamente futura. Dividimos em duas levas: a leva 1 (vencidos +
+// próximos 3 meses) destrava a tela; a leva 2 (resto do futuro) chega em segundo
+// plano. Reduz a janela em que uma oscilação de rede derruba a carga inteira.
+const SELECT_PENDENTES =
+  "id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota,serie_id";
+
+// loadPortalData é chamado de 10+ lugares. Sem este contador, a leva 2 de uma
+// carga antiga poderia sobrescrever o estado de uma carga mais nova.
+let _cargaGeracao = 0;
+
+// Fronteira entre as levas: hoje + 3 meses, em data LOCAL (formato ISO).
+function _limiteLeva1() {
+  const hoje = new Date();
+  const d = new Date(hoje.getFullYear(), hoje.getMonth() + 3, hoje.getDate());
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mes}-${dia}`;
+}
+
+// filtroData: "" (tudo), "&data_prevista=lte.X" (leva 1) ou "&data_prevista=gt.X" (leva 2).
+function _pathPendentes(tenantId, filtroData) {
+  return `/rest/v1/agenda_ocorrencias?select=${SELECT_PENDENTES}&tenant_id=eq.${tenantId}&status=eq.PENDENTE${filtroData}&order=data_prevista.asc`;
+}
+
+// Mescla sem duplicar. As levas não se sobrepõem por construção (lte/gt no mesmo
+// limite), mas o dedup protege contra qualquer sobreposição de fronteira.
+function _mesclarPorId(atuais, novas) {
+  const vistos = new Set((atuais ?? []).map((o) => o.id));
+  return (atuais ?? []).concat((novas ?? []).filter((o) => !vistos.has(o.id)));
+}
+
+// Leva 2 — segundo plano. Silenciosa: se falhar, o portal segue funcional com o
+// essencial e a próxima sincronização tenta de novo.
+async function _carregarRestanteEmSegundoPlano(settings, limite, geracao, supplierRows, { silent, preserveFeedback }) {
+  try {
+    const restante = await fetchSupabaseAll(_pathPendentes(settings.tenantId, `&data_prevista=gt.${limite}`));
+    if (geracao !== _cargaGeracao) return; // carga obsoleta — descarta
+    if (restante.length) {
+      state.agenda = _mesclarPorId(state.agenda, restante);
+    }
+
+    // Backfill SÓ aqui: precisa da agenda COMPLETA. Com dados parciais, um
+    // fornecedor cuja única pendência esteja além de +3 meses pareceria "sem
+    // ocorrência" e o sistema criaria uma DUPLICATA.
+    const createdSeeds = (await _naoFatal("backfill", () => backfillMissingPendingOccurrences(supplierRows, state.agenda))) ?? 0;
+    if (geracao !== _cargaGeracao) return;
+
+    if (createdSeeds > 0) {
+      state.agenda = await fetchSupabaseAll(_pathPendentes(settings.tenantId, ""));
+      if (geracao !== _cargaGeracao) return;
+      if (!silent && !preserveFeedback) {
+        setFeedback(`${createdSeeds} agenda(s) pendente(s) foram geradas automaticamente.`, "success");
+      }
+    }
+
+    if (restante.length || createdSeeds > 0) {
+      renderTables();
+      refreshCalendar();
+    }
+  } catch (error) {
+    console.warn("[loadPortalData] leva 2 (agenda futura) falhou; portal segue com o essencial:", error);
+  }
+}
+
 async function loadPortalData({ silent = false, preserveFeedback = false } = {}) {
   if (!silent) {
     setFeedback("Sincronizando o portal do cliente com o Supabase...", "info");
@@ -50,6 +116,8 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
     }
     return;
   }
+  const geracao = ++_cargaGeracao;
+  const limite = _limiteLeva1();
   try {
     // Passos secundários não podem derrubar a carga inteira (ver _naoFatal abaixo).
     await _naoFatal("detectSupplierNotesColumn", () => detectSupplierNotesColumn());
@@ -58,7 +126,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
       fetchSupabase(`/rest/v1/clientes?select=id,nome_fantasia,razao_social,email_responsavel,observacoes&tenant_id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/compradores?select=id,nome_comprador,telefone,email,foto_path,senha_hash,is_gestor,receber_auditoria,receber_agenda_proximo&tenant_id=eq.${settings.tenantId}&order=nome_comprador.asc`),
       fetchSupabase(`/rest/v1/fornecedores?select=id,codigo_fornecedor,nome_fornecedor,data_primeiro_pedido,frequencia_revisao,parametro_estoque,lead_time_entrega,parametro_compra,comprador_id,hora_inicio,hora_fim,compradores(nome_comprador),fornecedor_dias_compra(dia_semana)&tenant_id=eq.${settings.tenantId}&order=nome_fornecedor.asc`),
-      fetchSupabaseAll(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota,serie_id&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`),
+      fetchSupabaseAll(_pathPendentes(settings.tenantId, `&data_prevista=lte.${limite}`)),
       fetchSupabaseAll(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,observacao,data_realizacao,created_at,updated_at,nota,titulo,hora_inicio,hora_fim,categoria_id,serie_id,pedido_realizado,pedido_quantidade,pedido_valor,pedido_motivo_nao,pedido_motivo_detalhe&tenant_id=eq.${settings.tenantId}&status=in.(REALIZADA,ADIADA)&order=data_realizacao.desc.nullslast`),
       fetchSupabase(`/rest/v1/feriados?select=id,data,nome,tipo&tenant_id=eq.${settings.tenantId}&order=data.asc`),
       fetchSupabase(`/rest/v1/audit_log?select=id,tipo_objeto,objeto_id,objeto_nome,acao,campos_alterados,executor_role,executor_nome,comprador_id,created_at&tenant_id=eq.${settings.tenantId}&order=created_at.desc&limit=500`),
@@ -66,14 +134,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
     ]);
 
     const supplierRows = supplierRowsRaw.map(mapSupplier);
-    let agendaRows = agendaRowsRaw;
-    const createdSeeds = (await _naoFatal("backfill", () => backfillMissingPendingOccurrences(supplierRows, agendaRowsRaw))) ?? 0;
-    if (createdSeeds > 0) {
-      agendaRows = await fetchSupabaseAll(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota,serie_id&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`);
-      if (!silent && !preserveFeedback) {
-        setFeedback(`Portal do cliente carregado com sucesso. ${createdSeeds} agenda(s) pendente(s) foram geradas automaticamente.`, "success");
-      }
-    }
+    const agendaRows = agendaRowsRaw; // leva 1: vencidos + próximos 3 meses
 
     const clientRow = clientRows[0] ?? null;
     const clientMeta = parseClientObservacoes(clientRow?.observacoes);
@@ -121,11 +182,14 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
     applyLogo();
     renderTables();
 
-    if (!silent && createdSeeds === 0) {
+    if (!silent) {
       setFeedback("Portal do cliente carregado com sucesso.", "success");
     } else if (!preserveFeedback) {
       clearFeedback();
     }
+
+    // Leva 2 em segundo plano — sem await, para não travar a tela.
+    _carregarRestanteEmSegundoPlano(settings, limite, geracao, supplierRows, { silent, preserveFeedback });
   } catch (error) {
     // NUNCA substituir os dados reais por dados de demonstração. Isso transformava
     // qualquer falha transitória (rede, timeout, blip do Supabase) em "sumiu a minha
