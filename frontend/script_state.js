@@ -72,6 +72,16 @@ function addDaysIso(isoDate, days) {
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
   {
+    versao: "v73",
+    dataHora: "21/07/2026 — tarde",
+    notas: [
+      "O portal agora abre mais rápido: primeiro carrega o essencial (compromissos vencidos e dos próximos 3 meses) e o restante da agenda chega logo em seguida, sozinho.",
+      "Isso reduz bastante o tempo em que uma oscilação de internet pode atrapalhar o carregamento — o principal motivo de a tela falhar em clientes com muitos compromissos agendados.",
+      "Nada muda no que você vê: todos os compromissos continuam aparecendo normalmente no calendário e nas listas.",
+      "Ao editar ou excluir uma série de compromissos recorrentes, a quantidade de ocorrências mostrada na confirmação agora é sempre a real — antes podia aparecer um número menor do que o que seria de fato alterado ou excluído.",
+    ],
+  },
+  {
     versao: "v72",
     dataHora: "21/07/2026 — manhã",
     notas: [
