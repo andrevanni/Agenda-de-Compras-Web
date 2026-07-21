@@ -56,64 +56,11 @@ const defaultSettings = {
 
 const UNASSIGNED_BUYER_VALUE = "__sem_comprador__";
 
-const mockBuyers = [
-  { id: "cmp-001", nome_comprador: "Marina Araujo", telefone: "(11) 99999-0101", email: "marina@servicefarma.far.br", foto_path: "", senha_hash: "1234" },
-  { id: "cmp-002", nome_comprador: "Eduardo Lima", telefone: "(11) 99999-0102", email: "eduardo@servicefarma.far.br", foto_path: "", senha_hash: "1234" },
-];
-
-const mockSuppliers = [
-  {
-    id: "for-001",
-    codigo_fornecedor: "10023",
-    nome_fornecedor: "Distribuidora Alfa",
-    data_primeiro_pedido: "2026-03-12",
-    frequencia_revisao: 8,
-    parametro_estoque: 7,
-    lead_time_entrega: 3,
-    parametro_compra: 10,
-    comprador_id: "cmp-001",
-    comprador_nome: "Marina Araujo",
-    dias_compra: ["SEGUNDA", "QUINTA"],
-  },
-  {
-    id: "for-002",
-    codigo_fornecedor: "20441",
-    nome_fornecedor: "Farma Sul",
-    data_primeiro_pedido: "2026-03-22",
-    frequencia_revisao: 4,
-    parametro_estoque: 5,
-    lead_time_entrega: 2,
-    parametro_compra: 7,
-    comprador_id: "cmp-002",
-    comprador_nome: "Eduardo Lima",
-    dias_compra: ["SABADO"],
-  },
-  {
-    id: "for-003",
-    codigo_fornecedor: "77400",
-    nome_fornecedor: "Nacional Hospitalar",
-    data_primeiro_pedido: "2026-03-08",
-    frequencia_revisao: 8,
-    parametro_estoque: 4,
-    lead_time_entrega: 3,
-    parametro_compra: 7,
-    comprador_id: null,
-    comprador_nome: "Sem Comprador",
-    dias_compra: ["TERCA", "SEXTA"],
-  },
-];
-
 function addDaysIso(isoDate, days) {
   const date = new Date(`${isoDate}T12:00:00`);
   date.setDate(date.getDate() + days);
   return date.toISOString().slice(0, 10);
 }
-
-const mockAgenda = [
-  { id: "occ-001", fornecedor_id: "for-001", comprador_id: "cmp-001", data_prevista: new Date().toISOString().slice(0, 10), status: "PENDENTE" },
-  { id: "occ-002", fornecedor_id: "for-002", comprador_id: "cmp-002", data_prevista: addDaysIso(new Date().toISOString().slice(0, 10), 2), status: "PENDENTE" },
-  { id: "occ-003", fornecedor_id: "for-003", comprador_id: null, data_prevista: addDaysIso(new Date().toISOString().slice(0, 10), -3), status: "PENDENTE" },
-];
 
 // ============================================================
 // HISTÓRICO DE VERSÕES
@@ -124,6 +71,16 @@ const mockAgenda = [
 // NUNCA citar nomes de clientes, fornecedores ou pessoas reais nas notas
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
+  {
+    versao: "v72",
+    dataHora: "21/07/2026 — manhã",
+    notas: [
+      "Correção importante: em caso de falha ao carregar (queda de internet, instabilidade momentânea), o portal NÃO mostra mais uma agenda de exemplo com compradores fictícios.",
+      "Era isso que fazia a agenda \"sumir do nada\" e aparecer outra que não era a sua — os dados de demonstração foram removidos do sistema.",
+      "Agora, se a atualização falhar, as informações já carregadas são mantidas na tela e aparece um aviso claro pedindo para tentar novamente.",
+      "O carregamento também ficou mais resistente: tenta novamente sozinho quando a conexão falha, e etapas secundárias não derrubam mais a carga inteira.",
+    ],
+  },
   {
     versao: "v71",
     dataHora: "10/07/2026 — tarde",
@@ -333,8 +290,9 @@ const state = {
     startDate: "",
     endDate: "",
   },
-  buyers: structuredClone(mockBuyers),
-  suppliers: structuredClone(mockSuppliers),
+  // Sem dados de demonstração: o portal começa vazio e só mostra dados reais.
+  buyers: [],
+  suppliers: [],
   agenda: [],
   auditOccurrences: [],
   auditLogs: [],

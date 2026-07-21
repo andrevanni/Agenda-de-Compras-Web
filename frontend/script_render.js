@@ -347,43 +347,72 @@ async function fetchSupplierNotesRows() {
   }
 }
 
+const _esperarMs = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function fetchSupabase(path, options = {}) {
   const settings = getSettings();
-  const response = await fetch(`${settings.supabaseUrl}${path}`, {
-    method: options.method ?? "GET",
-    headers: {
-      apikey: settings.supabaseKey,
-      Authorization: `Bearer ${settings.supabaseKey}`,
-      "Content-Type": "application/json",
-      ...(options.headers ?? {}),
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+  const method = options.method ?? "GET";
+  // Retry APENAS em GET (idempotente) e só para falhas transitórias: erro de rede,
+  // 5xx e 429. Erros 4xx são determinísticos — repetir não ajuda e mascararia o
+  // problema. Nunca repetir POST/PATCH/DELETE (risco de duplicar escrita).
+  const maxTentativas = method === "GET" ? 3 : 1;
+  let ultimoErro = null;
 
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(data.message ?? data.details ?? data.error_description ?? `HTTP ${response.status}`);
+  for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {
+    let response;
+    try {
+      response = await fetch(`${settings.supabaseUrl}${path}`, {
+        method,
+        headers: {
+          apikey: settings.supabaseKey,
+          Authorization: `Bearer ${settings.supabaseKey}`,
+          "Content-Type": "application/json",
+          ...(options.headers ?? {}),
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+      });
+    } catch (erroRede) {
+      ultimoErro = erroRede;
+      if (tentativa < maxTentativas) {
+        await _esperarMs(300 * 2 ** (tentativa - 1));
+        continue;
+      }
+      throw erroRede;
+    }
+
+    if (!response.ok) {
+      const transitorio = response.status >= 500 || response.status === 429;
+      if (transitorio && tentativa < maxTentativas) {
+        ultimoErro = new Error(`HTTP ${response.status}`);
+        await _esperarMs(300 * 2 ** (tentativa - 1));
+        continue;
+      }
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message ?? data.details ?? data.error_description ?? `HTTP ${response.status}`);
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    const contentLength = response.headers.get("content-length");
+    if (contentLength === "0") {
+      return null;
+    }
+
+    const rawText = await response.text();
+    if (!rawText.trim()) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      return rawText;
+    }
   }
 
-  if (response.status === 204) {
-    return null;
-  }
-
-  const contentLength = response.headers.get("content-length");
-  if (contentLength === "0") {
-    return null;
-  }
-
-  const rawText = await response.text();
-  if (!rawText.trim()) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(rawText);
-  } catch {
-    return rawText;
-  }
+  throw ultimoErro ?? new Error("Falha na requisição ao Supabase.");
 }
 
 // Igual ao fetchSupabase, mas pagina (limit/offset) até trazer TODAS as linhas —

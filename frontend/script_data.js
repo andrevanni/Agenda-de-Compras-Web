@@ -23,13 +23,36 @@ async function loadClientMetaOnly() {
   }
 }
 
+// Executa um passo SECUNDÁRIO da carga sem deixar que a falha dele derrube tudo.
+// Antes, um erro no backfill/detecção de coluna/notas jogava a carga inteira no
+// catch — e o portal trocava a agenda real por dados de demonstração.
+async function _naoFatal(nome, fn) {
+  try {
+    return await fn();
+  } catch (error) {
+    console.warn(`[loadPortalData] passo secundário "${nome}" falhou (seguindo mesmo assim):`, error);
+    return null;
+  }
+}
+
 async function loadPortalData({ silent = false, preserveFeedback = false } = {}) {
   if (!silent) {
     setFeedback("Sincronizando o portal do cliente com o Supabase...", "info");
   }
   const settings = getSettings();
+  // Guarda: sem tenant válido a query viraria `tenant_id=eq.` → HTTP 400
+  // ("invalid input syntax for type uuid") e o usuário veria um erro críptico.
+  // Melhor dizer claramente que a sessão precisa ser refeita.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(settings.tenantId ?? "")) {
+    console.error("[loadPortalData] tenantId ausente/inválido:", settings.tenantId);
+    if (!preserveFeedback) {
+      setFeedback("Sessão sem cliente definido. Faça login novamente para carregar seus dados.", "error");
+    }
+    return;
+  }
   try {
-    await detectSupplierNotesColumn();
+    // Passos secundários não podem derrubar a carga inteira (ver _naoFatal abaixo).
+    await _naoFatal("detectSupplierNotesColumn", () => detectSupplierNotesColumn());
     const [tenantRows, clientRows, buyersRows, supplierRowsRaw, agendaRowsRaw, auditRows, feriadosRows, auditLogRows, notasLivresRows] = await Promise.all([
       fetchSupabase(`/rest/v1/tenants?select=id,nome&id=eq.${settings.tenantId}&limit=1`),
       fetchSupabase(`/rest/v1/clientes?select=id,nome_fantasia,razao_social,email_responsavel,observacoes&tenant_id=eq.${settings.tenantId}&limit=1`),
@@ -44,7 +67,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
 
     const supplierRows = supplierRowsRaw.map(mapSupplier);
     let agendaRows = agendaRowsRaw;
-    const createdSeeds = await backfillMissingPendingOccurrences(supplierRows, agendaRowsRaw);
+    const createdSeeds = (await _naoFatal("backfill", () => backfillMissingPendingOccurrences(supplierRows, agendaRowsRaw))) ?? 0;
     if (createdSeeds > 0) {
       agendaRows = await fetchSupabaseAll(`/rest/v1/agenda_ocorrencias?select=id,fornecedor_id,comprador_id,data_prevista,status,titulo,hora_inicio,hora_fim,categoria_id,nota,serie_id&tenant_id=eq.${settings.tenantId}&status=eq.PENDENTE&order=data_prevista.asc`);
       if (!silent && !preserveFeedback) {
@@ -66,7 +89,7 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
     }
 
     if (state.features.fornecedorNotasColuna) {
-      const supplierNotesRows = await fetchSupplierNotesRows();
+      const supplierNotesRows = await _naoFatal("notasFornecedor", () => fetchSupplierNotesRows());
       const notesMap = new Map((supplierNotesRows ?? []).map((row) => [row.id, row.notas_relacionamento ?? ""]));
       supplierRows.forEach((supplier) => {
         if (notesMap.has(supplier.id)) {
@@ -104,26 +127,19 @@ async function loadPortalData({ silent = false, preserveFeedback = false } = {})
       clearFeedback();
     }
   } catch (error) {
-    state.tenantName = "Service Farma";
-    state.clientRecordId = null;
-    state.clientMeta = {};
-    state.buyers = structuredClone(mockBuyers);
-    state.suppliers = structuredClone(mockSuppliers);
-    state.agenda = structuredClone(mockAgenda);
-    state.auditOccurrences = structuredClone(mockAgenda).map((item) => ({
-      ...item,
-      observacao: JSON.stringify({ type: "agenda_treatment", note: "Histórico local de apoio." }),
-      data_realizacao: item.status === "REALIZADA" ? todayIso() : null,
-      created_at: `${todayIso()}T00:00:00`,
-      updated_at: `${todayIso()}T00:00:00`,
-    }));
-    if (tenantNameLabel) {
-      tenantNameLabel.textContent = state.tenantName;
-    }
-    applyLogo();
-    renderTables();
+    // NUNCA substituir os dados reais por dados de demonstração. Isso transformava
+    // qualquer falha transitória (rede, timeout, blip do Supabase) em "sumiu a minha
+    // agenda e apareceu a de outra pessoa" — na verdade os mocks (jul/2026, Conviva Viana).
+    // Preserva o último estado bom e avisa o usuário de forma honesta.
+    console.error("[loadPortalData] falha ao carregar dados reais:", error);
+    const temDados = (state.buyers?.length ?? 0) > 0;
     if (!preserveFeedback) {
-      setFeedback(`Não foi possível carregar a base real. Exibindo dados locais de apoio: ${error.message}`, "warning");
+      setFeedback(
+        temDados
+          ? `Não foi possível atualizar os dados agora — mantendo as informações já carregadas. Detalhe: ${error.message}`
+          : `Não foi possível carregar seus dados. Verifique a conexão e clique em Atualizar. Detalhe: ${error.message}`,
+        "error"
+      );
     }
   }
 }

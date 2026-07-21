@@ -9,6 +9,16 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v72",
+        "dataHora": "21/07/2026 — manhã",
+        "notas": [
+            "Correção importante: em caso de falha ao carregar (queda de internet, instabilidade momentânea), o portal NÃO mostra mais uma agenda de exemplo com compradores fictícios.",
+            "Era isso que fazia a agenda \"sumir do nada\" e aparecer outra que não era a sua — os dados de demonstração foram removidos do sistema.",
+            "Agora, se a atualização falhar, as informações já carregadas são mantidas na tela e aparece um aviso claro pedindo para tentar novamente.",
+            "O carregamento também ficou mais resistente: tenta novamente sozinho quando a conexão falha, e etapas secundárias não derrubam mais a carga inteira.",
+        ],
+    },
+    {
         "versao": "v71",
         "dataHora": "10/07/2026 — tarde",
         "notas": [
