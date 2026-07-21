@@ -677,6 +677,18 @@ function openNewEventModal(dateStr = "") {
   document.getElementById("newEventModal").showModal();
 }
 
+// Lista os ids das ocorrências de uma série NO SERVIDOR. Nunca contar por
+// state.agenda: com a carga progressiva a agenda pode estar parcial, e a
+// confirmação mostraria MENOS ocorrências do que serão afetadas (o DELETE/PATCH
+// em massa é server-side por serie_id). fetchSupabaseAll porque uma série pode
+// passar de 1000 ocorrências.
+async function fetchIdsDaSerie(serieId, tenantId, apartirDe = null) {
+  let url = `/rest/v1/agenda_ocorrencias?select=id&serie_id=eq.${serieId}&tenant_id=eq.${tenantId}`;
+  if (apartirDe) url += `&data_prevista=gte.${apartirDe}`;
+  const rows = await fetchSupabaseAll(url);
+  return (rows ?? []).map((r) => r.id);
+}
+
 function openGenericEventDetail(occ) {
   if (!occ) return;
   populateNewEventSelects();
@@ -700,11 +712,24 @@ function openGenericEventDetail(occ) {
   const singleRadio = scopeWrap.querySelector('input[value="single"]');
   if (singleRadio) singleRadio.checked = true;
   if (occ.serie_id) {
-    const irmas = (state.agenda ?? []).filter((o) => o.serie_id === occ.serie_id);
-    const futuras = irmas.filter((o) => (o.data_prevista ?? "") >= (occ.data_prevista ?? ""));
-    document.getElementById("newEventEditScopeFutureLabel").textContent = `Esta e as próximas (${futuras.length})`;
-    document.getElementById("newEventEditScopeAllLabel").textContent = `Toda a série (${irmas.length})`;
+    // Contagem vem do SERVIDOR (a agenda pode estar parcialmente carregada).
+    const futuraLabel = document.getElementById("newEventEditScopeFutureLabel");
+    const allLabel = document.getElementById("newEventEditScopeAllLabel");
+    futuraLabel.textContent = "Esta e as próximas (…)";
+    allLabel.textContent = "Toda a série (…)";
     scopeWrap.classList.remove("hidden");
+    const _s = getSettings();
+    Promise.all([
+      fetchIdsDaSerie(occ.serie_id, _s.tenantId, occ.data_prevista),
+      fetchIdsDaSerie(occ.serie_id, _s.tenantId),
+    ]).then(([futuras, todas]) => {
+      futuraLabel.textContent = `Esta e as próximas (${futuras.length})`;
+      allLabel.textContent = `Toda a série (${todas.length})`;
+    }).catch(() => {
+      // Sem número é melhor do que número errado.
+      futuraLabel.textContent = "Esta e as próximas";
+      allLabel.textContent = "Toda a série";
+    });
   } else {
     scopeWrap.classList.add("hidden");
   }
@@ -835,10 +860,9 @@ async function saveNewEvent() {
             observacao,
           },
         });
-        const irmas = (state.agenda ?? []).filter((o) => o.serie_id === serieId);
-        const afetadas = scope === "all"
-          ? irmas.length
-          : irmas.filter((o) => (o.data_prevista ?? "") >= (occAtual.data_prevista ?? "")).length;
+        const afetadas = (await fetchIdsDaSerie(
+          serieId, s.tenantId, scope === "all" ? null : occAtual.data_prevista
+        )).length;
         setFeedback(`${afetadas} ocorrência(s) da série atualizadas.`, "success");
       }
     } else {
@@ -912,15 +936,15 @@ async function deleteGenericEvent() {
     url = `/rest/v1/agenda_ocorrencias?id=eq.${editId}&tenant_id=eq.${s.tenantId}`;
   } else {
     const serieId = occAtual.serie_id;
-    const irmas = (state.agenda ?? []).filter((o) => o.serie_id === serieId);
-    const alvo = scope === "all"
-      ? irmas
-      : irmas.filter((o) => (o.data_prevista ?? "") >= (occAtual.data_prevista ?? ""));
+    // Ids vêm do SERVIDOR: é o mesmo conjunto que o DELETE abaixo vai apagar.
+    const alvo = await fetchIdsDaSerie(
+      serieId, s.tenantId, scope === "all" ? null : occAtual.data_prevista
+    );
     if (alvo.length === 0) return;
     mensagem = scope === "all"
       ? `Excluir TODA a série "${titulo}" (${alvo.length} ocorrência(s))? Esta ação não pode ser desfeita.`
       : `Excluir "${titulo}" e as próximas ocorrências da série (${alvo.length} no total, a partir de ${isoToBr(occAtual.data_prevista)})? Esta ação não pode ser desfeita.`;
-    idsParaRemover = new Set(alvo.map((o) => o.id));
+    idsParaRemover = new Set(alvo);
     url = `/rest/v1/agenda_ocorrencias?serie_id=eq.${serieId}&tenant_id=eq.${s.tenantId}`;
     if (scope === "future") url += `&data_prevista=gte.${occAtual.data_prevista}`;
   }
