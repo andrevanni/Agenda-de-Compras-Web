@@ -595,6 +595,10 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 ## Pendências
 
+### ⚠️ `GET /api/v1/admin/auth/admins` lista só os 50 primeiros (achado 25/jul/2026)
+
+O endpoint enumera os usuários do Auth **sem paginação**, então o painel mostra menos admins do que existem — mostrou **2** quando havia **4** (André, Alexandre, Afonso, Marcelo Cardoso, todos com `app_metadata.role = 'admin'`). Isso atrasou o diagnóstico do SSO por papel. **Fix:** `listUsers({ perPage: 1000 })` (ou paginar de verdade) e filtrar por role. Para conferir admins com segurança enquanto não estiver corrigido, consultar o Auth direto, não o endpoint.
+
 ### Entregue em 21/jul/2026 — caso Conviva Viana ("some a agenda e aparece outra")
 
 Relato do cliente: *"do nada some a nossa agenda e aparece essa outra desse pessoal, e às vezes some e não aparece nada"*. Problema recorrente havia meses.
