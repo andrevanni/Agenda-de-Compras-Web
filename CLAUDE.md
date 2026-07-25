@@ -2,6 +2,8 @@
 
 Sistema web multi-tenant SaaS para gestão de agenda de compras de farmácias.
 
+> ⚠️ **LIGADO AO HUB CENTRAL (espelho + SSO, 2026-07-25):** o Painel Admin A3 lê este sistema a cada 15 min (`GET /api/v1/admin/espelho`) e o card do Hub loga direto no portal como comprador (callback `/sso/callback`, sessão com refresh que dura o dia). Compradores novos são espelhados sozinhos; quando aceitam o convite DA AGENDA, o Hub envia boas-vindas ("use a mesma senha") automaticamente. **A vigência que vale pro Hub é `clientes_licencas`** — cliente sem licença ativa fica com card fechado. **Antes de mexer no endpoint `/admin/espelho`, no `ADMIN_API_TOKEN`, no bloco de URL-params do `script_main.js` ou em `clientes_licencas`, leia `docs/integracao-hub-central.md`.** Alterou `script_*.js`? Bump do `sw.js` (cache v74 hoje).
+
 ## Deploy
 
 ### Produção (`main` → deploy automático)
