@@ -1501,6 +1501,19 @@ populateSettings();
 showSection("tenants");
 renderVersionHistory();
 
+// Entrada via SSO Service Farma: ?jwt=&email= (sessão nativa do GoTrue emitida
+// pelo callback /sso/callback do backend). Limpa a URL em seguida — o token não
+// deve ficar no histórico nem no cache do service worker.
+(function consumirSSOAdmin() {
+  const p = new URLSearchParams(location.search);
+  const jwt = p.get("jwt");
+  if (!jwt || jwt === "null") return;
+  localStorage.setItem(storageKeys.adminJwt, jwt);
+  const email = p.get("email");
+  if (email) localStorage.setItem(storageKeys.adminEmail, email);
+  history.replaceState(null, "", location.pathname);
+})();
+
 // Verifica autenticação antes de carregar dados
 if (getSettings().adminJwt || getSettings().adminToken) {
   hideLoginScreen();
