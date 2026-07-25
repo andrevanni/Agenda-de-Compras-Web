@@ -12,8 +12,13 @@ def resolver_comprador(sb: Any, email: str) -> dict | None:
 
     r = (
         sb.table("compradores").select("id, tenant_id, nome_comprador, email")
-        .ilike("email", email).limit(1).execute()
+        .ilike("email", email).limit(3).execute()
     )
+    # Mesmo e-mail em >1 tenant: NEGA (fail-closed). Escolher "o primeiro" logaria
+    # a pessoa num cliente arbitrário — risco de ver dados de outro cliente.
+    # Hoje não ocorre (0 casos), mas o cadastro é livre e isto tem de ser explícito.
+    if r.data and len({str(x["tenant_id"]) for x in r.data}) > 1:
+        return None
     if r.data:
         row = r.data[0]
         return {
