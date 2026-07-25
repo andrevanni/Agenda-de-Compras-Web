@@ -1001,18 +1001,33 @@ async function bootstrap() {
     return;
   }
 
-  // Processa parâmetros de URL (vindos do "Abrir Portal" no admin)
-  // Usa sessionStorage para isolar por aba — não contamina outras abas abertas
+  // Processa parâmetros de URL (vindos do "Abrir Portal" no admin OU do SSO Service Farma)
   const urlParams = new URLSearchParams(window.location.search);
   const urlJwt = urlParams.get("jwt");
   const urlTenantId = urlParams.get("tenant_id");
-  if (urlJwt && urlJwt !== "null" && urlTenantId) {
+  const urlCompradorId = urlParams.get("comprador_id");
+  if (urlJwt && urlJwt !== "null" && urlTenantId && urlCompradorId) {
+    // SSO Service Farma: sessão de COMPRADOR, durável (localStorage) e com
+    // refresh token — o timer de 50 min renova e a sessão dura o dia todo.
+    localStorage.setItem(storageKeys.jwt, urlJwt);
+    localStorage.setItem(storageKeys.refreshToken, urlParams.get("refresh") || "");
+    localStorage.setItem(storageKeys.tenantId, urlTenantId);
+    localStorage.setItem(storageKeys.loggedBuyerId, urlCompradorId);
+    localStorage.setItem(storageKeys.activeBuyerId, urlCompradorId);
+    localStorage.setItem(storageKeys.loggedPortalRole, "buyer");
+    localStorage.setItem(storageKeys.loggedPortalEmail, urlParams.get("email") || "");
+    history.replaceState(null, "", window.location.pathname);
+  } else if (urlJwt && urlJwt !== "null" && urlTenantId) {
+    // "Abrir Portal" do admin: sessionStorage isola por aba — não contamina outras abas
     sessionStorage.setItem(storageKeys.jwt, urlJwt);
     sessionStorage.setItem(storageKeys.tenantId, urlTenantId);
     sessionStorage.setItem(storageKeys.loggedPortalRole, "admin_portal");
     // Grava '' em vez de removeItem — evita fallthrough para localStorage com dados de outra sessão
     sessionStorage.setItem(storageKeys.loggedBuyerId, "");
     sessionStorage.setItem(storageKeys.loggedPortalEmail, "");
+    // Refresh token também '' — sem isto o refreshJWT() cai no refresh de um comprador
+    // logado antes neste navegador (fallthrough session→local) e troca a identidade da aba.
+    sessionStorage.setItem(storageKeys.refreshToken, "");
     history.replaceState(null, "", window.location.pathname);
   }
 

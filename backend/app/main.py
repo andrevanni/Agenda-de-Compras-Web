@@ -2,6 +2,7 @@
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.api.sso import router as sso_router
 from app.api.v1.redirect import router as redirect_router
 from app.core.config import settings
 
@@ -23,3 +24,4 @@ def health() -> dict[str, str]:
 
 app.include_router(redirect_router)
 app.include_router(api_router)
+app.include_router(sso_router)  # /sso/* (fora do /api/v1, path padrao dos sistemas no Hub)

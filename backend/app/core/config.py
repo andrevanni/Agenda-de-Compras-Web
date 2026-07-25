@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     supabase_service_role_key: str | None = None
     admin_api_token: str | None = None
 
+    # SSO central (Painel Admin A3) — servidor<->servidor
+    sf_central_url: str | None = None
+    sf_sso_client_id: str | None = None
+    sf_sso_client_secret: str | None = None
+
     # SMTP — e-mail da Service Farma
     smtp_host:      str = "mail.servicefarma.far.br"
     smtp_port:      int = 465
