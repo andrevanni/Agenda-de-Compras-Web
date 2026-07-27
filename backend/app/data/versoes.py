@@ -9,6 +9,16 @@ NUNCA citar nome real de cliente, fornecedor ou pessoa nas notas.
 
 VERSOES = [
     {
+        "versao": "v75",
+        "dataHora": "27/07/2026 — tarde",
+        "notas": [
+            "Foi reportado que, ao excluir um compromisso recorrente antigo, o sistema não perguntava se era para excluir só aquele dia ou a série inteira — e as demais datas continuavam aparecendo.",
+            "Agora TODAS as séries recorrentes, inclusive as criadas antes de maio, oferecem as opções \"Só esta\", \"Esta e as próximas\" e \"Toda a série\" ao editar ou excluir.",
+            "O botão Excluir da tela Compromissos também passou a reconhecer séries: se o compromisso faz parte de uma, abre a janela com essas opções em vez de apagar só aquele dia.",
+            "Para excluir uma série inteira: abra o compromisso, marque \"Toda a série\" e clique em Excluir. A confirmação mostra quantas datas serão removidas.",
+        ],
+    },
+    {
         "versao": "v73",
         "dataHora": "21/07/2026 — tarde",
         "notas": [

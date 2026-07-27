@@ -2,7 +2,7 @@
 
 Sistema web multi-tenant SaaS para gestão de agenda de compras de farmácias.
 
-> ⚠️ **LIGADO AO HUB CENTRAL (espelho + SSO, 2026-07-25):** o Painel Admin A3 lê este sistema a cada 15 min (`GET /api/v1/admin/espelho`) e o card do Hub loga direto no portal como comprador (callback `/sso/callback`, sessão com refresh que dura o dia). Compradores novos são espelhados sozinhos; quando aceitam o convite DA AGENDA, o Hub envia boas-vindas ("use a mesma senha") automaticamente. **A vigência que vale pro Hub é `clientes_licencas`** — cliente sem licença ativa fica com card fechado. **Antes de mexer no endpoint `/admin/espelho`, no `ADMIN_API_TOKEN`, no bloco de URL-params do `script_main.js` ou em `clientes_licencas`, leia `docs/integracao-hub-central.md`.** Alterou `script_*.js`? Bump do `sw.js` (cache v74 hoje).
+> ⚠️ **LIGADO AO HUB CENTRAL (espelho + SSO, 2026-07-25):** o Painel Admin A3 lê este sistema a cada 15 min (`GET /api/v1/admin/espelho`) e o card do Hub loga direto no portal como comprador (callback `/sso/callback`, sessão com refresh que dura o dia). Compradores novos são espelhados sozinhos; quando aceitam o convite DA AGENDA, o Hub envia boas-vindas ("use a mesma senha") automaticamente. **A vigência que vale pro Hub é `clientes_licencas`** — cliente sem licença ativa fica com card fechado. **Antes de mexer no endpoint `/admin/espelho`, no `ADMIN_API_TOKEN`, no bloco de URL-params do `script_main.js` ou em `clientes_licencas`, leia `docs/integracao-hub-central.md`.** Alterou `script_*.js`? Bump do `sw.js` (cache v75 hoje).
 
 ## Deploy
 
@@ -378,7 +378,7 @@ Menu **📈 Eficiência** na sidebar do portal cliente — valida se a **frequê
 - **Modo edição**: título "Editar Evento", recorrência oculta, botão 🗑️ Excluir visível — aberto ao clicar em evento genérico no calendário
 - Clicar em evento de **Agenda de Compras** no calendário abre o detalhe com as regras próprias (inalterado)
 - **PATCH** na ocorrência existente ao salvar em modo edição; **DELETE** com confirmação ao excluir
-- **Série + edição/exclusão em massa** (desde mai/2026, [schema_v16](backend/db/schema_v16_serie_recorrencia.sql)): toda criação com `total > 1` (recorrência ou multi-comprador) recebe um `serie_id` UUID compartilhado em `agenda_ocorrencias.serie_id` ([script_main.js `saveNewEvent`](frontend/script_main.js)). No modo edição, quando a ocorrência tem `serie_id`, um radio "Aplicar mudanças a" aparece com 3 escopos: **Só esta** (PATCH/DELETE por id — comportamento legado), **Esta e as próximas** (filtro `serie_id=eq.X&data_prevista=gte.Y`), **Toda a série** (filtro só por `serie_id`). Ocorrências legado (sem `serie_id`) só têm "Só esta" — o radio fica oculto. Edição em massa NÃO replica `data_prevista` (cada ocorrência tem a sua), `nota` (post-it ad-hoc, ver abaixo), nem `comprador_id` (intencional — para trocar carteira, edita uma por vez). Exclusão em massa pede confirmação com contagem (`Excluir 14 ocorrência(s) da série?`).
+- **Série + edição/exclusão em massa** (desde mai/2026, [schema_v16](backend/db/schema_v16_serie_recorrencia.sql)): toda criação com `total > 1` (recorrência ou multi-comprador) recebe um `serie_id` UUID compartilhado em `agenda_ocorrencias.serie_id` ([script_main.js `saveNewEvent`](frontend/script_main.js)). No modo edição, quando a ocorrência tem `serie_id`, um radio "Aplicar mudanças a" aparece com 3 escopos: **Só esta** (PATCH/DELETE por id — comportamento legado), **Esta e as próximas** (filtro `serie_id=eq.X&data_prevista=gte.Y`), **Toda a série** (filtro só por `serie_id`). Ocorrências sem `serie_id` só têm "Só esta" — o radio fica oculto. Desde o backfill [schema_v20](backend/db/schema_v20_backfill_serie_legado.sql) (27/jul/2026) as séries legadas (criadas antes do schema_v16) ganharam `serie_id` retroativo — hoje só fica sem série a ocorrência avulsa (criação com `total = 1`). Edição em massa NÃO replica `data_prevista` (cada ocorrência tem a sua), `nota` (post-it ad-hoc, ver abaixo), nem `comprador_id` (intencional — para trocar carteira, edita uma por vez). Exclusão em massa pede confirmação com contagem (`Excluir 14 ocorrência(s) da série?`).
 - `saveNewEvent()`, `deleteGenericEvent()` e `getEditScope()` em `script_main.js`; `newEventEditId` (hidden input) controla o modo, `newEventEditScopeWrap` esconde/mostra o radio
 - **Botão "Salvar Evento" desabilitado durante o POST** — evita duplo clique criando ocorrências duplicadas; reabilitado no `finally`
 - **Categoria**: "Agenda de Compras" excluída do dropdown
@@ -408,7 +408,7 @@ Painel filtra pelo `activeBuyerId` (ambas as fontes). Renderização única em [
 - **Ciclo PENDENTE ↔ REALIZADA** (desde mai/2026, sem migration — usa o `status` já existente):
   - PENDENTE → botões **"✓ Concluir"** (verde) + **Excluir**. Concluir faz PATCH `status=REALIZADA, data_realizacao=hoje` e move in-place do `state.agenda` para `state.auditOccurrences` (sem reload pesado). Funções `concluirCompromisso` em [script_render.js](frontend/script_render.js).
   - REALIZADA → botões **"↩ Desfazer"** + **Excluir**. Desfazer faz PATCH `status=PENDENTE, data_realizacao=null` e move de volta. Função `reabrirCompromisso`.
-  - Exclusão funciona em qualquer status.
+  - Exclusão funciona em qualquer status. Desde v75 (27/jul/2026) o Excluir é **ciente de série**: se a ocorrência tem `serie_id`, abre o modal de edição (com o radio de escopo Só esta / Esta e as próximas / Toda a série) em vez de apagar direto só por id.
 - **Calendário visual riscado**: `buildCalendarEvents` ([script_main.js](frontend/script_main.js)) inclui compromissos REALIZADAs genéricos com `classNames: ['fc-event-concluido']` (CSS: `opacity .55 + text-decoration line-through`) e prefixo "✓ " no título. Agenda de Compras (fornecedor) tem fluxo próprio (Tratar Agenda) e suas REALIZADAs **continuam fora do calendário** para não poluir.
 - Para fornecedor (Agenda de Compras) o ciclo é outro: "Tratar Agenda" com modal de pedido. Não há botão Concluir no fornecedor.
 
@@ -511,7 +511,7 @@ Confirmação (não-bloqueante) exibida quando o comprador trata uma agenda **mu
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v73` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
+- Cache cliente: `agenda-compras-v75` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
 - **Rodapé mostra a versão atual**: `footerVersionChip` (em [index.html](frontend/index.html)) recebe `VERSOES[0].versao` no `bootstrap` ([script_main.js](frontend/script_main.js)) — antes era fixo "v0.1.0". É o indicador para o usuário confirmar que está no mais novo. O **nº do SW (cache) pode ficar à frente** do nº do rodapé (changelog) quando há deploy só de infra/ajuda sem entrada nova em `VERSOES` — normal, o rodapé reflete o changelog.
 - Cache admin: `agenda-admin-v14` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - **Estratégia NETWORK-FIRST (desde v62 / jun/2026)**: o handler `fetch` tenta a rede primeiro e só cai no cache offline. Substituiu o `cache-first` antigo, que causava um estado "Frankenstein" — mistura de arquivos de versões diferentes presos no cache (ex.: `index.html` novo + `script_state.js` velho → menu aparece mas dados/Versões quebram). Não voltar para cache-first.
@@ -569,6 +569,7 @@ Confirmação (não-bloqueante) exibida quando o comprador trata uma agenda **mu
 | `schema_v17_notas_painel.sql` | Tabela `notas_painel(id, tenant_id, comprador_id, texto, created_at, updated_at)` para post-its livres no Painel de Notas, desvinculados de `agenda_ocorrencias`. RLS `USING (true)` + GRANT pra `authenticated/anon/service_role`. Coexiste com a nota de ocorrência (cada uma com fluxo próprio) |
 | `schema_v18_versoes_notificacao.sql` | Tabela de controle de notificação de versões (painel admin) |
 | `schema_v19_relatorio_semanal_log.sql` | Atualiza o CHECK de `relatorio_log.tipo` para aceitar os 3 tipos do relatório **semanal**: `'semanal_gestor'`, `'semanal_auditoria'`, `'semanal_admin_copia'` (alteração aditiva de constraint — tabela existente, sem GRANT/RLS novos) |
+| `schema_v20_backfill_serie_legado.sql` | **Data migration** (sem DDL): backfill de `serie_id` nas séries legadas criadas antes do schema_v16 — agrupa por tenant + comprador + título + dia de criação, só genéricos (`fornecedor_id IS NULL`), grupos com >1 ocorrência. Idempotente. Rodada em produção em 27/jul/2026: 61 grupos, 5.035 ocorrências |
 
 ## DATABASE_URL — Conexão com Supabase (⚠️ crítico)
 
@@ -599,6 +600,15 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 O endpoint enumera os usuários do Auth **sem paginação**, então o painel mostra menos admins do que existem — mostrou **2** quando havia **4** (André, Alexandre, Afonso, Marcelo Cardoso, todos com `app_metadata.role = 'admin'`). Isso atrasou o diagnóstico do SSO por papel. **Fix:** `listUsers({ perPage: 1000 })` (ou paginar de verdade) e filtrar por role. Para conferir admins com segurança enquanto não estiver corrigido, consultar o Auth direto, não o endpoint.
 
+### Entregue em 27/jul/2026 — exclusão de série legada não perguntava o escopo (SW v74→v75)
+
+Relato: compradora excluiu uma ocorrência de compromisso recorrente e o sistema **não perguntou** se era só aquela ou a série toda — as demais datas continuaram aparecendo, e ela vinha apagando uma a uma. **Causa raiz (2 furos):** (1) a série era **legada** — criada em 21/mai/2026, 6 dias antes do schema_v16 — então `serie_id = NULL` e o radio de escopo ficava oculto por design; (2) o botão Excluir da **seção Compromissos** (`deleteCompromisso`) apagava só por id sem checar `serie_id`, mesmo em séries novas. Levantamento: 61 grupos legados, 5.035 ocorrências sem `serie_id` em todos os tenants.
+
+- **Backfill [schema_v20](backend/db/schema_v20_backfill_serie_legado.sql)** rodado em produção (5.035 linhas): séries legadas ganharam `serie_id` retroativo — o radio "Toda a série" já existente passou a funcionar para elas. Decisão do usuário: **não apagar dados** — a compradora exclui a série ela mesma pela UI.
+- **`deleteCompromisso` ciente de série** ([script_render.js](frontend/script_render.js)): com `serie_id`, abre o modal de edição com o radio de escopo em vez do confirm de item único.
+- **`occAtual` agora busca também `state.auditOccurrences`** ([script_main.js](frontend/script_main.js), edição em massa + exclusão): série de compromisso **concluído** caía silenciosamente para exclusão individual (minor do review de 21/jul, corrigido). A limpeza de estado pós-DELETE também filtra `auditOccurrences`.
+- Validado: `node --check` + smoke Playwright local (boot sem pageerror; roteamento série→modal, concluída→modal, avulsa→confirm).
+
 ### Entregue em 21/jul/2026 — caso Conviva Viana ("some a agenda e aparece outra")
 
 Relato do cliente: *"do nada some a nossa agenda e aparece essa outra desse pessoal, e às vezes some e não aparece nada"*. Problema recorrente havia meses.
@@ -614,7 +624,7 @@ Relato do cliente: *"do nada some a nossa agenda e aparece essa outra desse pess
 
 **Dados da Conviva Viana** (`7075df8c-3b8b-49cb-9876-836c11f51eff`): 3.950 dos 3.975 pendentes são compromissos genéricos — **39 séries**, ~11 rotinas diárias de um comprador (FELIPE, 98% do volume) indo até 01/06/2027. Uso legítimo; **decidido não apagar**. Corte de 12 meses **não ajudaria** (tudo já cabe em 12 meses); só 6 meses (−40%) ou 3 meses (−70%) surtiriam efeito.
 
-**Minors pendentes** (do review final, não corrigidos): `occAtual` só é buscado em `state.agenda` — série de compromisso **concluído** cai para exclusão individual silenciosamente; backfill usa `getSettings().tenantId` em vez do tenant capturado; `openGenericEventDetail` faz 2 fetches paginados onde 1 bastaria.
+**Minors pendentes** (do review final): ~~`occAtual` só é buscado em `state.agenda`~~ (✅ corrigido em 27/jul/2026 — busca também em `state.auditOccurrences`); backfill usa `getSettings().tenantId` em vez do tenant capturado; `openGenericEventDetail` faz 2 fetches paginados onde 1 bastaria.
 
 ### Entregue em 10/jul/2026 (sessão MacBook, brainstorm→spec→plan→subagentes)
 

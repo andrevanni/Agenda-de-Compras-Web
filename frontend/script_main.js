@@ -844,8 +844,11 @@ async function saveNewEvent() {
         });
         setFeedback("Evento atualizado com sucesso.", "success");
       } else {
-        // Massa: precisa do serie_id e (para "future") da data da ocorrência sendo editada
-        const occAtual = (state.agenda ?? []).find((o) => o.id === editId);
+        // Massa: precisa do serie_id e (para "future") da data da ocorrência sendo editada.
+        // Busca também nas concluídas — o modal abre para REALIZADAs (calendário
+        // e "Mostrar concluídos"), que vivem em auditOccurrences, não em agenda.
+        const occAtual = (state.agenda ?? []).find((o) => o.id === editId)
+          ?? (state.auditOccurrences ?? []).find((o) => o.id === editId);
         const serieId = occAtual?.serie_id;
         if (!serieId) {
           throw new Error("Esta ocorrência não pertence a uma série — só pode ser editada individualmente.");
@@ -937,7 +940,10 @@ async function deleteGenericEvent() {
   const titulo = document.getElementById("newEventTitulo").value.trim() || "este evento";
   const scope = getEditScope();
   const s = getSettings();
-  const occAtual = (state.agenda ?? []).find((o) => o.id === editId);
+  // Concluídas vivem em auditOccurrences — sem esse fallback, série de
+  // compromisso concluído caía para exclusão individual silenciosamente.
+  const occAtual = (state.agenda ?? []).find((o) => o.id === editId)
+    ?? (state.auditOccurrences ?? []).find((o) => o.id === editId);
 
   let mensagem;
   let idsParaRemover;
@@ -977,6 +983,7 @@ async function deleteGenericEvent() {
       headers: { Prefer: "return=minimal" },
     });
     state.agenda = state.agenda.filter((o) => !idsParaRemover.has(o.id));
+    state.auditOccurrences = (state.auditOccurrences ?? []).filter((o) => !idsParaRemover.has(o.id));
     closeModal("newEventModal");
     setFeedback(idsParaRemover.size > 1 ? `${idsParaRemover.size} ocorrência(s) excluída(s).` : "Evento excluído.", "success");
     refreshCalendar();

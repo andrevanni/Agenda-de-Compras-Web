@@ -72,6 +72,15 @@ function renderCompromissos() {
 }
 
 async function deleteCompromisso(id) {
+  const occ = state.agenda.find((o) => o.id === id)
+    ?? (state.auditOccurrences ?? []).find((o) => o.id === id);
+  // Ocorrência de série: abre o modal de edição, que oferece o escopo
+  // (Só esta / Esta e as próximas / Toda a série) antes de excluir —
+  // apagar só por id aqui deixaria o resto da série órfão sem perguntar.
+  if (occ?.serie_id) {
+    openGenericEventDetail(occ);
+    return;
+  }
   if (!confirm("Excluir este compromisso permanentemente?")) return;
   try {
     await fetchSupabase(
