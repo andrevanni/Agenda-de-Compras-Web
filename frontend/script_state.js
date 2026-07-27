@@ -72,6 +72,14 @@ function addDaysIso(isoDate, days) {
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
   {
+    versao: "v76",
+    dataHora: "27/07/2026 — tarde",
+    notas: [
+      "Ajuste visual na janela Editar Evento: as opções \"Só esta / Esta e as próximas / Toda a série\" e os nomes dos compradores apareciam empurrados para a borda direita ou cortados.",
+      "Agora cada texto fica ao lado da sua caixinha de seleção, como esperado.",
+    ],
+  },
+  {
     versao: "v75",
     dataHora: "27/07/2026 — tarde",
     notas: [

@@ -2,7 +2,7 @@
 
 Sistema web multi-tenant SaaS para gestão de agenda de compras de farmácias.
 
-> ⚠️ **LIGADO AO HUB CENTRAL (espelho + SSO, 2026-07-25):** o Painel Admin A3 lê este sistema a cada 15 min (`GET /api/v1/admin/espelho`) e o card do Hub loga direto no portal como comprador (callback `/sso/callback`, sessão com refresh que dura o dia). Compradores novos são espelhados sozinhos; quando aceitam o convite DA AGENDA, o Hub envia boas-vindas ("use a mesma senha") automaticamente. **A vigência que vale pro Hub é `clientes_licencas`** — cliente sem licença ativa fica com card fechado. **Antes de mexer no endpoint `/admin/espelho`, no `ADMIN_API_TOKEN`, no bloco de URL-params do `script_main.js` ou em `clientes_licencas`, leia `docs/integracao-hub-central.md`.** Alterou `script_*.js`? Bump do `sw.js` (cache v75 hoje).
+> ⚠️ **LIGADO AO HUB CENTRAL (espelho + SSO, 2026-07-25):** o Painel Admin A3 lê este sistema a cada 15 min (`GET /api/v1/admin/espelho`) e o card do Hub loga direto no portal como comprador (callback `/sso/callback`, sessão com refresh que dura o dia). Compradores novos são espelhados sozinhos; quando aceitam o convite DA AGENDA, o Hub envia boas-vindas ("use a mesma senha") automaticamente. **A vigência que vale pro Hub é `clientes_licencas`** — cliente sem licença ativa fica com card fechado. **Antes de mexer no endpoint `/admin/espelho`, no `ADMIN_API_TOKEN`, no bloco de URL-params do `script_main.js` ou em `clientes_licencas`, leia `docs/integracao-hub-central.md`.** Alterou `script_*.js`? Bump do `sw.js` (cache v76 hoje).
 
 ## Deploy
 
@@ -511,7 +511,7 @@ Confirmação (não-bloqueante) exibida quando o comprador trata uma agenda **mu
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v75` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
+- Cache cliente: `agenda-compras-v76` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
 - **Rodapé mostra a versão atual**: `footerVersionChip` (em [index.html](frontend/index.html)) recebe `VERSOES[0].versao` no `bootstrap` ([script_main.js](frontend/script_main.js)) — antes era fixo "v0.1.0". É o indicador para o usuário confirmar que está no mais novo. O **nº do SW (cache) pode ficar à frente** do nº do rodapé (changelog) quando há deploy só de infra/ajuda sem entrada nova em `VERSOES` — normal, o rodapé reflete o changelog.
 - Cache admin: `agenda-admin-v14` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - **Estratégia NETWORK-FIRST (desde v62 / jun/2026)**: o handler `fetch` tenta a rede primeiro e só cai no cache offline. Substituiu o `cache-first` antigo, que causava um estado "Frankenstein" — mistura de arquivos de versões diferentes presos no cache (ex.: `index.html` novo + `script_state.js` velho → menu aparece mas dados/Versões quebram). Não voltar para cache-first.
@@ -608,6 +608,7 @@ Relato: compradora excluiu uma ocorrência de compromisso recorrente e o sistema
 - **`deleteCompromisso` ciente de série** ([script_render.js](frontend/script_render.js)): com `serie_id`, abre o modal de edição com o radio de escopo em vez do confirm de item único.
 - **`occAtual` agora busca também `state.auditOccurrences`** ([script_main.js](frontend/script_main.js), edição em massa + exclusão): série de compromisso **concluído** caía silenciosamente para exclusão individual (minor do review de 21/jul, corrigido). A limpeza de estado pós-DELETE também filtra `auditOccurrences`.
 - Validado: `node --check` + smoke Playwright local (boot sem pageerror; roteamento série→modal, concluída→modal, avulsa→confirm).
+- **Layout do modal consertado (SW v75→v76, mesmo dia)**: a regra global `input, select, textarea { width: 100% }` do `styles.css` esticava **radio/checkbox** pela linha inteira dentro de label flex — os rótulos do escopo e os nomes do grid de compradores ficavam espremidos/cortados na borda direita (só era visível quando o radio de série aparecia, raro antes do backfill). Fix: `input[type="checkbox"], input[type="radio"] { width: auto }` logo após a regra global. Reproduzido e validado via Playwright (radio 386px→13px, screenshots antes/depois). Os `.checkbox-grid` já tinham esse override — por isso os outros grids nunca quebraram.
 
 ### Entregue em 21/jul/2026 — caso Conviva Viana ("some a agenda e aparece outra")
 

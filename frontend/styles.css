@@ -700,6 +700,14 @@ textarea {
   color: var(--text);
 }
 
+/* O width:100% acima é para campos de texto/select. Em radio/checkbox dentro
+   de label flex, ele estica o controle pela linha inteira e espreme o rótulo
+   na borda oposta (modal Editar Evento: escopo da série e grid de compradores). */
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: #6d819c;
