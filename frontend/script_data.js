@@ -534,7 +534,7 @@ function bindStaticEvents() {
   // completa o ano parcial durante a digitação (ex.: "2" vira 2022) e a prévia
   // piscava "Nenhuma data no período" a cada tecla. O seletor de calendário
   // dispara "change" via dispatchEvent, e digitar + sair do campo também —
-  // a prévia continua atualizando nos dois caminhos, só não tecla a tecla.
+  // a prévia continua atualizando nos dois caminhos, só não a cada tecla.
   document.getElementById("newEventData")?.addEventListener("change", updateNewEventPreview);
   document.getElementById("newEventRecorrenciaFim")?.addEventListener("change", updateNewEventPreview);
   document.getElementById("newEventDiasSemana")?.addEventListener("change", updateNewEventPreview);
