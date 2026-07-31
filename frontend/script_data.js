@@ -523,10 +523,19 @@ function bindStaticEvents() {
   document.getElementById("saveNewEventButton")?.addEventListener("click", saveNewEvent);
   document.getElementById("deleteNewEventButton")?.addEventListener("click", deleteGenericEvent);
   document.getElementById("newEventRecorrencia")?.addEventListener("change", () => {
-    const wrap = document.getElementById("newEventRecorrenciaFimWrap");
     const val = document.getElementById("newEventRecorrencia").value;
-    wrap.classList.toggle("hidden", !val);
+    document.getElementById("newEventRecorrenciaFimWrap").classList.toggle("hidden", !val);
+    document.getElementById("newEventDiasSemanaWrap").classList.toggle("hidden", val !== "diaria");
+    updateNewEventPreview();
   });
+  // Prévia acompanha tudo que muda o conjunto de datas. O listener no container
+  // pega os 7 checkboxes por bubbling (eles são recriados a cada abertura).
+  document.getElementById("newEventData")?.addEventListener("input", updateNewEventPreview);
+  document.getElementById("newEventData")?.addEventListener("change", updateNewEventPreview);
+  document.getElementById("newEventRecorrenciaFim")?.addEventListener("input", updateNewEventPreview);
+  document.getElementById("newEventRecorrenciaFim")?.addEventListener("change", updateNewEventPreview);
+  document.getElementById("newEventDiasSemana")?.addEventListener("change", updateNewEventPreview);
+  document.getElementById("newEventPularFeriados")?.addEventListener("change", updateNewEventPreview);
   document.getElementById("newEventHoraInicio")?.addEventListener("change", () => {
     const inicio = document.getElementById("newEventHoraInicio").value;
     if (!inicio) return;

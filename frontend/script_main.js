@@ -666,6 +666,49 @@ function getNewEventDiasSemana() {
   return [...document.querySelectorAll('input[name="newEventDiaSemana"]:checked')].map((cb) => cb.value);
 }
 
+// Mostra, antes de salvar, quantas ocorrências a série vai criar e o período
+// coberto. Importante porque a 1ª data pode não ser a digitada (base em dia
+// desmarcado avança para o próximo dia marcado) e porque o volume de uma
+// rotina diária de 1 ano não é óbvio.
+function updateNewEventPreview() {
+  const el = document.getElementById("newEventRecorrenciaPreview");
+  if (!el) return;
+  el.classList.remove("alerta");
+  const tipo = document.getElementById("newEventRecorrencia").value;
+  if (tipo !== "diaria") {
+    el.textContent = "";
+    return;
+  }
+  const data = brToIso(document.getElementById("newEventData").value);
+  const fim = brToIso(document.getElementById("newEventRecorrenciaFim").value);
+  const dias = getNewEventDiasSemana();
+  const pular = document.getElementById("newEventPularFeriados").checked;
+  if (!data) {
+    el.textContent = "";
+    return;
+  }
+  if (!dias.length) {
+    el.textContent = "Marque ao menos um dia da semana.";
+    el.classList.add("alerta");
+    return;
+  }
+  const dates = buildDiariaDates(data, fim, dias, pular);
+  if (!dates.length) {
+    el.textContent = "Nenhuma data no período — ajuste os dias da semana ou a data de fim.";
+    el.classList.add("alerta");
+    return;
+  }
+  let extra = "";
+  if (pular) {
+    const semPular = buildDiariaDates(data, fim, dias, false);
+    const pulados = semPular.length - dates.length;
+    // Com o teto de 500 batido, a diferença deixa de ser confiável.
+    if (pulados > 0 && semPular.length < 500) extra = ` · ${pulados} feriado(s) pulado(s)`;
+  }
+  const limite = dates.length >= 500 ? " (limite máximo)" : "";
+  el.textContent = `📅 ${dates.length} data(s)${limite} · ${formatDate(dates[0])} → ${formatDate(dates[dates.length - 1])}${extra}`;
+}
+
 function openNewEventModal(dateStr = "") {
   populateNewEventSelects();
   document.getElementById("newEventEditId").value = "";
@@ -687,6 +730,7 @@ function openNewEventModal(dateStr = "") {
   document.getElementById("newEventDiasSemanaWrap").classList.add("hidden");
   document.getElementById("newEventPularFeriados").checked = false;
   renderNewEventDiasSemana();
+  updateNewEventPreview();
   clearFeedback(document.getElementById("newEventConflictWarning"));
   clearFeedback(document.getElementById("newEventFeriadoWarning"));
   setupDatePickerField("newEventData", "newEventDataNative", "newEventDataPickerButton");
