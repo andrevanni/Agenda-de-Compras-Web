@@ -649,6 +649,23 @@ function getNewEventCompradores() {
   return [...document.querySelectorAll('input[name="ev_comprador"]:checked')].map((cb) => cb.value);
 }
 
+const DIAS_SEMANA_LABEL_CURTO = { SEGUNDA: "Seg", TERCA: "Ter", QUARTA: "Qua", QUINTA: "Qui", SEXTA: "Sex", SABADO: "Sáb", DOMINGO: "Dom" };
+const DIAS_SEMANA_PADRAO_DIARIA = ["SEGUNDA", "TERCA", "QUARTA", "QUINTA", "SEXTA"];
+
+// Espelha renderSupplierDayCheckboxes (script_utils.js) — mesma convenção de
+// value; o rótulo é abreviado porque são 7 controles numa linha só.
+function renderNewEventDiasSemana(selected = DIAS_SEMANA_PADRAO_DIARIA) {
+  const wrap = document.getElementById("newEventDiasSemana");
+  if (!wrap) return;
+  wrap.innerHTML = DIAS_SEMANA.map((dia) => `
+    <label><input type="checkbox" name="newEventDiaSemana" value="${dia}" ${selected.includes(dia) ? "checked" : ""}> ${DIAS_SEMANA_LABEL_CURTO[dia]}</label>
+  `).join("");
+}
+
+function getNewEventDiasSemana() {
+  return [...document.querySelectorAll('input[name="newEventDiaSemana"]:checked')].map((cb) => cb.value);
+}
+
 function openNewEventModal(dateStr = "") {
   populateNewEventSelects();
   document.getElementById("newEventEditId").value = "";
@@ -667,6 +684,9 @@ function openNewEventModal(dateStr = "") {
   document.getElementById("newEventObservacao").value = "";
   document.getElementById("newEventNota").value = "";
   document.getElementById("newEventRecorrenciaFimWrap").classList.add("hidden");
+  document.getElementById("newEventDiasSemanaWrap").classList.add("hidden");
+  document.getElementById("newEventPularFeriados").checked = false;
+  renderNewEventDiasSemana();
   clearFeedback(document.getElementById("newEventConflictWarning"));
   clearFeedback(document.getElementById("newEventFeriadoWarning"));
   setupDatePickerField("newEventData", "newEventDataNative", "newEventDataPickerButton");
@@ -703,6 +723,7 @@ function openGenericEventDetail(occ) {
   document.getElementById("deleteNewEventButton").classList.remove("hidden");
   document.getElementById("newEventRecorrenciaWrap").classList.add("hidden");
   document.getElementById("newEventRecorrenciaFimWrap").classList.add("hidden");
+  document.getElementById("newEventDiasSemanaWrap").classList.add("hidden");
   document.getElementById("newEventTitulo").value = occ.titulo ?? "";
   document.getElementById("newEventData").value = isoToBr(occ.data_prevista);
   const _horaInicioEdit = occ.hora_inicio ?? "08:00";
@@ -1090,6 +1111,7 @@ async function bootstrap() {
   const _vchip = document.getElementById("footerVersionChip");
   if (_vchip && typeof VERSOES !== "undefined" && VERSOES[0]) _vchip.textContent = "Versão " + VERSOES[0].versao;
   renderSupplierDayCheckboxes([]);
+  renderNewEventDiasSemana();
   populateSettings();
   bindStaticEvents();
   resetBuyerForm();

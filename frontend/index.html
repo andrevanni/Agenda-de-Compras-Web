@@ -1549,6 +1549,12 @@
               <option value="mensal">Mensal</option>
             </select>
           </label>
+          <div id="newEventDiasSemanaWrap" class="hidden" style="grid-column:1/-1">
+            <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Dias da semana</span>
+            <div id="newEventDiasSemana" class="weekday-grid"></div>
+            <label class="weekday-extra"><input type="checkbox" id="newEventPularFeriados"> Pular feriados nacionais</label>
+            <div id="newEventRecorrenciaPreview" class="weekday-preview"></div>
+          </div>
           <label id="newEventRecorrenciaFimWrap" class="hidden" style="grid-column:1/-1">Data de fim da recorr&ecirc;ncia<br>
             <div class="date-input-group">
               <input id="newEventRecorrenciaFim" type="text" inputmode="numeric" placeholder="DD/MM/AAAA (opcional)">

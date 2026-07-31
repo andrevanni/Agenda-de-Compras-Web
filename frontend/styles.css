@@ -739,6 +739,45 @@ textarea::placeholder {
   width: auto;
 }
 
+/* Dias da semana da recorrência diária. Não reusa .checkbox-grid porque
+   aquela é grid de 2 colunas — aqui os 7 dias fluem em linha. O width:auto
+   é obrigatório: a regra global input{width:100%} estica o checkbox. */
+.weekday-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 6px;
+}
+
+.weekday-grid label,
+.weekday-extra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.weekday-grid input,
+.weekday-extra input {
+  width: auto;
+}
+
+.weekday-extra {
+  margin-top: 8px;
+}
+
+.weekday-preview {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  min-height: 16px;
+}
+
+.weekday-preview.alerta {
+  color: #ef4444;
+}
+
 .photo-preview-card {
   display: grid;
   gap: 8px;
