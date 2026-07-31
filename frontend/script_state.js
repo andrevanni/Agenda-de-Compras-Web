@@ -72,6 +72,18 @@ function addDaysIso(isoDate, days) {
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
   {
+    versao: "v77",
+    dataHora: "31/07/2026 — tarde",
+    notas: [
+      "Ao criar um evento com repetição diária, agora dá para escolher em quais dias da semana ele acontece.",
+      "Por padrão vêm marcados de segunda a sexta — sábados e domingos deixam de ser criados automaticamente. Quem trabalha no fim de semana é só marcar os dias.",
+      "Dá para montar qualquer combinação: só segunda, quarta e sexta; de segunda a quinta; o que for a rotina.",
+      "Uma opção adicional permite pular os feriados nacionais ao criar a série.",
+      "Antes de salvar, a janela mostra quantas datas serão criadas e o período que elas cobrem.",
+      "Vale para eventos criados de agora em diante; as repetições já existentes continuam como estão.",
+    ],
+  },
+  {
     versao: "v76",
     dataHora: "27/07/2026 — tarde",
     notas: [
