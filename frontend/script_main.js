@@ -880,6 +880,8 @@ async function saveNewEvent() {
   const compradores  = getNewEventCompradores();
   const recorrencia  = editId ? "" : document.getElementById("newEventRecorrencia").value;
   const recFim       = brToIso(document.getElementById("newEventRecorrenciaFim").value);
+  const diasSemana    = editId ? [] : getNewEventDiasSemana();
+  const pularFeriados = !editId && document.getElementById("newEventPularFeriados").checked;
   const observacao   = document.getElementById("newEventObservacao").value.trim() || null;
   const nota         = document.getElementById("newEventNota").value.trim() || null;
   const s            = getSettings();
@@ -891,16 +893,39 @@ async function saveNewEvent() {
     return;
   }
 
+  if (recorrencia === "diaria" && diasSemana.length === 0) {
+    setFeedback("Marque ao menos um dia da semana para a recorrência diária.", "error", feedbackEl);
+    feedbackEl.classList.remove("hidden");
+    return;
+  }
+
+  // Datas calculadas ANTES dos avisos: com dias da semana marcados, a 1ª
+  // ocorrência pode não ser a data digitada (sábado com Seg–Sex vira segunda),
+  // e tanto o aviso de feriado quanto a checagem de conflito precisam olhar a
+  // data que realmente será criada.
+  const dates = recorrencia === "diaria"
+    ? buildDiariaDates(data, recFim, diasSemana, pularFeriados)
+    : recorrencia
+      ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)]
+      : [data];
+
+  if (!dates.length) {
+    setFeedback("Nenhuma data foi gerada com esses dias da semana. Ajuste os dias ou a data de fim.", "error", feedbackEl);
+    feedbackEl.classList.remove("hidden");
+    return;
+  }
+  const primeiraData = dates[0];
+
   const feriadoWarningEl = document.getElementById("newEventFeriadoWarning");
-  const feriadoNoDia = getFeriado(data);
+  const feriadoNoDia = getFeriado(primeiraData);
   if (feriadoNoDia) {
-    setFeedback(`⚠️ ${formatDate(data)} é feriado: "${feriadoNoDia.nome}". Revise a data antes de salvar.`, "warning", feriadoWarningEl);
+    setFeedback(`⚠️ ${formatDate(primeiraData)} é feriado: "${feriadoNoDia.nome}". Revise a data antes de salvar.`, "warning", feriadoWarningEl);
     feriadoWarningEl.classList.remove("hidden");
   } else {
     feriadoWarningEl.classList.add("hidden");
   }
 
-  const hasConflict = await checkEventConflict(s.tenantId, data, horaInicio, horaFim, editId || null);
+  const hasConflict = await checkEventConflict(s.tenantId, primeiraData, horaInicio, horaFim, editId || null);
   if (hasConflict) {
     setFeedback("Atenção: existe outro evento no mesmo horário nesta data.", "warning", feedbackEl);
     feedbackEl.classList.remove("hidden");
@@ -970,7 +995,6 @@ async function saveNewEvent() {
       }
     } else {
       // — CRIAÇÃO: POST (multi-comprador × recorrência) —
-      const dates = recorrencia ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)] : [data];
       const buyerIds = compradores.length > 0 ? compradores : [null];
       const total = dates.length * buyerIds.length;
       // serie_id agrupa todas as ocorrências criadas neste "Novo Evento" para
@@ -988,7 +1012,15 @@ async function saveNewEvent() {
         observacao,
         nota,
         status: "PENDENTE",
-        recorrencia: recorrencia ? JSON.stringify({ tipo: recorrencia, fim: recFim || null }) : null,
+        recorrencia: recorrencia
+          ? JSON.stringify({
+              tipo: recorrencia,
+              fim: recFim || null,
+              // Nada lê esses campos de volta hoje; ficam registrados para uma
+              // futura edição de dias da série.
+              ...(recorrencia === "diaria" ? { dias: diasSemana, pular_feriados: pularFeriados } : {}),
+            })
+          : null,
         serie_id: serieId,
       };
       // Nota é post-it: grava apenas na 1ª ocorrência (1ª data × 1º comprador);
