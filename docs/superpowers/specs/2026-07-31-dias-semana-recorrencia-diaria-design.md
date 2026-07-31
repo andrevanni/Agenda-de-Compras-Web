@@ -54,12 +54,13 @@ Dias da semana
 [✓ Seg] [✓ Ter] [✓ Qua] [✓ Qui] [✓ Sex] [ Sáb] [ Dom]
 [ ] Pular feriados nacionais
 
-📅 261 datas · 04/08/2026 → 31/07/2027
+📅 262 datas · 03/08/2026 → 03/08/2027
 ```
 
 - `id="newEventDiasSemanaWrap"`, escondido por padrão (`class="hidden"`).
-- 7 checkboxes `name="newEventDiaSemana"` com `value` = índice `Date.getDay()` (`0`=Dom … `6`=Sáb). Marcados por padrão: 1–5.
-- Rótulos abreviados por extenso ("Seg", "Ter", …). **Não** usar letra solta — "S/T/Q/Q/S/S/D" é ambíguo em português.
+- 7 checkboxes `name="newEventDiaSemana"` com `value` = nome do dia em `DIAS_SEMANA` (`"SEGUNDA"` … `"DOMINGO"`, [script_state.js:1](../../../frontend/script_state.js#L1)) — **a convenção que o sistema já usa** nos dias de compra do fornecedor. Marcados por padrão: SEGUNDA a SEXTA.
+- Markup espelha `renderSupplierDayCheckboxes` ([script_utils.js:618](../../../frontend/script_utils.js#L618)), que já popula o mesmo tipo de grid.
+- Rótulos abreviados por extenso ("Seg", "Ter", …) — a apresentação difere do `value`, que fica no padrão do sistema. **Não** usar letra solta: "S/T/Q/Q/S/S/D" é ambíguo em português.
 - Checkbox `id="newEventPularFeriados"`, desmarcado.
 - Linha de prévia `id="newEventRecorrenciaPreview"`.
 - Layout: **não** reusar `.checkbox-grid` como está — ela é `repeat(2, 1fr)` ([styles.css:724](../../../frontend/styles.css#L724)) e os 7 dias precisam fluir em linha. Usar classe própria (`.weekday-grid`) com `display:flex; flex-wrap:wrap` e, obrigatoriamente, `input { width: auto }` — o mesmo override da `.checkbox-grid`. ⚠️ A regra global `input, select, textarea { width: 100% }` do `styles.css` estica checkbox dentro de label flex; foi o bug corrigido na v76 e o `input[type="checkbox"] { width:auto }` global já adicionado lá cobre este caso, mas a classe deve declarar mesmo assim para não depender de ordem de cascata.
@@ -75,8 +76,8 @@ Dias da semana
 Recalculada em `input`/`change` de: data, tipo de recorrência, dias da semana, pular feriados, data de fim. Formato:
 
 ```
-261 datas · 04/08/2026 → 31/07/2027
-261 datas · 04/08/2026 → 31/07/2027 · 9 feriados pulados
+📅 262 data(s) · 03/08/2026 → 03/08/2027
+📅 253 data(s) · 03/08/2026 → 03/08/2027 · 9 feriado(s) pulado(s)
 ```
 
 Casos especiais:
@@ -93,11 +94,14 @@ A prévia conta **datas**, não ocorrências — a multiplicação por comprador
 
 `buildRecorrenciaDates(baseDate, tipo, fimStr, opts)` ganha um quarto parâmetro opcional `{ dias: number[], pularFeriados: boolean }`, usado apenas quando `tipo === "diaria"`.
 
-Comportamento para `diaria` com `dias` informado:
+Comportamento para `diaria` com `dias` informado — **reusando `nextCalendarDate(baseDate, selectedDays, includeBase)`** ([script_utils.js:478](../../../frontend/script_utils.js#L478)), a mesma função que calcula o próximo dia permitido nos dias de compra do fornecedor:
 
-1. Varre dia a dia a partir de `baseDate` **inclusive**, até `fimStr` (ou `baseDate + 365 dias`).
-2. Inclui a data se `getDay()` estiver em `dias` e — quando `pularFeriados` — `isFeriado(data)` for falso ([script_main.js:349](../../../frontend/script_main.js#L349)).
-3. Para em 500 datas (guarda existente, agora reportada na prévia).
+1. Primeira data: `nextCalendarDate(baseDate, dias, true)` — inclui a base se ela cair em dia marcado, senão avança para o próximo marcado (é exatamente a decisão 3).
+2. Datas seguintes: `nextCalendarDate(anterior, dias, false)` em laço, até passar de `fimStr` (ou `baseDate + 365 dias`).
+3. Quando `pularFeriados`, a data é descartada se `isFeriado(data)` ([script_main.js:349](../../../frontend/script_main.js#L349)) — o laço apenas não a inclui e segue para a próxima.
+4. Para em 500 datas (guarda existente, agora reportada na prévia).
+
+⚠️ `nextCalendarDate` usa `new Date(\`${base}T12:00:00\`)` + `toISOString()`; o meio-dia local protege contra deslocamento de fuso em UTC-3. Não trocar por `T00:00:00`.
 
 Os demais tipos (`semanal`, `quinzenal`, `mensal`) e a diária sem filtro mantêm exatamente a lógica de passo fixo atual.
 
@@ -116,7 +120,7 @@ Para a diária com dias marcados, a lista passa a vir inteira da função (a dat
 A coluna `agenda_ocorrencias.recorrencia` é `JSONB` ([schema_v5:36](../../../backend/db/schema_v5_categorias_calendario.sql#L36)) — adicionar chaves é livre, **sem migration**:
 
 ```json
-{ "tipo": "diaria", "fim": null, "dias": [1,2,3,4,5], "pular_feriados": false }
+{ "tipo": "diaria", "fim": null, "dias": ["SEGUNDA","TERCA","QUARTA","QUINTA","SEXTA"], "pular_feriados": false }
 ```
 
 Nada lê esse campo de volta hoje; é registro do que foi pedido. É também o que torna viável, no futuro, as opções B/C deixadas fora de escopo — sem ele não há como saber quais dias a série "deveria" ter.
@@ -129,7 +133,7 @@ Para recorrências não-diárias, o JSON continua com `{tipo, fim}` apenas.
 |---|---|
 | Nenhum dia marcado, tipo `diaria` | Bloqueia ao salvar, mensagem no feedback do modal. **Não** desabilitar o botão — erro explicado é melhor que botão morto. |
 | Aviso de feriado na data escolhida | Passa a avaliar a **primeira data realmente gerada**, não a digitada — senão avisa sobre um feriado que nem será criado. |
-| Conflito de horário | Continua checando só a data base, como hoje. Não checar as 261 datas (261 requisições dentro do modal). |
+| Conflito de horário | Continua sendo **uma** checagem só, mas sobre a **primeira data gerada** em vez da digitada — é ela que será criada. Não checar as 262 datas (262 requisições dentro do modal). |
 | Filtro zera todas as datas (ex.: janela de 2 dias no fim de semana) | Prévia mostra `0 datas`; salvar bloqueia com mensagem. |
 
 ### 6. Impacto no código
@@ -143,7 +147,7 @@ Para recorrências não-diárias, o JSON continua com `{tipo, fim}` apenas.
 | [frontend/script_state.js](../../../frontend/script_state.js) + [backend/app/data/versoes.py](../../../backend/app/data/versoes.py) | Entrada `v77` em `VERSOES` (dois arquivos sincronizados), sem citar cliente ou pessoa |
 | [frontend/index.html](../../../frontend/index.html) (Ajuda) | Linha sobre dias da semana na seção de Compromissos |
 
-Efeito colateral positivo: a criação faz um POST por ocorrência, em série. Seg–sex corta ~28% das requisições de uma rotina diária de 1 ano (366 → 261).
+Efeito colateral positivo: a criação faz um POST por ocorrência, em série. Seg–sex corta ~28% das requisições de uma rotina diária de 1 ano (366 → 262).
 
 ## Plano de validação
 
