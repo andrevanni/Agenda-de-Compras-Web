@@ -726,6 +726,8 @@ function openNewEventModal(dateStr = "") {
   document.getElementById("newEventRecorrencia").value = "";
   document.getElementById("newEventObservacao").value = "";
   document.getElementById("newEventNota").value = "";
+  document.getElementById("newEventRecorrenciaFim").value = "";
+  document.getElementById("newEventRecorrenciaFimNative").value = "";
   document.getElementById("newEventRecorrenciaFimWrap").classList.add("hidden");
   document.getElementById("newEventDiasSemanaWrap").classList.add("hidden");
   document.getElementById("newEventPularFeriados").checked = false;
@@ -865,7 +867,9 @@ function buildDiariaDates(baseDate, fimStr, dias, pularFeriados = false) {
   let current = nextCalendarDate(baseDate, validos, true);
   while (current <= limit && dates.length < 500) {
     if (!(pularFeriados && isFeriado(current))) dates.push(current);
-    current = nextCalendarDate(current, validos, false);
+    const prox = nextCalendarDate(current, validos, false);
+    if (prox <= current) break;   // laço não progrediu (fuso ≥ UTC+13): aborta em vez de repetir a mesma data
+    current = prox;
   }
   return dates;
 }
@@ -886,6 +890,7 @@ async function saveNewEvent() {
   const nota         = document.getElementById("newEventNota").value.trim() || null;
   const s            = getSettings();
   const feedbackEl   = document.getElementById("newEventConflictWarning");
+  const feriadoWarningEl = document.getElementById("newEventFeriadoWarning");
 
   if (!titulo || !data) {
     setFeedback("Informe o título e a data do evento.", "error", feedbackEl);
@@ -894,6 +899,7 @@ async function saveNewEvent() {
   }
 
   if (recorrencia === "diaria" && diasSemana.length === 0) {
+    feriadoWarningEl.classList.add("hidden");
     setFeedback("Marque ao menos um dia da semana para a recorrência diária.", "error", feedbackEl);
     feedbackEl.classList.remove("hidden");
     return;
@@ -910,13 +916,13 @@ async function saveNewEvent() {
       : [data];
 
   if (!dates.length) {
+    feriadoWarningEl.classList.add("hidden");
     setFeedback("Nenhuma data foi gerada com esses dias da semana. Ajuste os dias ou a data de fim.", "error", feedbackEl);
     feedbackEl.classList.remove("hidden");
     return;
   }
   const primeiraData = dates[0];
 
-  const feriadoWarningEl = document.getElementById("newEventFeriadoWarning");
   const feriadoNoDia = getFeriado(primeiraData);
   if (feriadoNoDia) {
     setFeedback(`⚠️ ${formatDate(primeiraData)} é feriado: "${feriadoNoDia.nome}". Revise a data antes de salvar.`, "warning", feriadoWarningEl);
@@ -1005,7 +1011,6 @@ async function saveNewEvent() {
       const base = {
         tenant_id: s.tenantId,
         titulo,
-        data_prevista: data,
         hora_inicio: horaInicio,
         hora_fim: horaFim,
         categoria_id: categoriaId,

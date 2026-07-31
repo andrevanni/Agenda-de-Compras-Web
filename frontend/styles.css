@@ -767,7 +767,7 @@ textarea::placeholder {
   margin-top: 8px;
 }
 
-.weekday-preview {
+.modal-card .weekday-preview {
   margin-top: 8px;
   font-size: 12px;
   color: var(--muted);

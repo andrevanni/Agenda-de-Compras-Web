@@ -530,9 +530,12 @@ function bindStaticEvents() {
   });
   // Prévia acompanha tudo que muda o conjunto de datas. O listener no container
   // pega os 7 checkboxes por bubbling (eles são recriados a cada abertura).
-  document.getElementById("newEventData")?.addEventListener("input", updateNewEventPreview);
+  // Só "change" (não "input") em newEventData/newEventRecorrenciaFim: brToIso
+  // completa o ano parcial durante a digitação (ex.: "2" vira 2022) e a prévia
+  // piscava "Nenhuma data no período" a cada tecla. O seletor de calendário
+  // dispara "change" via dispatchEvent, e digitar + sair do campo também —
+  // a prévia continua atualizando nos dois caminhos, só não tecla a tecla.
   document.getElementById("newEventData")?.addEventListener("change", updateNewEventPreview);
-  document.getElementById("newEventRecorrenciaFim")?.addEventListener("input", updateNewEventPreview);
   document.getElementById("newEventRecorrenciaFim")?.addEventListener("change", updateNewEventPreview);
   document.getElementById("newEventDiasSemana")?.addEventListener("change", updateNewEventPreview);
   document.getElementById("newEventPularFeriados")?.addEventListener("change", updateNewEventPreview);
