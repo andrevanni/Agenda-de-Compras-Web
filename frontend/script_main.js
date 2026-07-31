@@ -782,6 +782,29 @@ function buildRecorrenciaDates(baseDate, tipo, fimStr) {
   return dates;
 }
 
+// Recorrência diária restrita a dias da semana. Foi solicitado por compradores:
+// a diária gerava sábado e domingo (ocorrência que ninguém trata vira pendência
+// eterna nos "Itens em Atraso") e não havia como pedir "diária menos sexta".
+// Reusa nextCalendarDate — o mesmo helper dos dias de compra do fornecedor.
+// ATENÇÃO: diferente de buildRecorrenciaDates, esta função JÁ INCLUI a data base
+// na varredura. Se a base cair em dia desmarcado (ex.: sábado com Seg–Sex), a
+// série começa no próximo dia marcado em vez de nascer num dia desmarcado.
+function buildDiariaDates(baseDate, fimStr, dias, pularFeriados = false) {
+  if (!baseDate || !Array.isArray(dias)) return [];
+  // Filtrar nomes inválidos é obrigatório: nextCalendarDate entra em laço
+  // infinito se nenhum dia da semana for reconhecido.
+  const validos = dias.filter((dia) => DIAS_SEMANA.includes(dia));
+  if (!validos.length) return [];
+  const limit = fimStr ? fimStr : addDaysLocalIso(baseDate, 365);
+  const dates = [];
+  let current = nextCalendarDate(baseDate, validos, true);
+  while (current <= limit && dates.length < 500) {
+    if (!(pularFeriados && isFeriado(current))) dates.push(current);
+    current = nextCalendarDate(current, validos, false);
+  }
+  return dates;
+}
+
 async function saveNewEvent() {
   const editId       = document.getElementById("newEventEditId").value.trim();
   const titulo       = document.getElementById("newEventTitulo").value.trim();
