@@ -617,6 +617,8 @@ Spec e plano em [docs/superpowers/specs/2026-08-06-nota-fixa-fornecedor-design.m
 
 **Fora de escopo (decidido):** os cards de agendas já tratadas que se acumulam no Painel sem prazo de validade — o tenant citado tem 44. Depois que as regras virarem nota fixa, boa parte perde a razão de existir. Se continuar incomodando, é a segunda leva natural.
 
+**PDF-guia para a compradora** (comunicação, não versionado): `~/Downloads/Agenda_Compras_Nota_Fixa_Fornecedor_Guia.pdf`, gerado com ReportLab a partir de screenshots reais da interface — pode ser regenerado por `gerar_pdf_guia.py`. Cobre o que foi reportado, o diagnóstico em linguagem de operação, o passo a passo de criar a nota fixa e o de aproveitar as notas antigas com um clique.
+
 ### Entregue em 31/jul/2026 — dias da semana na recorrência diária (SW v76→v77)
 
 Sugestão de compradora: a recorrência **Diária** gerava ocorrência todo dia corrido, "inclusive sábados e domingos", e não havia como pedir "diária menos sexta". O problema não era só visual — ocorrência de fim de semana que ninguém executa fica `PENDENTE` para sempre, entra em "Itens em Atraso" nos relatórios diário e semanal (~104 pendências fantasma por rotina anual) e derruba a taxa de conclusão da aba Outras Atividades. O filtro `agenda_calendar_weekdays` das Configurações **não resolve** — só esconde colunas do calendário; a ocorrência continua existindo em Compromissos, nos relatórios e nos KPIs.
