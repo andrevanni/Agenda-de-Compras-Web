@@ -753,13 +753,26 @@ async function saveAgendaSupplierNote() {
   if (!supplierId) return;
   const texto = document.getElementById("agendaSupplierNoteInput").value.trim();
   const btn = document.getElementById("agendaSupplierNoteSaveButton");
+  const cancelBtn = document.getElementById("agendaSupplierNoteCancelButton");
   const rotulo = btn?.textContent;
+  // Cancelar também fica desabilitado durante o salvamento — sem isso o
+  // usuário clica Cancelar achando que descartou, o editor fecha, e o PATCH
+  // em voo grava o texto por baixo dele mesmo assim.
   if (btn) { btn.disabled = true; btn.textContent = "Salvando..."; }
+  if (cancelBtn) { cancelBtn.disabled = true; }
   try {
     // persistSupplierNote cobre a coluna real e o fallback legado, e já
     // atualiza state.suppliers em memória. Não chamar loadPortalData aqui —
     // recarga completa da agenda por causa de um campo de texto.
     await persistSupplierNote(supplierId, texto);
+    // persistSupplierNote pode falhar sem lançar (ex.: coluna real falha e o
+    // fallback em `clientes` faz `return` cedo quando não há
+    // state.clientRecordId) — ela só atualiza state.suppliers quando grava
+    // de fato, então comparar o texto persistido é o sinal confiável de
+    // sucesso. Sem isso a tela mostrava "salva" sem ter salvo nada.
+    if (getSupplierNote(supplierId).trim() !== texto) {
+      throw new Error("a nota não foi confirmada pelo servidor.");
+    }
     closeAgendaSupplierNoteEditor();
     renderSuppliers();
     setFeedback(
@@ -768,9 +781,12 @@ async function saveAgendaSupplierNote() {
       agendaDetailFeedback,
     );
   } catch (err) {
+    // Não fecha o editor: o texto digitado continua no textarea para o
+    // usuário não perder o que escreveu e poder tentar salvar de novo.
     setFeedback(`Não foi possível salvar a nota fixa: ${err.message}`, "error", agendaDetailFeedback);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = rotulo ?? "Salvar nota fixa"; }
+    if (cancelBtn) { cancelBtn.disabled = false; }
   }
 }
 
