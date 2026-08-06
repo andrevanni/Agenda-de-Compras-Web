@@ -455,6 +455,9 @@ function bindStaticEvents() {
     openSupplierNotes(row.supplier.id);
   });
   document.getElementById("saveSupplierNotesButton").addEventListener("click", saveSupplierNotesDraft);
+  document.getElementById("agendaSupplierNoteEditButton")?.addEventListener("click", openAgendaSupplierNoteEditor);
+  document.getElementById("agendaSupplierNoteCancelButton")?.addEventListener("click", closeAgendaSupplierNoteEditor);
+  document.getElementById("agendaSupplierNoteSaveButton")?.addEventListener("click", saveAgendaSupplierNote);
   document.getElementById("buyerLoginButton").addEventListener("click", loginBuyer);
   document.getElementById("buyerLoginEmail").addEventListener("input", updatePortalLoginHint);
   document.getElementById("auditPasswordForm").addEventListener("submit", (event) => {

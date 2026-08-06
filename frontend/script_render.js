@@ -721,6 +721,59 @@ function renderAgendaSupplierNoteSuggestion(supplierId, notaFixa) {
   box.classList.remove("hidden");
 }
 
+function agendaSupplierIdAtual() {
+  return occurrenceRows().find((item) => item.id === state.selectedOccurrenceId)?.supplier?.id ?? "";
+}
+
+function openAgendaSupplierNoteEditor() {
+  const supplierId = agendaSupplierIdAtual();
+  if (!supplierId) {
+    setFeedback("Fornecedor da agenda não localizado.", "error", agendaDetailFeedback);
+    return;
+  }
+  document.getElementById("agendaSupplierNoteInput").value = getSupplierNote(supplierId);
+  document.getElementById("agendaSupplierNotesPreview").classList.add("hidden");
+  document.getElementById("agendaSupplierNoteEditButton").classList.add("hidden");
+  document.getElementById("agendaSupplierNoteSuggestion").classList.add("hidden");
+  document.getElementById("agendaSupplierNoteEditor").classList.remove("hidden");
+  document.getElementById("agendaSupplierNoteInput").focus();
+}
+
+function closeAgendaSupplierNoteEditor() {
+  document.getElementById("agendaSupplierNoteEditor").classList.add("hidden");
+  document.getElementById("agendaSupplierNotesPreview").classList.remove("hidden");
+  document.getElementById("agendaSupplierNoteEditButton").classList.remove("hidden");
+  // refresh re-avalia a sugestão: se o usuário acabou de salvar uma nota fixa,
+  // ela deixa de aparecer.
+  refreshAgendaSupplierNotesState(agendaSupplierIdAtual());
+}
+
+async function saveAgendaSupplierNote() {
+  const supplierId = agendaSupplierIdAtual();
+  if (!supplierId) return;
+  const texto = document.getElementById("agendaSupplierNoteInput").value.trim();
+  const btn = document.getElementById("agendaSupplierNoteSaveButton");
+  const rotulo = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = "Salvando..."; }
+  try {
+    // persistSupplierNote cobre a coluna real e o fallback legado, e já
+    // atualiza state.suppliers em memória. Não chamar loadPortalData aqui —
+    // recarga completa da agenda por causa de um campo de texto.
+    await persistSupplierNote(supplierId, texto);
+    closeAgendaSupplierNoteEditor();
+    renderSuppliers();
+    setFeedback(
+      texto ? "Nota fixa do fornecedor salva." : "Nota fixa removida.",
+      "success",
+      agendaDetailFeedback,
+    );
+  } catch (err) {
+    setFeedback(`Não foi possível salvar a nota fixa: ${err.message}`, "error", agendaDetailFeedback);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = rotulo ?? "Salvar nota fixa"; }
+  }
+}
+
 function updateAgendaAdjustment() {
   const row = occurrenceRows().find((item) => item.id === state.selectedOccurrenceId);
   if (!row) return;
