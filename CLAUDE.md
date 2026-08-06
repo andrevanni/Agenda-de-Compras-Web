@@ -398,7 +398,7 @@ Duas fontes de post-it coexistem, agrupadas por comprador:
 
 Painel filtra pelo `activeBuyerId` (ambas as fontes). Renderização única em [`renderPainel`](frontend/script_main.js) — primeiro lista as notas-de-ocorrência do grupo, depois as livres. `state.notasLivres` carregado em `loadPortalData`.
 
-⚠️ Não confundir com a **Nota do Fornecedor** (`fornecedores.notas_relacionamento`, schema_v4) — permanente, 1 por fornecedor, **não aparece no Painel**. Desde a v78 ela é exibida em destaque na faixa `agendaSupplierNoteBand` no topo do modal de tratar agenda, com edição inline (`openAgendaSupplierNoteEditor` / `saveAgendaSupplierNote` em [script_render.js](frontend/script_render.js)) — antes era só o botão "Notas" no canto e o texto nunca aparecia. Também editável pela tela de Fornecedores via `supplierNotesModal`.
+⚠️ Não confundir com a **Nota do Fornecedor** (`fornecedores.notas_relacionamento`, criada já no [schema_v1](backend/db/schema_v1.sql) — o `schema_v4` é um `add column if not exists` redundante que nunca chegou a adicionar nada) — permanente, 1 por fornecedor, **não aparece no Painel**. Desde a v78 ela é exibida em destaque na faixa `agendaSupplierNoteBand` no topo do modal de tratar agenda, com edição inline (`openAgendaSupplierNoteEditor` / `saveAgendaSupplierNote` em [script_render.js](frontend/script_render.js)) — antes era só o botão "Notas" no canto e o texto nunca aparecia. Também editável pela tela de Fornecedores via `supplierNotesModal`.
 
 **Promoção de lembrete → nota fixa (v78)**: `fixarNotaNoFornecedor(texto, {limparLembrete})` em [script_render.js](frontend/script_render.js) transforma o lembrete do ciclo em nota permanente. Usa `mesclarNotaFixa` ([script_utils.js](frontend/script_utils.js)), que **acrescenta em bloco novo e nunca substitui** — promover por engano não pode destruir a regra existente. Pelo botão ao lado do lembrete, limpa a `nota` da ocorrência depois (senão o texto fica em dois lugares e o card duplica no Painel); pelo botão da sugestão, **não** toca a ocorrência histórica. `ultimaNotaDoFornecedor()` alimenta a sugestão e só aparece quando ainda não há nota fixa.
 
@@ -555,7 +555,7 @@ Confirmação (não-bloqueante) exibida quando o comprador trata uma agenda **mu
 | `schema_v1.sql` | Tabelas base: tenants, compradores, fornecedores, agenda_ocorrencias |
 | `schema_v2_supabase_admin.sql` | Integração Supabase Auth, policies RLS |
 | `schema_v3_clientes_validade.sql` | Tabelas clientes, clientes_licencas |
-| `schema_v4_fornecedor_notas.sql` | Campo notas no fornecedor |
+| `schema_v4_fornecedor_notas.sql` | ⚠️ **No-op**: `add column if not exists notas_relacionamento` — a coluna já existia no `schema_v1` (linha 30). Não é a origem da Nota do Fornecedor |
 | `schema_v5_categorias_calendario.sql` | categorias_agenda, campos de calendário em ocorrências |
 | `schema_v5_fix_rls_categorias.sql` | Fix de policies RLS em categorias |
 | `schema_v6_notas_painel.sql` | Campo `nota` em agenda_ocorrencias (post-it) |
