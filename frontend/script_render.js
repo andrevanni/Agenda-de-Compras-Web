@@ -755,6 +755,15 @@ async function saveAgendaSupplierNote() {
   const btn = document.getElementById("agendaSupplierNoteSaveButton");
   const cancelBtn = document.getElementById("agendaSupplierNoteCancelButton");
   const rotulo = btn?.textContent;
+  // Guarda de geração (mesmo padrão de _cargaGeracao em script_data.js): o
+  // modal agendaDetailModal tem saídas que não passam por esta função (X do
+  // canto, "Cancelar" do detalhe, "✕ Fechar" do rodapé, ESC nativo do
+  // <dialog> — todas roteadas por [data-close-modal] em script_data.js).
+  // Se o usuário salvar, fechar por uma dessas saídas e abrir OUTRA
+  // ocorrência antes deste PATCH resolver, o callback tardio não pode mexer
+  // na tela da ocorrência nova — capturamos aqui qual ocorrência estava
+  // selecionada quando o Salvar foi clicado para comparar depois do await.
+  const occIdNoInicio = state.selectedOccurrenceId;
   // Cancelar também fica desabilitado durante o salvamento — sem isso o
   // usuário clica Cancelar achando que descartou, o editor fecha, e o PATCH
   // em voo grava o texto por baixo dele mesmo assim.
@@ -770,8 +779,28 @@ async function saveAgendaSupplierNote() {
     // state.clientRecordId) — ela só atualiza state.suppliers quando grava
     // de fato, então comparar o texto persistido é o sinal confiável de
     // sucesso. Sem isso a tela mostrava "salva" sem ter salvo nada.
-    if (getSupplierNote(supplierId).trim() !== texto) {
+    // NÃO usar getSupplierNote() aqui: ela trata notas_relacionamento=""
+    // como falsy e cai para o mapa legado (clientMeta.supplier_notes), que
+    // persistSupplierNote nunca limpa nos caminhos de sucesso — um
+    // fornecedor com resíduo legado (de uma época em que o PATCH real
+    // falhou uma vez) faria essa checagem ler o resíduo stale e lançar erro
+    // falso pra sempre, mesmo com a remoção da nota gravada corretamente.
+    // Ler o campo direto que os dois caminhos de sucesso de
+    // persistSupplierNote de fato atualizam evita essa armadilha.
+    const supplierAtualizado = state.suppliers.find((item) => item.id === supplierId);
+    const notaPersistida = String(supplierAtualizado?.notas_relacionamento ?? "").trim();
+    if (notaPersistida !== texto) {
       throw new Error("a nota não foi confirmada pelo servidor.");
+    }
+    if (state.selectedOccurrenceId !== occIdNoInicio) {
+      // O modal já foi fechado e reaberto em outra ocorrência enquanto este
+      // PATCH estava em voo. A gravação é válida e permanece — só não
+      // podemos fechar o editor, re-renderizar a faixa (via
+      // closeAgendaSupplierNoteEditor) nem mostrar feedback de sucesso
+      // aqui: isso rodaria contra a ocorrência nova, potencialmente
+      // fechando um rascunho que o usuário esteja digitando nela e
+      // colando "salvo" no fornecedor errado.
+      return;
     }
     closeAgendaSupplierNoteEditor();
     renderSuppliers();
@@ -781,10 +810,15 @@ async function saveAgendaSupplierNote() {
       agendaDetailFeedback,
     );
   } catch (err) {
+    if (state.selectedOccurrenceId !== occIdNoInicio) return;
     // Não fecha o editor: o texto digitado continua no textarea para o
     // usuário não perder o que escreveu e poder tentar salvar de novo.
     setFeedback(`Não foi possível salvar a nota fixa: ${err.message}`, "error", agendaDetailFeedback);
   } finally {
+    // Sempre reabilita, mesmo se o contexto mudou — os botões são elementos
+    // fixos do modal, reusados pela ocorrência que estiver aberta agora, e
+    // não podem ficar presos em disabled esperando por um Salvar que já
+    // terminou em outra tela.
     if (btn) { btn.disabled = false; btn.textContent = rotulo ?? "Salvar nota fixa"; }
     if (cancelBtn) { cancelBtn.disabled = false; }
   }
