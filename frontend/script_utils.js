@@ -227,6 +227,37 @@ function getSupplierNote(supplierId) {
   return String(getSupplierNotesMap()[supplierId] ?? "");
 }
 
+// Junta a nota fixa atual do fornecedor com um texto promovido do lembrete do
+// ciclo. ACRESCENTA em bloco novo em vez de substituir — promover por engano
+// não pode destruir a regra que já estava lá. Bloco idêntico não duplica.
+function mesclarNotaFixa(notaAtual, novoTexto) {
+  const atual = String(notaAtual ?? "").trim();
+  const novo = String(novoTexto ?? "").trim();
+  if (!novo) return atual;
+  if (!atual) return novo;
+  const jaTem = atual
+    .split(/\n{2,}/)
+    .some((bloco) => bloco.trim().toLowerCase() === novo.toLowerCase());
+  return jaTem ? atual : `${atual}\n\n${novo}`;
+}
+
+// Última nota escrita em alguma ocorrência deste fornecedor, para oferecer
+// "fixar" sem o usuário redigitar o que já escreveu. state.auditOccurrences é
+// carregado inteiro e paginado na leva 1 (script_data.js), então o histórico
+// relevante está sempre completo — a invariante de carga parcial de
+// state.agenda não prejudica: notas antigas moram em ocorrências REALIZADAs.
+function ultimaNotaDoFornecedor(fornecedorId, excluirOccId = "") {
+  if (!fornecedorId) return null;
+  const candidata = [...state.agenda, ...state.auditOccurrences]
+    .filter((occ) => occ.fornecedor_id === fornecedorId
+      && occ.id !== excluirOccId
+      && String(occ.nota ?? "").trim())
+    .sort((a, b) => String(b.data_prevista ?? "").localeCompare(String(a.data_prevista ?? "")))[0];
+  return candidata
+    ? { nota: String(candidata.nota).trim(), data: candidata.data_prevista }
+    : null;
+}
+
 function parseOccurrenceObservacao(value) {
   if (!value) return null;
   if (typeof value !== "string") return null;
