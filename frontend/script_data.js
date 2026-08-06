@@ -458,6 +458,10 @@ function bindStaticEvents() {
   document.getElementById("agendaSupplierNoteEditButton")?.addEventListener("click", openAgendaSupplierNoteEditor);
   document.getElementById("agendaSupplierNoteCancelButton")?.addEventListener("click", closeAgendaSupplierNoteEditor);
   document.getElementById("agendaSupplierNoteSaveButton")?.addEventListener("click", saveAgendaSupplierNote);
+  document.getElementById("fixarNotaFornecedorButton")?.addEventListener("click", () => {
+    fixarNotaNoFornecedor(document.getElementById("agendaNota").value);
+  });
+  document.getElementById("agendaNota")?.addEventListener("input", updateFixarNotaButtonState);
   document.getElementById("buyerLoginButton").addEventListener("click", loginBuyer);
   document.getElementById("buyerLoginEmail").addEventListener("input", updatePortalLoginHint);
   document.getElementById("auditPasswordForm").addEventListener("submit", (event) => {

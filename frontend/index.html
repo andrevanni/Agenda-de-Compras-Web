@@ -1084,10 +1084,12 @@
                 <textarea id="agendaObservacao" rows="2" placeholder="Tratado pela tela"></textarea>
               </label>
               <label class="detail-observation-field">
-                Nota (fixada no Painel)<br>
-                <textarea id="agendaNota" rows="2" placeholder="Registre algo importante sobre este compromisso..."></textarea>
-                <div style="display:flex;justify-content:flex-end;margin-top:4px;">
-                  <button id="saveAgendaNotaButton" class="btn btn-outline btn-sm" type="button" title="Salvar somente a nota, sem tratar a agenda">&#128190; Salvar nota</button>
+                Lembrete s&oacute; deste pedido<br>
+                <span class="muted" style="font-size:12px">Aparece no Painel de Notas e <strong>n&atilde;o</strong> passa para os pr&oacute;ximos pedidos.</span>
+                <textarea id="agendaNota" rows="2" placeholder="Recado pontual deste pedido..."></textarea>
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
+                  <button id="fixarNotaFornecedorButton" class="btn btn-outline btn-sm" type="button" title="Transformar este lembrete em nota fixa do fornecedor">&#128204; Fixar neste fornecedor</button>
+                  <button id="saveAgendaNotaButton" class="btn btn-outline btn-sm" type="button" title="Salvar somente o lembrete, sem tratar a agenda">&#128190; Salvar lembrete</button>
                 </div>
               </label>
 
@@ -1591,7 +1593,8 @@
           <label style="grid-column:1/-1">Observa&ccedil;&atilde;o<br>
             <textarea id="newEventObservacao" rows="2" placeholder="Detalhes adicionais..."></textarea>
           </label>
-          <label style="grid-column:1/-1">Nota (fixada no Painel)<br>
+          <label style="grid-column:1/-1">Lembrete s&oacute; deste compromisso<br>
+            <span class="muted" style="font-size:12px">Aparece no Painel de Notas e n&atilde;o se repete nas pr&oacute;ximas datas da s&eacute;rie.</span>
             <textarea id="newEventNota" rows="2" placeholder="Registre algo importante sobre este compromisso..."></textarea>
           </label>
           <div id="newEventEditScopeWrap" class="hidden" style="grid-column:1/-1;padding:12px 14px;background:var(--panel-soft);border:1px solid var(--line);border-radius:8px;">

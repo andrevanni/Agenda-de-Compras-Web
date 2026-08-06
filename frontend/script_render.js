@@ -483,6 +483,7 @@ function openAgendaDetail(occurrenceId) {
   document.getElementById("proximaDataInput").value = isoToBr(suggestedDate);
   document.getElementById("agendaObservacao").value = "Tratado pela tela";
   document.getElementById("agendaNota").value = row.nota ?? "";
+  updateFixarNotaButtonState();
   const incrementoBaseFiltrado = Math.max(0, incrementoTratamentoBase);
   document.getElementById("incrementoTratamento").textContent = formatIncrement(incrementoTratamentoBase);
   document.getElementById("incrementoAjusteProxima").textContent = "+0 dia(s)";
@@ -717,8 +718,17 @@ function renderAgendaSupplierNoteSuggestion(supplierId, notaFixa) {
   box.innerHTML = `
     <span>&Uacute;ltima nota registrada neste fornecedor em ${formatDate(sugestao.data)}:</span>
     <span class="supplier-note-band-suggestion-text">${escapeHtml(sugestao.nota)}</span>
+    <div>
+      <button id="agendaSupplierNoteSuggestionButton" class="btn btn-outline btn-sm" type="button">
+        &#128204; Fixar como nota deste fornecedor
+      </button>
+    </div>
   `;
   box.classList.remove("hidden");
+  // Listener no elemento recém-criado: o innerHTML acima descarta o anterior,
+  // então não há acúmulo de handlers.
+  document.getElementById("agendaSupplierNoteSuggestionButton")
+    .addEventListener("click", () => fixarNotaNoFornecedor(sugestao.nota, { limparLembrete: false }));
 }
 
 function agendaSupplierIdAtual() {
@@ -822,6 +832,101 @@ async function saveAgendaSupplierNote() {
     if (btn) { btn.disabled = false; btn.textContent = rotulo ?? "Salvar nota fixa"; }
     if (cancelBtn) { cancelBtn.disabled = false; }
   }
+}
+
+// Promove um texto para nota FIXA do fornecedor. Usado em dois lugares: o
+// botão ao lado do lembrete do ciclo (limpa o lembrete depois, senão o mesmo
+// texto fica em dois lugares na tela e o card duplicado continua no Painel) e
+// o botão da sugestão de nota antiga (limparLembrete: false — a ocorrência
+// antiga é histórico de um pedido que já aconteceu e não se mexe nela).
+async function fixarNotaNoFornecedor(texto, { limparLembrete = true } = {}) {
+  const row = occurrenceRows().find((item) => item.id === state.selectedOccurrenceId);
+  const supplierId = row?.supplier?.id;
+  const novo = String(texto ?? "").trim();
+  if (!supplierId || !novo) return;
+
+  const resultado = mesclarNotaFixa(getSupplierNote(supplierId), novo);
+  const confirmou = window.confirm(
+    `Fixar este texto como nota permanente de ${row.nome_fornecedor}?\n\n` +
+    `"${novo}"\n\n` +
+    "Ele vai aparecer toda vez que esta agenda for aberta, em todos os próximos pedidos."
+  );
+  if (!confirmou) return;
+
+  // Guarda de geração (mesmo padrão do Achado A em saveAgendaSupplierNote /
+  // _cargaGeracao em script_data.js): entre o clique e o PATCH resolver, o
+  // usuário pode fechar este modal e abrir OUTRA ocorrência — possivelmente
+  // de outro fornecedor. As duas gravações abaixo (nota fixa + limpeza do
+  // lembrete desta ocorrência específica, por id) continuam valendo mesmo
+  // assim, mas nada que toque o DOM compartilhado do modal (faixa, textarea,
+  // feedback) pode rodar contra o contexto errado — colaria "fixado com
+  // sucesso" no fornecedor que o usuário está olhando agora, não no que foi
+  // de fato alterado.
+  const occIdNoInicio = state.selectedOccurrenceId;
+  const rowId = row.id;
+
+  const btn = document.getElementById("fixarNotaFornecedorButton");
+  if (btn) btn.disabled = true;
+  try {
+    await persistSupplierNote(supplierId, resultado);
+
+    // persistSupplierNote pode falhar em silêncio (mesmo Achado B de
+    // saveAgendaSupplierNote): o PATCH na coluna real falha e o fallback em
+    // `clientes` faz `return` cedo quando não há state.clientRecordId — sem
+    // lançar erro. Confirmar lendo o campo real que os dois caminhos de
+    // sucesso de fato atualizam. NÃO usar getSupplierNote() aqui: ela trata
+    // notas_relacionamento="" como falsy e cai para o mapa legado
+    // (clientMeta.supplier_notes), que persistSupplierNote nunca limpa nos
+    // caminhos de sucesso — mascararia uma falha de gravação.
+    const supplierAtualizado = state.suppliers.find((item) => item.id === supplierId);
+    const notaPersistida = String(supplierAtualizado?.notas_relacionamento ?? "").trim();
+    if (notaPersistida !== resultado) {
+      throw new Error("a nota fixa não foi confirmada pelo servidor.");
+    }
+
+    if (limparLembrete) {
+      const s = getSettings();
+      await fetchSupabase(
+        `/rest/v1/agenda_ocorrencias?id=eq.${rowId}&tenant_id=eq.${s.tenantId}`,
+        { method: "PATCH", headers: { Prefer: "return=minimal" }, body: { nota: null } },
+      );
+      const occ = state.agenda.find((o) => o.id === rowId)
+        ?? state.auditOccurrences.find((o) => o.id === rowId);
+      if (occ) occ.nota = null;
+      renderPainel();
+    }
+
+    if (state.selectedOccurrenceId !== occIdNoInicio) {
+      // Modal já mostra outra ocorrência — as duas gravações acima já valem
+      // (foram feitas por id, não pelo estado atual da tela), mas a faixa, o
+      // textarea do lembrete e o feedback pertencem à ocorrência nova agora
+      // aberta. Não fechar/limpar nada aqui.
+      return;
+    }
+
+    if (limparLembrete) {
+      const textarea = document.getElementById("agendaNota");
+      if (textarea) textarea.value = "";
+    }
+    refreshAgendaSupplierNotesState(supplierId);
+    renderSuppliers();
+    setFeedback(
+      "Nota fixada no fornecedor. Ela vai aparecer em todos os próximos pedidos.",
+      "success",
+      agendaDetailFeedback,
+    );
+  } catch (err) {
+    if (state.selectedOccurrenceId !== occIdNoInicio) return;
+    setFeedback(`Não foi possível fixar a nota: ${err.message}`, "error", agendaDetailFeedback);
+  } finally {
+    updateFixarNotaButtonState();
+  }
+}
+
+function updateFixarNotaButtonState() {
+  const btn = document.getElementById("fixarNotaFornecedorButton");
+  const textarea = document.getElementById("agendaNota");
+  if (btn && textarea) btn.disabled = !textarea.value.trim();
 }
 
 function updateAgendaAdjustment() {
