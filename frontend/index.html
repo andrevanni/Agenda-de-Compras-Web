@@ -560,6 +560,13 @@
                   <p>Cada fornecedor pertence a um <strong>comprador</strong> (a carteira). Como a tela abre filtrada pelo comprador ativo, um fornecedor salvo <strong>sem comprador</strong> n&atilde;o aparece nessa lista &mdash; parece que &ldquo;sumiu&rdquo;. Ele continua cadastrado: para encontr&aacute;-lo, clique em <strong>Mostrar todos</strong>, abra-o em <strong>Editar</strong> e selecione o comprador.</p>
                   <p>Como o c&oacute;digo do fornecedor &eacute; &uacute;nico, tentar <strong>recriar</strong> um fornecedor que ficou sem comprador resulta no aviso <em>&ldquo;j&aacute; existe cadastrado&rdquo;</em> &mdash; n&atilde;o crie de novo, apenas reatribua o comprador ao registro existente.</p>
                   <p>Ao editar para <strong>mesclar</strong> dois fornecedores num cadastro &uacute;nico, confira se o <strong>Comprador</strong> continua preenchido antes de salvar. Se voc&ecirc; salvar um fornecedor que tinha comprador deixando o campo vazio, o sistema agora <strong>pede confirma&ccedil;&atilde;o</strong> para evitar que ele saia da carteira sem querer.</p>
+                  <h4>&#128204; Nota fixa do fornecedor</h4>
+                  <p>Cada fornecedor pode ter uma <strong>nota permanente</strong> &mdash; a regra que vale <em>toda vez</em> que voc&ecirc; comprar dele ("incluir no pedido da perfumaria", "gerar na ter&ccedil;a para faturar na quarta"). Ela <strong>continua l&aacute; depois</strong> que a agenda &eacute; tratada e reaparece em todos os pr&oacute;ximos pedidos.</p>
+                  <p>Onde criar ou editar:</p>
+                  <ul>
+                    <li>Na tela <strong>Fornecedores</strong>, bot&atilde;o <strong>Notas</strong> na linha do fornecedor</li>
+                    <li>Ou direto na janela de <strong>tratar a agenda</strong>: a faixa <strong>&#128204; Nota fixa deste fornecedor</strong> fica no topo, com o bot&atilde;o <strong>Editar</strong> (ou <strong>Adicionar</strong>, se ainda n&atilde;o houver nota)</li>
+                  </ul>
                 </div>
               </details>
 
@@ -593,7 +600,8 @@
                     <li>Clique em <strong>Ver Detalhe</strong> para abrir a ficha do fornecedor</li>
                     <li>Revise a <strong>Pr&oacute;xima Data Sugerida</strong> — calculada automaticamente com base na frequ&ecirc;ncia e nos dias permitidos</li>
                     <li>Ajuste a data se necess&aacute;rio (o sistema avisa se cair fora dos dias configurados)</li>
-                    <li>Preencha a <strong>Observa&ccedil;&atilde;o</strong> e, opcionalmente, uma <strong>Nota</strong> (post-it que vai para o Painel de Notas)</li>
+                    <li>Confira a <strong>&#128204; Nota fixa deste fornecedor</strong> no topo da janela &mdash; &eacute; a regra permanente que vale para todo pedido dele</li>
+                    <li>Preencha a <strong>Observa&ccedil;&atilde;o</strong> e, se precisar, um <strong>Lembrete s&oacute; deste pedido</strong> (vai para o Painel de Notas e n&atilde;o se repete no pr&oacute;ximo)</li>
                     <li>Se quiser justificar algum desvio, clique em <strong>Sim</strong> ao lado de "Deseja justificar?" e escreva o motivo</li>
                     <li>Clique em <strong>Tratar Agenda</strong> &mdash; uma <strong>janela nova</strong> vai abrir perguntando "&#128230; Deu pedido?"</li>
                     <li>Responda na janela (veja detalhes abaixo) e clique em <strong>&#10004; Confirmar e Tratar Agenda</strong></li>
@@ -707,13 +715,14 @@
                 <div class="ajuda-corpo">
                   <p>O <strong>Painel de Notas</strong> re&uacute;ne todos os post-its do comprador ativo em um s&oacute; lugar, agrupados por respons&aacute;vel. Existem <strong>duas formas</strong> de criar uma nota:</p>
 
-                  <h4>1. Nota vinculada a um compromisso (de ocorr&ecirc;ncia)</h4>
-                  <p>&Eacute; uma nota grudada num evento espec&iacute;fico do calend&aacute;rio. Some quando o compromisso &eacute; conclu&iacute;do ou exclu&iacute;do. Aparece no painel com o <strong>nome do fornecedor (ou t&iacute;tulo do evento) + data + hor&aacute;rio</strong>.</p>
+                  <h4>1. Lembrete de um pedido (nota de ocorr&ecirc;ncia)</h4>
+                  <p>&Eacute; um recado grudado num evento espec&iacute;fico do calend&aacute;rio, para aquela data. Aparece no painel com o <strong>nome do fornecedor (ou t&iacute;tulo do evento) + data + hor&aacute;rio</strong>. <strong>N&atilde;o</strong> passa para os pr&oacute;ximos pedidos &mdash; para uma regra que vale sempre, use a nota fixa do fornecedor (abaixo).</p>
                   <p>Como criar:</p>
                   <ul>
-                    <li><strong>Modal de detalhe da Agenda de Compras</strong>: preencha o campo <em>Nota</em> e clique em <strong>💾 Salvar nota</strong> (logo abaixo do textarea). N&atilde;o precisa tratar a agenda &mdash; pode s&oacute; deixar a nota e fechar.</li>
-                    <li>Tamb&eacute;m grava ao clicar em <strong>Tratar Agenda</strong> ou ao salvar um <strong>Novo Evento</strong> com o campo Nota preenchido.</li>
+                    <li><strong>Janela de detalhe da Agenda de Compras</strong>: preencha o campo <em>Lembrete s&oacute; deste pedido</em> e clique em <strong>&#128190; Salvar lembrete</strong>. N&atilde;o precisa tratar a agenda &mdash; pode s&oacute; deixar o lembrete e fechar.</li>
+                    <li>Tamb&eacute;m grava ao clicar em <strong>Tratar Agenda</strong> ou ao salvar um <strong>Novo Evento</strong> com o campo preenchido.</li>
                   </ul>
+                  <p>Se voc&ecirc; escreveu ali uma regra que na verdade vale <strong>sempre</strong>, clique em <strong>&#128204; Fixar neste fornecedor</strong> ao lado do campo: o texto vira nota permanente do fornecedor e o lembrete &eacute; limpo. Quando o fornecedor ainda n&atilde;o tem nota fixa, a janela mostra a <strong>&Uacute;ltima nota registrada</strong> nele e oferece fix&aacute;-la com um clique &mdash; sem redigitar.</p>
 
                   <h4>2. Post-it livre (direto no painel)</h4>
                   <p>&Eacute; uma nota autônoma, sem v&iacute;nculo com nenhum compromisso. Persiste at&eacute; voc&ecirc; excluir. Aparece com o &iacute;cone <strong>📌 Post-it</strong> + data de cria&ccedil;&atilde;o. &Uacute;til para recados soltos do dia ("ligar pro EMS sexta", "fornecedor X aumentou pre&ccedil;o").</p>
@@ -734,7 +743,7 @@
                   <h4>Excluir qualquer nota</h4>
                   <p>Clique no <strong>✕</strong> no canto do post-it. Para nota de ocorr&ecirc;ncia, o compromisso continua existindo (s&oacute; a nota some). Para post-it livre, o item &eacute; exclu&iacute;do.</p>
 
-                  <p class="ajuda-dica">💡 <strong>Aten&ccedil;&atilde;o &agrave;s 3 notas diferentes</strong>: (1) <em>nota do compromisso</em> &mdash; fica grudada na agenda e some quando ela &eacute; conclu&iacute;da; (2) <em>post-it livre</em> &mdash; aut&ocirc;nomo, persiste at&eacute; excluir; (3) <em>nota do fornecedor</em> &mdash; permanente, fica no cadastro do fornecedor e n&atilde;o aparece no Painel de Notas.</p>
+                  <p class="ajuda-dica">💡 <strong>Aten&ccedil;&atilde;o &agrave;s 3 notas diferentes</strong>: (1) <em>lembrete do pedido</em> &mdash; vale s&oacute; para aquela data e some do painel quando o compromisso &eacute; conclu&iacute;do; (2) <em>post-it livre</em> &mdash; aut&ocirc;nomo, persiste at&eacute; excluir; (3) <em>&#128204; nota fixa do fornecedor</em> &mdash; permanente, <strong>aparece em destaque na hora de tratar a agenda</strong> e continua l&aacute; depois do pedido, valendo para todos os pr&oacute;ximos. Ela n&atilde;o aparece no Painel de Notas &mdash; o lugar dela &eacute; a janela do fornecedor.</p>
                 </div>
               </details>
 
