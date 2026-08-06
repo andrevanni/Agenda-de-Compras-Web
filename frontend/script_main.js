@@ -314,7 +314,7 @@ async function saveAgendaNota() {
     const occ = state.agenda.find((o) => o.id === occId) ?? state.auditOccurrences.find((o) => o.id === occId);
     if (occ) occ.nota = novaNota;
     renderPainel();
-    setFeedback(novaNota ? "Nota salva e fixada no Painel." : "Nota removida.", "success", agendaDetailFeedback);
+    setFeedback(novaNota ? "Lembrete salvo no Painel de Notas." : "Lembrete removido.", "success", agendaDetailFeedback);
   } catch (err) {
     setFeedback(`Não foi possível salvar a nota: ${err.message}`, "error", agendaDetailFeedback);
   } finally {
