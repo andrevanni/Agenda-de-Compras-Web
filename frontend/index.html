@@ -725,7 +725,7 @@
                   <p>Se voc&ecirc; escreveu ali uma regra que na verdade vale <strong>sempre</strong>, clique em <strong>&#128204; Fixar neste fornecedor</strong> ao lado do campo: o texto vira nota permanente do fornecedor e o lembrete &eacute; limpo. <strong>Se o fornecedor j&aacute; tiver uma nota fixa</strong>, o texto novo &eacute; <strong>acrescentado ao final</strong>, em um bloco separado &mdash; nada do que j&aacute; estava escrito &eacute; apagado ou substitu&iacute;do. Quando o fornecedor ainda n&atilde;o tem nota fixa, a janela mostra a <strong>&Uacute;ltima nota registrada</strong> nele e oferece fix&aacute;-la com um clique &mdash; sem redigitar.</p>
 
                   <h4>2. Post-it livre (direto no painel)</h4>
-                  <p>&Eacute; uma nota autônoma, sem v&iacute;nculo com nenhum compromisso. Persiste at&eacute; voc&ecirc; excluir. Aparece com o &iacute;cone <strong>📌 Post-it</strong> + data de cria&ccedil;&atilde;o. &Uacute;til para recados soltos do dia ("ligar pro EMS sexta", "fornecedor X aumentou pre&ccedil;o").</p>
+                  <p>&Eacute; uma nota autônoma, sem v&iacute;nculo com nenhum compromisso. Persiste at&eacute; voc&ecirc; excluir. Aparece com o &iacute;cone <strong>📌 Post-it</strong> + data de cria&ccedil;&atilde;o. &Uacute;til para recados soltos do dia ("ligar para o fornecedor na sexta", "fornecedor X aumentou pre&ccedil;o").</p>
                   <p>Como criar:</p>
                   <ul>
                     <li>Clique em <strong>+ Nova nota</strong> no canto direito do header do Painel</li>
@@ -1036,6 +1036,7 @@
         <button class="close-button" type="button" data-close-modal="agendaDetailModal" aria-label="Fechar detalhe da agenda">
           <span class="close-glyph">&#10005;</span>
         </button>
+        <div class="detail-scroll-body">
         <div class="section-title">
           <div>
             <h2>Detalhe da Agenda</h2>
@@ -1119,20 +1120,26 @@
                 <strong>Novo Par&acirc;metro de Compras</strong>
                 <span id="novoParametro" class="kpi-emphasis">0</span>
               </div>
-              <div class="detail-button-row">
-                <button id="openAgendaSupplierNotesButton" class="postit-button detail-note-action" type="button">Notas</button>
-                <button id="tratarAgendaButton" class="btn btn-table detail-primary-action" type="button">Tratar Agenda</button>
-                <button class="btn btn-outline btn-sm detail-secondary-action" type="button" data-close-modal="agendaDetailModal">Cancelar</button>
-              </div>
             </aside>
           </div>
         </div>
 
         <div id="agendaDetailFeriadoWarning" class="msg hidden"></div>
         <div id="agendaDetailFeedback" class="msg hidden"></div>
+        </div>
 
-        <div class="detail-bottom-actions">
-          <button type="button" class="btn btn-outline" data-close-modal="agendaDetailModal">&#10005; Fechar</button>
+        <!-- Barra de ação fixa (não rola com o resto do modal): o botão "Tratar
+             Agenda" precisa estar sempre visível sem rolagem (review final v78).
+             O conteúdo acima (.detail-scroll-body) rola atrás dela. -->
+        <div class="detail-sticky-footer">
+          <div class="detail-button-row">
+            <button id="openAgendaSupplierNotesButton" class="postit-button detail-note-action" type="button">Notas</button>
+            <button id="tratarAgendaButton" class="btn btn-table detail-primary-action" type="button">Tratar Agenda</button>
+            <button class="btn btn-outline btn-sm detail-secondary-action" type="button" data-close-modal="agendaDetailModal">Cancelar</button>
+          </div>
+          <div class="detail-bottom-actions">
+            <button type="button" class="btn btn-outline" data-close-modal="agendaDetailModal">&#10005; Fechar</button>
+          </div>
         </div>
       </form>
     </dialog>

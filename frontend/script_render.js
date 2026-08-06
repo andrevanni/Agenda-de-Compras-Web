@@ -728,7 +728,10 @@ function renderAgendaSupplierNoteSuggestion(supplierId, notaFixa) {
   // Listener no elemento recém-criado: o innerHTML acima descarta o anterior,
   // então não há acúmulo de handlers.
   document.getElementById("agendaSupplierNoteSuggestionButton")
-    .addEventListener("click", () => fixarNotaNoFornecedor(sugestao.nota, { limparLembrete: false }));
+    .addEventListener("click", () => fixarNotaNoFornecedor(sugestao.nota, {
+      limparLembrete: false,
+      sourceButtonId: "agendaSupplierNoteSuggestionButton",
+    }));
 }
 
 function agendaSupplierIdAtual() {
@@ -747,6 +750,17 @@ function openAgendaSupplierNoteEditor() {
   document.getElementById("agendaSupplierNoteSuggestion").classList.add("hidden");
   document.getElementById("agendaSupplierNoteEditor").classList.remove("hidden");
   document.getElementById("agendaSupplierNoteInput").focus();
+  // O botão "Fixar neste fornecedor" (ao lado do lembrete) grava direto em
+  // cima da nota persistida no servidor, sem passar por aqui. Com o editor
+  // aberto e um rascunho não salvo no textarea, clicar nele mesclava a nota
+  // ANTIGA (do servidor) + o lembrete, e o rascunho — que sobrevivia aberto —
+  // sobrescrevia esse resultado ao ser salvo em seguida, apagando o lembrete
+  // em silêncio. Desabilitar aqui obriga o usuário a salvar ou cancelar o
+  // rascunho antes de fixar, o que elimina a corrida. O botão da sugestão não
+  // precisa do mesmo tratamento: fica dentro de agendaSupplierNoteSuggestion,
+  // que já é escondido (display:none) duas linhas acima.
+  const fixarBtn = document.getElementById("fixarNotaFornecedorButton");
+  if (fixarBtn) fixarBtn.disabled = true;
 }
 
 function closeAgendaSupplierNoteEditor() {
@@ -756,6 +770,10 @@ function closeAgendaSupplierNoteEditor() {
   // refresh re-avalia a sugestão: se o usuário acabou de salvar uma nota fixa,
   // ela deixa de aparecer.
   refreshAgendaSupplierNotesState(agendaSupplierIdAtual());
+  // Reabilita "Fixar neste fornecedor" (ver comentário em
+  // openAgendaSupplierNoteEditor) de acordo com o estado atual do lembrete —
+  // mesma regra usada em todo lugar que mexe no textarea #agendaNota.
+  updateFixarNotaButtonState();
 }
 
 async function saveAgendaSupplierNote() {
@@ -800,7 +818,12 @@ async function saveAgendaSupplierNote() {
     const supplierAtualizado = state.suppliers.find((item) => item.id === supplierId);
     const notaPersistida = String(supplierAtualizado?.notas_relacionamento ?? "").trim();
     if (notaPersistida !== texto) {
-      throw new Error("a nota não foi confirmada pelo servidor.");
+      // Esta checagem compara contra state.suppliers (que a própria
+      // persistSupplierNote escreveu), não uma resposta do servidor — o que
+      // ela detecta é a ausência do sinal esperado de sucesso, não uma
+      // confirmação positiva do backend. Mensagem descreve isso, não promete
+      // mais do que foi checado.
+      throw new Error("não foi possível confirmar a gravação da nota.");
     }
     if (state.selectedOccurrenceId !== occIdNoInicio) {
       // O modal já foi fechado e reaberto em outra ocorrência enquanto este
@@ -839,7 +862,7 @@ async function saveAgendaSupplierNote() {
 // texto fica em dois lugares na tela e o card duplicado continua no Painel) e
 // o botão da sugestão de nota antiga (limparLembrete: false — a ocorrência
 // antiga é histórico de um pedido que já aconteceu e não se mexe nela).
-async function fixarNotaNoFornecedor(texto, { limparLembrete = true } = {}) {
+async function fixarNotaNoFornecedor(texto, { limparLembrete = true, sourceButtonId = "fixarNotaFornecedorButton" } = {}) {
   const row = occurrenceRows().find((item) => item.id === state.selectedOccurrenceId);
   const supplierId = row?.supplier?.id;
   const novo = String(texto ?? "").trim();
@@ -865,7 +888,13 @@ async function fixarNotaNoFornecedor(texto, { limparLembrete = true } = {}) {
   const occIdNoInicio = state.selectedOccurrenceId;
   const rowId = row.id;
 
-  const btn = document.getElementById("fixarNotaFornecedorButton");
+  // Desabilita o botão que de fato disparou esta chamada — pode ser o
+  // "Fixar neste fornecedor" ao lado do lembrete OU "Fixar como nota deste
+  // fornecedor" da sugestão (agendaSupplierNoteSuggestionButton), que antes
+  // ficava clicável durante a gravação porque só o primeiro id era
+  // desabilitado aqui. Inofensivo hoje (o confirm() é modal e promover a
+  // mesma sugestão duas vezes é idempotente), mas o botão certo é o coerente.
+  const btn = document.getElementById(sourceButtonId);
   if (btn) btn.disabled = true;
   try {
     await persistSupplierNote(supplierId, resultado);
@@ -881,7 +910,11 @@ async function fixarNotaNoFornecedor(texto, { limparLembrete = true } = {}) {
     const supplierAtualizado = state.suppliers.find((item) => item.id === supplierId);
     const notaPersistida = String(supplierAtualizado?.notas_relacionamento ?? "").trim();
     if (notaPersistida !== resultado) {
-      throw new Error("a nota fixa não foi confirmada pelo servidor.");
+      // Mesma ressalva de saveAgendaSupplierNote: isto compara contra o
+      // estado local que persistSupplierNote escreveu, não uma resposta do
+      // servidor — a mensagem não deve prometer uma confirmação que não foi
+      // feita.
+      throw new Error("não foi possível confirmar a gravação da nota fixa.");
     }
 
     if (limparLembrete) {
@@ -919,7 +952,17 @@ async function fixarNotaNoFornecedor(texto, { limparLembrete = true } = {}) {
     if (state.selectedOccurrenceId !== occIdNoInicio) return;
     setFeedback(`Não foi possível fixar a nota: ${err.message}`, "error", agendaDetailFeedback);
   } finally {
-    updateFixarNotaButtonState();
+    // fixarNotaFornecedorButton segue a regra normal (habilitado só quando o
+    // lembrete tem texto). O botão da sugestão não tem essa regra — nos
+    // caminhos de sucesso ele já foi substituído por
+    // renderAgendaSupplierNoteSuggestion (novo elemento, não-desabilitado
+    // por padrão); nos caminhos de erro/guarda de geração, ele ainda é o
+    // mesmo nó e precisa ser reabilitado explicitamente aqui.
+    if (sourceButtonId === "fixarNotaFornecedorButton") {
+      updateFixarNotaButtonState();
+    } else if (btn) {
+      btn.disabled = false;
+    }
   }
 }
 

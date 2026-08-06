@@ -844,11 +844,44 @@ textarea::placeholder {
   overflow: auto;
 }
 
+/* Barra de ação fixa (v78 - review final): o card vira um flex column que NÃO
+   rola mais (overflow: hidden) — quem rola é .detail-scroll-body, um dos
+   filhos. .detail-sticky-footer (o outro filho, com "Tratar Agenda") fica de
+   fora da área de rolagem, então nunca sai da tela. Antes, tudo (incluindo o
+   botão) vivia dentro do .modal-card com overflow:auto — em 1280x800 e
+   1440x960 o botão ficava abaixo da dobra mesmo sem a faixa de nota fixa. */
 #agendaDetailModal .modal-card {
   max-height: calc(100dvh - 22px);
-  overflow: auto;
-  padding-bottom: 92px;
+  overflow: hidden;
+  padding-bottom: 16px;
+  display: flex;
+  flex-direction: column;
 }
+
+.detail-scroll-body {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.detail-sticky-footer {
+  flex: 0 0 auto;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  /* Sem background próprio: herda o do .modal-card (var(--panel) no escuro,
+     #fff no claro via body[data-theme="light"] .modal-card) — evita duplicar
+     a lógica de tema aqui. */
+}
+
+/* .close-button (círculo "X") é position:absolute com bottom/right:18px em
+   relação ao .modal-card — compartilhado por todos os modais do app (não
+   escopar fora daqui). Com o footer fixo, ele passa a flutuar sobre o canto
+   direito da barra de ação; .detail-button-row fica alinhado à esquerda e
+   .detail-bottom-actions centralizado, então na prática nenhum botão cai
+   embaixo do círculo nas larguras testadas (1280/1440/1920). Em telas
+   estreitas (<=980px) os botões viram width:100% — reserva-se espaço à
+   direita só nesse breakpoint (ver media query abaixo) para não colidir. */
 
 @supports (zoom: 1) {
   #agendaDetailModal .modal-card {
@@ -1515,13 +1548,13 @@ textarea::placeholder {
   background: #047857;
 }
 
-/* Botão de fechar inferior do detail modal */
+/* Botão de fechar inferior do detail modal — hoje só existe dentro do
+   .detail-sticky-footer do agendaDetailModal, que já tem seu próprio
+   border-top; sem duplicar aqui (senão fica um risco de linha dupla). */
 .detail-bottom-actions {
   display: flex;
   justify-content: center;
-  padding-top: 12px;
-  margin-top: 8px;
-  border-top: 1px solid var(--line);
+  padding-top: 8px;
 }
 
 .detail-bottom-actions .btn {
@@ -1727,6 +1760,14 @@ body[data-theme="light"] .postit-note-shell textarea {
 
   .detail-button-row {
     justify-content: stretch;
+  }
+
+  /* Nesta largura os botões da barra fixa viram width:100% (regra abaixo) e
+     encostariam no círculo "X" flutuante (.close-button, 58px + 18px do
+     canto) — reserva de espaço só aqui; nas larguras testadas (>=1280px) os
+     botões não chegam perto do canto e essa reserva não é necessária. */
+  .detail-sticky-footer {
+    padding-right: 74px;
   }
 
   .detail-primary-action,
