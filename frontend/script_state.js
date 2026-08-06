@@ -72,6 +72,18 @@ function addDaysIso(isoDate, days) {
 // — usar descrições genéricas ("um cliente reportou..." → "foi reportado...").
 const VERSOES = [
   {
+    versao: "v78",
+    dataHora: "06/08/2026 — tarde",
+    notas: [
+      "A nota do fornecedor agora aparece em destaque na janela de tratar a agenda, com o texto à vista — antes era só um botão no canto, e quase ninguém encontrava.",
+      "Essa nota é permanente: continua lá depois que o pedido é tratado e reaparece em todos os próximos. É o lugar certo para regras que valem sempre, como \"incluir no pedido da perfumaria\" ou \"gerar na terça para faturar na quarta\".",
+      "O campo de nota que ficava no meio da janela passou a se chamar \"Lembrete só deste pedido\", para deixar claro que ele vale apenas para aquela data.",
+      "Novo botão \"Fixar neste fornecedor\" transforma um lembrete em nota permanente, sem apagar a regra que já estivesse gravada — o texto é acrescentado.",
+      "Quando o fornecedor ainda não tem nota permanente, a janela mostra a última nota escrita nele e permite fixá-la com um clique, sem redigitar nada.",
+      "Nada do que já estava escrito foi apagado.",
+    ],
+  },
+  {
     versao: "v77",
     dataHora: "31/07/2026 — tarde",
     notas: [

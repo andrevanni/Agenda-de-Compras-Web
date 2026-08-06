@@ -2,7 +2,7 @@
 
 Sistema web multi-tenant SaaS para gestão de agenda de compras de farmácias.
 
-> ⚠️ **LIGADO AO HUB CENTRAL (espelho + SSO, 2026-07-25):** o Painel Admin A3 lê este sistema a cada 15 min (`GET /api/v1/admin/espelho`) e o card do Hub loga direto no portal como comprador (callback `/sso/callback`, sessão com refresh que dura o dia). Compradores novos são espelhados sozinhos; quando aceitam o convite DA AGENDA, o Hub envia boas-vindas ("use a mesma senha") automaticamente. **A vigência que vale pro Hub é `clientes_licencas`** — cliente sem licença ativa fica com card fechado. **Antes de mexer no endpoint `/admin/espelho`, no `ADMIN_API_TOKEN`, no bloco de URL-params do `script_main.js` ou em `clientes_licencas`, leia `docs/integracao-hub-central.md`.** Alterou `script_*.js`? Bump do `sw.js` (cache v77 hoje).
+> ⚠️ **LIGADO AO HUB CENTRAL (espelho + SSO, 2026-07-25):** o Painel Admin A3 lê este sistema a cada 15 min (`GET /api/v1/admin/espelho`) e o card do Hub loga direto no portal como comprador (callback `/sso/callback`, sessão com refresh que dura o dia). Compradores novos são espelhados sozinhos; quando aceitam o convite DA AGENDA, o Hub envia boas-vindas ("use a mesma senha") automaticamente. **A vigência que vale pro Hub é `clientes_licencas`** — cliente sem licença ativa fica com card fechado. **Antes de mexer no endpoint `/admin/espelho`, no `ADMIN_API_TOKEN`, no bloco de URL-params do `script_main.js` ou em `clientes_licencas`, leia `docs/integracao-hub-central.md`.** Alterou `script_*.js`? Bump do `sw.js` (cache v78 hoje).
 
 ## Deploy
 
@@ -398,7 +398,9 @@ Duas fontes de post-it coexistem, agrupadas por comprador:
 
 Painel filtra pelo `activeBuyerId` (ambas as fontes). Renderização única em [`renderPainel`](frontend/script_main.js) — primeiro lista as notas-de-ocorrência do grupo, depois as livres. `state.notasLivres` carregado em `loadPortalData`.
 
-⚠️ Não confundir com a **Nota do Fornecedor** (`fornecedores.notas_relacionamento`, schema_v4) — essa é permanente, 1 por fornecedor, editada na tela de Fornecedores via `supplierNotesModal`. Não tem nada a ver com Painel de Notas.
+⚠️ Não confundir com a **Nota do Fornecedor** (`fornecedores.notas_relacionamento`, schema_v4) — permanente, 1 por fornecedor, **não aparece no Painel**. Desde a v78 ela é exibida em destaque na faixa `agendaSupplierNoteBand` no topo do modal de tratar agenda, com edição inline (`openAgendaSupplierNoteEditor` / `saveAgendaSupplierNote` em [script_render.js](frontend/script_render.js)) — antes era só o botão "Notas" no canto e o texto nunca aparecia. Também editável pela tela de Fornecedores via `supplierNotesModal`.
+
+**Promoção de lembrete → nota fixa (v78)**: `fixarNotaNoFornecedor(texto, {limparLembrete})` em [script_render.js](frontend/script_render.js) transforma o lembrete do ciclo em nota permanente. Usa `mesclarNotaFixa` ([script_utils.js](frontend/script_utils.js)), que **acrescenta em bloco novo e nunca substitui** — promover por engano não pode destruir a regra existente. Pelo botão ao lado do lembrete, limpa a `nota` da ocorrência depois (senão o texto fica em dois lugares e o card duplica no Painel); pelo botão da sugestão, **não** toca a ocorrência histórica. `ultimaNotaDoFornecedor()` alimenta a sugestão e só aparece quando ainda não há nota fixa.
 
 ## Seção Compromissos (`id="compromissos"`)
 
@@ -512,7 +514,7 @@ Confirmação (não-bloqueante) exibida quando o comprador trata uma agenda **mu
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v77` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
+- Cache cliente: `agenda-compras-v78` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
 - **Rodapé mostra a versão atual**: `footerVersionChip` (em [index.html](frontend/index.html)) recebe `VERSOES[0].versao` no `bootstrap` ([script_main.js](frontend/script_main.js)) — antes era fixo "v0.1.0". É o indicador para o usuário confirmar que está no mais novo. O **nº do SW (cache) pode ficar à frente** do nº do rodapé (changelog) quando há deploy só de infra/ajuda sem entrada nova em `VERSOES` — normal, o rodapé reflete o changelog.
 - Cache admin: `agenda-admin-v14` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - **Estratégia NETWORK-FIRST (desde v62 / jun/2026)**: o handler `fetch` tenta a rede primeiro e só cai no cache offline. Substituiu o `cache-first` antigo, que causava um estado "Frankenstein" — mistura de arquivos de versões diferentes presos no cache (ex.: `index.html` novo + `script_state.js` velho → menu aparece mas dados/Versões quebram). Não voltar para cache-first.
@@ -600,6 +602,20 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 ### ⚠️ `GET /api/v1/admin/auth/admins` lista só os 50 primeiros (achado 25/jul/2026)
 
 O endpoint enumera os usuários do Auth **sem paginação**, então o painel mostra menos admins do que existem — mostrou **2** quando havia **4** (André, Alexandre, Afonso, Marcelo Cardoso, todos com `app_metadata.role = 'admin'`). Isso atrasou o diagnóstico do SSO por papel. **Fix:** `listUsers({ perPage: 1000 })` (ou paginar de verdade) e filtrar por role. Para conferir admins com segurança enquanto não estiver corrigido, consultar o Auth direto, não o endpoint.
+
+### Entregue em 06/08/2026 — nota fixa do fornecedor (SW v77→v78)
+
+Apontamento de compradora: a nota que ela "fixava" por fornecedor sumia ao tratar a agenda. **Diagnóstico: a funcionalidade já existia** — `fornecedores.notas_relacionamento`, desde o `schema_v1` — mas era invisível: só um botão pequeno no canto do modal, e `refreshAgendaSupplierNotesState` procurava um `agendaSupplierNotesPreview` que **nunca existiu no HTML** (código morto). Ela usava o campo grande do meio da tela, rotulado "Nota (fixada no Painel)", que é por ocorrência — a palavra "fixada" era a armadilha.
+
+Levantamento no banco: o tenant dela tinha **55 notas de ocorrência contra 5 de fornecedor**, a maior concentração da base; o conteúdo é majoritariamente regra permanente ("incluir no pedido da perfumaria", "gerar na terça para faturar na quarta"), mas ~1/3 é pontual (avaria, item específico) — por isso a promoção é **explícita por clique, nunca automática**.
+
+**Duas correções ao relato, que mudaram o desenho:** (1) a nota não sumia — continuava no Painel presa à ocorrência tratada, com data velha (`renderPainel` inclui `auditOccurrences`); o que nascia vazia era a **próxima** ocorrência. (2) Nem toda nota dela é permanente.
+
+Entregue: faixa em destaque com edição inline, rótulos sem ambiguidade nos dois modais, botão "📌 Fixar neste fornecedor" com confirmação, e sugestão da última nota do fornecedor para aproveitar o acervo sem redigitar. Ajuda do portal atualizada em 3 pontos (o aviso das "3 notas diferentes" já existia e estava desatualizado). **Sem migration, sem backend, sem apagar dado de cliente.**
+
+Spec e plano em [docs/superpowers/specs/2026-08-06-nota-fixa-fornecedor-design.md](docs/superpowers/specs/2026-08-06-nota-fixa-fornecedor-design.md) e [docs/superpowers/plans/2026-08-06-nota-fixa-fornecedor.md](docs/superpowers/plans/2026-08-06-nota-fixa-fornecedor.md).
+
+**Fora de escopo (decidido):** os cards de agendas já tratadas que se acumulam no Painel sem prazo de validade — o tenant citado tem 44. Depois que as regras virarem nota fixa, boa parte perde a razão de existir. Se continuar incomodando, é a segunda leva natural.
 
 ### Entregue em 31/jul/2026 — dias da semana na recorrência diária (SW v76→v77)
 
