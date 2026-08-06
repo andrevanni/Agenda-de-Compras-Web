@@ -510,6 +510,12 @@ function openAgendaDetail(occurrenceId) {
     simBtn?.classList.remove("justify-active");
   };
 
+  // Reset da faixa: o editor não pode sobreviver entre aberturas do modal.
+  // Mesma classe de resíduo que quebrou o newEventRecorrenciaFim na v77.
+  document.getElementById("agendaSupplierNoteEditor")?.classList.add("hidden");
+  document.getElementById("agendaSupplierNotesPreview")?.classList.remove("hidden");
+  document.getElementById("agendaSupplierNoteEditButton")?.classList.remove("hidden");
+
   refreshAgendaSupplierNotesState(supplier.id);
   clearFeedback(agendaDetailFeedback);
   document.getElementById("agendaDetailModal").showModal();
@@ -669,10 +675,15 @@ function parseBRL(text) {
 }
 
 
+// A nota permanente do fornecedor (fornecedores.notas_relacionamento) era
+// invisível: só um botão no canto que mudava de rótulo. O elemento
+// agendaSupplierNotesPreview era procurado aqui desde sempre e nunca existiu
+// no HTML — agora existe, e a nota aparece em destaque na hora de comprar.
 function refreshAgendaSupplierNotesState(supplierId) {
   const noteText = getSupplierNote(supplierId).trim();
   const notesButton = document.getElementById("openAgendaSupplierNotesButton");
   const preview = document.getElementById("agendaSupplierNotesPreview");
+  const editButton = document.getElementById("agendaSupplierNoteEditButton");
 
   if (notesButton) {
     notesButton.classList.toggle("has-note", Boolean(noteText));
@@ -680,9 +691,34 @@ function refreshAgendaSupplierNotesState(supplierId) {
   }
 
   if (preview) {
-    preview.textContent = noteText || "Sem notas registradas.";
+    preview.textContent = noteText || "Sem nota fixa neste fornecedor.";
     preview.classList.toggle("muted", !noteText);
   }
+
+  if (editButton) {
+    editButton.textContent = noteText ? "Editar" : "Adicionar";
+  }
+
+  renderAgendaSupplierNoteSuggestion(supplierId, noteText);
+}
+
+// Oferece a última nota já escrita em pedidos anteriores deste fornecedor.
+// Só aparece quando ainda NÃO existe nota fixa — quem já tem a regra
+// permanente não precisa da sugestão.
+function renderAgendaSupplierNoteSuggestion(supplierId, notaFixa) {
+  const box = document.getElementById("agendaSupplierNoteSuggestion");
+  if (!box) return;
+  const sugestao = notaFixa ? null : ultimaNotaDoFornecedor(supplierId, state.selectedOccurrenceId);
+  if (!sugestao) {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    return;
+  }
+  box.innerHTML = `
+    <span>&Uacute;ltima nota registrada neste fornecedor em ${formatDate(sugestao.data)}:</span>
+    <span class="supplier-note-band-suggestion-text">${escapeHtml(sugestao.nota)}</span>
+  `;
+  box.classList.remove("hidden");
 }
 
 function updateAgendaAdjustment() {

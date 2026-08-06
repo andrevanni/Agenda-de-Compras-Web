@@ -1036,6 +1036,22 @@
 
         <div id="agendaDetailGrid" class="grid detail-grid"></div>
 
+        <div id="agendaSupplierNoteBand" class="supplier-note-band">
+          <div class="supplier-note-band-head">
+            <strong>&#128204; Nota fixa deste fornecedor</strong>
+            <button id="agendaSupplierNoteEditButton" class="btn btn-outline btn-sm" type="button">Editar</button>
+          </div>
+          <div id="agendaSupplierNotesPreview" class="supplier-note-band-text"></div>
+          <div id="agendaSupplierNoteEditor" class="supplier-note-band-editor hidden">
+            <textarea id="agendaSupplierNoteInput" rows="3" placeholder="Regra que vale para todo pedido deste fornecedor..."></textarea>
+            <div class="supplier-note-band-editor-actions">
+              <button id="agendaSupplierNoteCancelButton" class="btn btn-outline btn-sm" type="button">Cancelar</button>
+              <button id="agendaSupplierNoteSaveButton" class="btn btn-sm" type="button">Salvar nota fixa</button>
+            </div>
+          </div>
+          <div id="agendaSupplierNoteSuggestion" class="supplier-note-band-suggestion hidden"></div>
+        </div>
+
         <div class="actions detail-actions">
           <div id="agendaTreatForm" class="treat-form">
             <section class="detail-treatment-main">

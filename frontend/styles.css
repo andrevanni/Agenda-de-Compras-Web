@@ -1343,6 +1343,73 @@ textarea::placeholder {
   gap: 8px;
 }
 
+/* === Faixa "Nota fixa deste fornecedor" (modal de tratar agenda) ===
+   A nota permanente do fornecedor era invisível — só um botão no canto.
+   A borda âmbar à esquerda é a mesma cor da categoria Agenda de Compras. */
+.supplier-note-band {
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 12px 0 4px;
+  display: grid;
+  gap: 8px;
+}
+
+.supplier-note-band-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.supplier-note-band-head strong {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.supplier-note-band-text {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.supplier-note-band-text.muted {
+  font-style: italic;
+}
+
+.supplier-note-band-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.supplier-note-band-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.supplier-note-band-suggestion {
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  display: grid;
+  gap: 6px;
+}
+
+.supplier-note-band-suggestion-text {
+  color: var(--text);
+  font-style: italic;
+  white-space: pre-wrap;
+}
+
 .audit-pedido-cell {
   font-size: 12px;
   white-space: nowrap;
