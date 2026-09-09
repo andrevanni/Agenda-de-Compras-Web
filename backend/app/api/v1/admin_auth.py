@@ -103,13 +103,39 @@ def admin_login(payload: AdminLoginRequest) -> dict:
     }
 
 
+def _todos_os_usuarios(sb) -> list:
+    """Todos os usuários do Auth, percorrendo as páginas do GoTrue.
+
+    ⚠️ `list_users()` sem argumento devolve só a PRIMEIRA PÁGINA (50 por padrão). Isso já
+    causou dois problemas distintos nesta base:
+
+      • em 25/07/2026 o painel mostrava 2 administradores quando havia 4 — os outros dois
+        estavam além da página 1, e a tela dizia em silêncio que eles não existiam;
+      • ao promover a admin alguém que JÁ existe, a busca falhava se a pessoa estivesse além
+        da primeira página, e o endpoint devolvia 500 "Não foi possível criar ou localizar o
+        usuário" — com 67 compradores cadastrados, um cenário real.
+
+    O laço tem teto para não virar infinito se a API mudar de contrato: 20 páginas de 1000
+    são 20 mil usuários, muito acima de qualquer cenário desta base.
+    """
+    usuarios: list = []
+    for pagina in range(1, 21):
+        resp = sb.auth.admin.list_users(page=pagina, per_page=1000)
+        lote = resp if isinstance(resp, list) else getattr(resp, "users", [])
+        if not lote:
+            break
+        usuarios.extend(lote)
+        if len(lote) < 1000:
+            break
+    return usuarios
+
+
 @router.get("/admins", dependencies=[Depends(require_admin)])
 def listar_admins() -> list:
     """Lista todos os usuários com role=admin no app_metadata."""
     sb = get_supabase()
     try:
-        resp = sb.auth.admin.list_users()
-        users = resp if isinstance(resp, list) else getattr(resp, "users", [])
+        users = _todos_os_usuarios(sb)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Erro ao listar usuários: {e}")
 
@@ -198,8 +224,7 @@ def convidar_admin(payload: ConvidarAdminRequest) -> dict:
     except Exception:
         # Usuário já existe — atualiza senha e garante role
         try:
-            users_resp = sb.auth.admin.list_users()
-            users = users_resp if isinstance(users_resp, list) else getattr(users_resp, "users", [])
+            users = _todos_os_usuarios(sb)
             existing = next((u for u in users if u.email == payload.email), None)
             if existing:
                 user_id = str(existing.id)
