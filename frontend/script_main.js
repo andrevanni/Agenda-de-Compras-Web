@@ -930,6 +930,86 @@ function buildDiariaDates(baseDate, fimStr, dias, pularFeriados = false) {
   return dates;
 }
 
+// A coluna recorrencia chega em formatos diferentes conforme a época da série:
+// objeto, string JSON, ou string JSON dentro de string (o saveNewEvent grava
+// JSON.stringify num campo JSONB). Nunca lança — série sem recorrência legível
+// cai na inferência por intervalo.
+function parseRecorrenciaSerie(valor) {
+  let atual = valor;
+  for (let i = 0; i < 2 && typeof atual === "string"; i++) {
+    try {
+      atual = JSON.parse(atual);
+    } catch {
+      return null;
+    }
+  }
+  return atual && typeof atual === "object" ? atual : null;
+}
+
+// "remover" para série diária (mover criaria duplicata no dia seguinte, que já
+// tem a sua ocorrência); "mover" para semanal/quinzenal/mensal. Séries antigas
+// podem não ter o tipo gravado: usa a mediana do intervalo entre datas —
+// uma diária seg–sex tem intervalos 1,1,1,1,3 e mediana 1.
+function inferirModoAjusteSerie(rows) {
+  const lista = rows ?? [];
+  const tipo = lista.map((r) => parseRecorrenciaSerie(r.recorrencia)?.tipo).find(Boolean);
+  if (tipo === "diaria") return "remover";
+  if (["semanal", "quinzenal", "mensal"].includes(tipo)) return "mover";
+  const datas = [...new Set(lista.map((r) => r.data_prevista))].sort();
+  if (datas.length < 2) return "mover";
+  const intervalos = [];
+  for (let i = 1; i < datas.length; i++) intervalos.push(diffDays(datas[i], datas[i - 1]));
+  intervalos.sort((a, b) => a - b);
+  return intervalos[Math.floor(intervalos.length / 2)] <= 1 ? "remover" : "mover";
+}
+
+// Dias escolhidos na criação (séries a partir da v77). Usado como padrão dos
+// checkboxes — sem isso, uma série "quarta a sábado" abriria com seg–sex e
+// proporia apagar os sábados que o comprador pediu.
+function diasDaSerie(rows) {
+  for (const r of rows ?? []) {
+    const dias = parseRecorrenciaSerie(r.recorrencia)?.dias;
+    if (Array.isArray(dias)) {
+      const validos = dias.filter((d) => DIAS_SEMANA.includes(d));
+      if (validos.length) return validos;
+    }
+  }
+  return null;
+}
+
+// Decide o que a correção vai fazer, sem tocar no servidor. rows = pendentes
+// da série, ordenadas por data.
+// - remover: pendentes em dia desmarcado ou feriado, inclusive vencidas.
+//   Ocorrência com lembrete é preservada — apagar em massa não pode destruir
+//   texto escrito à mão.
+// - mover: pendentes de hoje em diante fora de dia útil. Vencidas ficam:
+//   mover para outra data que também já passou não resolve nada.
+function planejarAjusteSerie(rows, modo, opcoes = {}) {
+  const lista = rows ?? [];
+  if (modo === "remover") {
+    const manter = new Set(opcoes.diasManter ?? []);
+    const alvos = [];
+    let mantidasPorLembrete = 0;
+    for (const r of lista) {
+      const foraDosDias = !manter.has(parseIsoToWeekdayName(r.data_prevista));
+      const feriado = Boolean(opcoes.removerFeriados) && isFeriado(r.data_prevista);
+      if (!foraDosDias && !feriado) continue;
+      if (String(r.nota ?? "").trim()) {
+        mantidasPorLembrete++;
+        continue;
+      }
+      alvos.push({ id: r.id, de: r.data_prevista, para: null });
+    }
+    return { modo, alvos, mantidasPorLembrete };
+  }
+  const hoje = opcoes.hoje;
+  const alvos = lista
+    .filter((r) => r.data_prevista >= hoje)
+    .map((r) => ({ id: r.id, de: r.data_prevista, para: proximoDiaUtil(r.data_prevista) }))
+    .filter((a) => a.para !== a.de);
+  return { modo: "mover", alvos, mantidasPorLembrete: 0 };
+}
+
 async function saveNewEvent() {
   const editId       = document.getElementById("newEventEditId").value.trim();
   const titulo       = document.getElementById("newEventTitulo").value.trim();
