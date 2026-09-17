@@ -1,4 +1,4 @@
-const CACHE = 'agenda-compras-v79';
+const CACHE = 'agenda-compras-v80';
 
 // Assets locais (mesmo domínio): precache obrigatório e atômico.
 const LOCAL_ASSETS = [

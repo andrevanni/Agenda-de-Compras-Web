@@ -648,7 +648,7 @@
               </details>
 
               <details class="ajuda-item">
-                <summary>🗓️ Calend&aacute;rio — Vistas, Eventos e Edi&ccedil;&atilde;o em S&eacute;rie</summary>
+                <summary>🗓️ Calend&aacute;rio — Vistas, Eventos, S&eacute;ries e Dias &Uacute;teis</summary>
                 <div class="ajuda-corpo">
                   <h4>Vistas dispon&iacute;veis</h4>
                   <ul>
@@ -671,16 +671,42 @@
                   </ul>
 
                   <h4>Recorr&ecirc;ncia &mdash; criar uma s&eacute;rie</h4>
-                  <p>No modal de Novo Evento, escolha <strong>Di&aacute;ria</strong>, <strong>Semanal</strong>, <strong>Quinzenal</strong> ou <strong>Mensal</strong>. Ao selecionar, aparece o campo <strong>Data de fim</strong> (opcional). O sistema gera uma ocorr&ecirc;ncia por data &times; comprador selecionado, e todas ficam agrupadas como uma <strong>s&eacute;rie</strong> (compartilham o mesmo identificador interno).</p>
+                  <p>No modal de Novo Evento, escolha <strong>Di&aacute;ria</strong>, <strong>Semanal</strong>, <strong>Quinzenal</strong> ou <strong>Mensal</strong>. Aparece o campo <strong>Data de fim</strong> (opcional &mdash; sem ela, a s&eacute;rie vai at&eacute; um ano). O sistema gera uma ocorr&ecirc;ncia por data &times; comprador selecionado, e todas ficam agrupadas como uma <strong>s&eacute;rie</strong>.</p>
+                  <ul>
+                    <li><strong>Di&aacute;ria:</strong> marque os <strong>dias da semana</strong> em que ela acontece &mdash; v&ecirc;m marcados de <strong>segunda a sexta</strong>. Serve qualquer combina&ccedil;&atilde;o (s&oacute; segunda, quarta e sexta, por exemplo). Se a data escolhida cair num dia desmarcado, a s&eacute;rie come&ccedil;a no <strong>pr&oacute;ximo dia marcado</strong></li>
+                    <li><strong>Pular feriados cadastrados</strong> (na di&aacute;ria) vem marcado e deixa de fora os feriados do per&iacute;odo</li>
+                    <li><strong>Semanal, quinzenal e mensal:</strong> data que cair em <strong>s&aacute;bado, domingo ou feriado cadastrado</strong> vai automaticamente para o <strong>pr&oacute;ximo dia &uacute;til</strong></li>
+                    <li><strong>Mensal:</strong> fica sempre no <strong>mesmo dia do m&ecirc;s</strong> (todo dia 10, por exemplo). Se o dia n&atilde;o existir no m&ecirc;s (31 em fevereiro), vale o &uacute;ltimo dia</li>
+                    <li>Antes de salvar, a janela mostra <strong>quantas datas</strong> ser&atilde;o criadas, o per&iacute;odo coberto e quantas foram ajustadas para dia &uacute;til</li>
+                  </ul>
+                  <p class="ajuda-dica">💡 Os feriados considerados s&atilde;o os do menu <strong>🏖️ Feriados</strong>. Antes de criar s&eacute;ries que entram no ano seguinte, confira se os feriados daquele ano j&aacute; foram importados &mdash; um feriado que n&atilde;o est&aacute; cadastrado n&atilde;o &eacute; pulado.</p>
 
                   <h4>Editar ou excluir uma s&eacute;rie inteira (em massa)</h4>
                   <p>Ao clicar num evento da s&eacute;rie no calend&aacute;rio, o modal de edi&ccedil;&atilde;o mostra um seletor <strong>"Aplicar mudan&ccedil;as a"</strong> com 3 op&ccedil;&otilde;es:</p>
                   <ul>
-                    <li><strong>S&oacute; esta ocorr&ecirc;ncia</strong>: muda/exclui apenas o item clicado (comportamento padr&atilde;o e &uacute;nica op&ccedil;&atilde;o para ocorr&ecirc;ncias antigas, criadas antes desta funcionalidade)</li>
+                    <li><strong>S&oacute; esta ocorr&ecirc;ncia</strong>: muda/exclui apenas o item clicado (op&ccedil;&atilde;o padr&atilde;o; um compromisso avulso, criado sem repeti&ccedil;&atilde;o, s&oacute; tem esta)</li>
                     <li><strong>Esta e as pr&oacute;ximas</strong>: muda/exclui o item clicado e todos os subsequentes da s&eacute;rie (mant&eacute;m os anteriores intactos)</li>
                     <li><strong>Toda a s&eacute;rie</strong>: muda/exclui todas as ocorr&ecirc;ncias da s&eacute;rie, do come&ccedil;o ao fim (a contagem total aparece ao lado da op&ccedil;&atilde;o)</li>
                   </ul>
                   <p><strong>O que muda em massa</strong>: t&iacute;tulo, hor&aacute;rio, categoria e observa&ccedil;&atilde;o. <strong>N&atilde;o muda em massa</strong>: data (cada ocorr&ecirc;ncia tem a sua), nota (post-it ad-hoc, n&atilde;o replica) e comprador respons&aacute;vel (se precisar trocar a carteira, edite uma por vez). Exclus&otilde;es em massa pedem confirma&ccedil;&atilde;o com a contagem ("Excluir 14 da s&eacute;rie?").</p>
+
+                  <h4>Ajustar dias desta s&eacute;rie &mdash; tirar s&aacute;bados, domingos e feriados</h4>
+                  <p>Para tirar dias de uma s&eacute;rie que j&aacute; existe <strong>sem apag&aacute;-la inteira</strong> &mdash; por exemplo, uma rotina di&aacute;ria antiga que foi criada com s&aacute;bados e domingos &mdash; use o bot&atilde;o <strong>🗓️ Ajustar dias desta s&eacute;rie</strong>, logo abaixo das op&ccedil;&otilde;es de &ldquo;Aplicar mudan&ccedil;as a&rdquo;.</p>
+                  <ol>
+                    <li>Clique num compromisso da s&eacute;rie (no calend&aacute;rio ou na se&ccedil;&atilde;o Compromissos)</li>
+                    <li>Clique em <strong>Ajustar dias desta s&eacute;rie</strong></li>
+                    <li><strong>S&eacute;rie di&aacute;ria:</strong> deixe marcados s&oacute; os dias em que ela deve continuar (ex.: segunda a sexta). A op&ccedil;&atilde;o <em>Tamb&eacute;m remover feriados cadastrados</em> vem marcada</li>
+                    <li><strong>S&eacute;rie semanal, quinzenal ou mensal:</strong> n&atilde;o h&aacute; o que escolher &mdash; a janela lista as datas futuras que caem em fim de semana ou feriado e para qual dia &uacute;til cada uma vai</li>
+                    <li>Confira a pr&eacute;via (&ldquo;Ser&atilde;o removidas 44 ocorr&ecirc;ncia(s)&hellip;&rdquo; ou &ldquo;Ser&atilde;o movidas 3&hellip;&rdquo;) e clique no bot&atilde;o com a contagem</li>
+                  </ol>
+                  <ul>
+                    <li>S&oacute; compromissos <strong>pendentes</strong> s&atilde;o alterados &mdash; os conclu&iacute;dos ficam no hist&oacute;rico</li>
+                    <li>Na di&aacute;ria, compromissos com <strong>lembrete escrito</strong> n&atilde;o s&atilde;o removidos (a pr&eacute;via diz quantos ficaram)</li>
+                    <li>Na semanal, quinzenal e mensal, datas <strong>j&aacute; vencidas</strong> n&atilde;o s&atilde;o movidas, e nenhuma data vai para um dia em que a s&eacute;rie j&aacute; tem compromisso</li>
+                    <li>Se a s&eacute;rie for de <strong>mais de um comprador</strong>, a pr&eacute;via avisa &mdash; o ajuste vale para todos eles</li>
+                    <li>Se a grava&ccedil;&atilde;o parar no meio (queda de internet, por exemplo), a janela mostra o que falta &mdash; &eacute; s&oacute; clicar de novo</li>
+                  </ul>
+                  <p class="ajuda-dica">💡 <strong>Ajustar dias</strong> &times; <strong>Excluir toda a s&eacute;rie</strong>: excluir apaga a s&eacute;rie inteira; o ajuste apaga ou move s&oacute; os dias que n&atilde;o servem, e o resto continua como est&aacute;.</p>
 
                   <h4>Cores no calend&aacute;rio</h4>
                   <p>Cada categoria tem uma cor definida em <strong>Categorias</strong>. Eventos de fornecedores usam a cor da categoria <em>Agenda de Compras</em> por padr&atilde;o.</p>
@@ -760,29 +786,13 @@
                   </ul>
                   <p>Colunas: Data &bull; T&iacute;tulo &bull; Categoria (chip colorido) &bull; Hor&aacute;rio &bull; Comprador respons&aacute;vel &bull; A&ccedil;&otilde;es</p>
 
-                  <h4>Dias da semana na repeti&ccedil;&atilde;o di&aacute;ria</h4>
-                  <p>Ao criar um evento com recorr&ecirc;ncia <strong>Di&aacute;ria</strong>, marque os <strong>dias da semana</strong> em que ele deve acontecer. V&ecirc;m marcados de <strong>segunda a sexta</strong>; s&aacute;bados e domingos s&oacute; entram se voc&ecirc; marcar.</p>
+                  <h4>Repeti&ccedil;&otilde;es, dias &uacute;teis e ajuste de s&eacute;ries</h4>
                   <ul>
-                    <li>Serve para qualquer combina&ccedil;&atilde;o &mdash; segunda a quinta, ou s&oacute; segunda, quarta e sexta</li>
-                    <li>Se a data escolhida cair num dia desmarcado, a repeti&ccedil;&atilde;o come&ccedil;a no <strong>pr&oacute;ximo dia marcado</strong></li>
-                    <li>A op&ccedil;&atilde;o <strong>Pular feriados cadastrados</strong> vem marcada e deixa de fora os feriados do per&iacute;odo (nacionais e os cadastrados pela empresa)</li>
-                    <li>Antes de salvar, a janela mostra <strong>quantas datas</strong> ser&atilde;o criadas e o per&iacute;odo coberto</li>
+                    <li>Na repeti&ccedil;&atilde;o <strong>di&aacute;ria</strong> voc&ecirc; escolhe os dias da semana (segunda a sexta v&ecirc;m marcados)</li>
+                    <li>Semanal, quinzenal e mensal <strong>n&atilde;o caem em s&aacute;bado, domingo ou feriado cadastrado</strong> &mdash; v&atilde;o para o pr&oacute;ximo dia &uacute;til; a mensal fica sempre no mesmo dia do m&ecirc;s</li>
+                    <li>Para tirar s&aacute;bados, domingos ou feriados de uma s&eacute;rie que j&aacute; existe, abra um compromisso dela e use <strong>🗓️ Ajustar dias desta s&eacute;rie</strong></li>
                   </ul>
-
-                  <h4>Repeti&ccedil;&atilde;o mensal, semanal e quinzenal</h4>
-                  <ul>
-                    <li>A <strong>mensal</strong> fica sempre no mesmo dia do m&ecirc;s (ex.: todo dia 10). Se o dia n&atilde;o existir no m&ecirc;s, vale o &uacute;ltimo dia</li>
-                    <li>Data que cair em <strong>s&aacute;bado, domingo ou feriado cadastrado</strong> vai para o <strong>pr&oacute;ximo dia &uacute;til</strong> &mdash; a janela avisa quantas foram ajustadas antes de salvar</li>
-                  </ul>
-
-                  <h4>Ajustar dias desta s&eacute;rie</h4>
-                  <p>Para uma s&eacute;rie que j&aacute; existe, abra um dos compromissos e clique em <strong>Ajustar dias desta s&eacute;rie</strong> (aparece no quadro &ldquo;Aplicar mudan&ccedil;as a&rdquo;).</p>
-                  <ul>
-                    <li><strong>S&eacute;rie di&aacute;ria:</strong> marque os dias em que ela deve continuar. Os compromissos pendentes nos outros dias s&atilde;o removidos &mdash; e, com a op&ccedil;&atilde;o marcada, tamb&eacute;m os de feriados</li>
-                    <li><strong>S&eacute;rie mensal, semanal ou quinzenal:</strong> as datas futuras que caem em fim de semana ou feriado v&atilde;o para o pr&oacute;ximo dia &uacute;til &mdash; menos quando esse dia j&aacute; tem um compromisso da mesma s&eacute;rie</li>
-                    <li>Antes de gravar, a janela mostra exatamente quantos compromissos ser&atilde;o removidos ou movidos &mdash; e avisa quando a s&eacute;rie &eacute; de mais de um comprador, porque o ajuste vale para todos</li>
-                    <li>S&oacute; compromissos <strong>pendentes</strong> s&atilde;o alterados. Os conclu&iacute;dos ficam no hist&oacute;rico, e os que t&ecirc;m lembrete escrito n&atilde;o s&atilde;o apagados</li>
-                  </ul>
+                  <p>O passo a passo completo est&aacute; no item <strong>🗓️ Calend&aacute;rio — Vistas, Eventos, S&eacute;ries e Dias &Uacute;teis</strong>, logo acima.</p>
 
                   <h4>Concluir um compromisso (✓)</h4>
                   <p>Compromissos com status <strong>pendente</strong> mostram o bot&atilde;o verde <strong>✓ Concluir</strong>. Ao clicar:</p>
@@ -804,7 +814,8 @@
                   <p>Compromissos conclu&iacute;dos mostram o bot&atilde;o <strong>↩ Desfazer</strong>. Ele <strong>reabre</strong> o compromisso como pendente novamente &mdash; &uacute;til quando voc&ecirc; concluiu por engano ou precisa reagendar.</p>
 
                   <h4>Excluir um compromisso</h4>
-                  <p>Funciona em qualquer status (pendente ou conclu&iacute;do). Clique em <strong>Excluir</strong> e confirme. A&ccedil;&atilde;o n&atilde;o pode ser desfeita.</p>
+                  <p>Funciona em qualquer status (pendente ou conclu&iacute;do). Num compromisso <strong>avulso</strong>, clique em <strong>Excluir</strong> e confirme. Num compromisso de <strong>s&eacute;rie</strong>, o Excluir abre a janela de edi&ccedil;&atilde;o para voc&ecirc; escolher o alcance (<em>S&oacute; esta</em>, <em>Esta e as pr&oacute;ximas</em> ou <em>Toda a s&eacute;rie</em>). A a&ccedil;&atilde;o n&atilde;o pode ser desfeita.</p>
+                  <p class="ajuda-dica">💡 Quer tirar s&oacute; os s&aacute;bados e domingos de uma s&eacute;rie? N&atilde;o precisa excluir a s&eacute;rie &mdash; use <strong>Ajustar dias desta s&eacute;rie</strong> na mesma janela.</p>
 
                   <p class="ajuda-dica">💡 <strong>Diferen&ccedil;a de Excluir vs Concluir</strong>: <em>Concluir</em> preserva o hist&oacute;rico (voc&ecirc; v&ecirc; tudo que j&aacute; fez). <em>Excluir</em> apaga o registro permanentemente. Prefira sempre concluir &mdash; o hist&oacute;rico &eacute; valioso para conferir o que foi feito.</p>
                   <p class="ajuda-dica">⚠️ <strong>Agenda de Compras</strong> (com fornecedor) <strong>n&atilde;o</strong> tem bot&atilde;o Concluir. Ela usa o fluxo pr&oacute;prio de <strong>Tratar Agenda</strong> + <strong>Deu pedido?</strong>, que marca a ocorr&ecirc;ncia como tratada e j&aacute; cria a pr&oacute;xima.</p>
