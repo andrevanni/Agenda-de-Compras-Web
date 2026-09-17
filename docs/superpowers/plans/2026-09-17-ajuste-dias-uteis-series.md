@@ -107,7 +107,7 @@ def abrir(p):
     }""")
     return browser, page, erros
 
-def fim():
+def finalizar():
     print()
     if falhas:
         print(f"{len(falhas)} FALHA(S)")
@@ -125,7 +125,7 @@ with sync_playwright() as p:
     check('boot sem pageerror', erros == [], erros)
     check('isFeriado existe', pg.evaluate('typeof isFeriado') == 'function')
     b.close()
-fim()
+finalizar()
 "
 ```
 
@@ -236,7 +236,7 @@ with sync_playwright() as p:
     check("buildRecorrenciaDates removida", js("() => typeof buildRecorrenciaDates") == "undefined")
     check("sem pageerror", erros == [], erros)
     b.close()
-fim()
+finalizar()
 ```
 
 - [ ] **Step 2: Rodar e ver falhar**
@@ -456,7 +456,7 @@ with sync_playwright() as p:
 
     check("sem pageerror", erros == [], erros)
     b.close()
-fim()
+finalizar()
 ```
 
 - [ ] **Step 2: Rodar e ver falhar**
@@ -719,7 +719,7 @@ with sync_playwright() as p:
     check("mover: mantidasPorLembrete = 0", mp["mantidasPorLembrete"] == 0)
     check("sem pageerror", erros == [], erros)
     b.close()
-fim()
+finalizar()
 ```
 
 - [ ] **Step 2: Rodar e ver falhar**
@@ -997,7 +997,7 @@ with sync_playwright() as p:
 
     check("sem pageerror", erros == [], erros)
     b.close()
-fim()
+finalizar()
 ```
 
 - [ ] **Step 2: Rodar e ver falhar**
@@ -1331,7 +1331,7 @@ with sync_playwright() as p:
           "exclua a s&eacute;rie (op&ccedil;&atilde;o <em>Toda a s&eacute;rie</em>) e crie de novo" not in open(f"{PROJ}/frontend/index.html", encoding="utf-8").read())
     check("sem pageerror", erros == [], erros)
     b.close()
-fim()
+finalizar()
 ```
 
 - [ ] **Step 2: Rodar e ver falhar**

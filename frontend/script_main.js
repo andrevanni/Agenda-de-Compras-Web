@@ -350,6 +350,36 @@ function isFeriado(dateIso) {
   return state.feriados.some((f) => f.data === dateIso);
 }
 
+// Dia útil = segunda a sexta e fora dos feriados cadastrados do tenant
+// (state.feriados — nacionais importados + personalizados). Dia da semana por
+// componentes locais: toISOString() desloca a data em fusos positivos.
+function ehDiaUtil(dateIso) {
+  const [ano, mes, dia] = dateIso.split("-").map(Number);
+  const diaSemana = new Date(ano, mes - 1, dia).getDay();
+  return diaSemana !== 0 && diaSemana !== 6 && !isFeriado(dateIso);
+}
+
+// A própria data se já for útil; senão o primeiro dia útil seguinte. O teto de
+// 60 dias só existe para um cadastro de feriados absurdo nunca travar a tela.
+function proximoDiaUtil(dateIso) {
+  let atual = dateIso;
+  for (let i = 0; i < 60 && !ehDiaUtil(atual); i++) atual = addDaysLocalIso(atual, 1);
+  return atual;
+}
+
+// Soma meses mantendo o dia; dia inexistente no mês de destino vira o último
+// dia desse mês. Sempre a partir da base original — 31/jan +2 = 31/mar, e não
+// 28/mar (que seria o resultado de somar 1 mês duas vezes).
+function addMonthsClampIso(dateIso, meses) {
+  const [ano, mes, dia] = dateIso.split("-").map(Number);
+  const alvo = new Date(ano, mes - 1 + meses, 1);
+  const ultimoDia = new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0).getDate();
+  const y = alvo.getFullYear();
+  const m = String(alvo.getMonth() + 1).padStart(2, "0");
+  const d = String(Math.min(dia, ultimoDia)).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function categoriaCorById(id) {
   return categoriaById(id)?.cor ?? "#6B7280";
 }
@@ -835,25 +865,42 @@ async function checkEventConflict(tenantId, data, horaInicio, horaFim, excludeId
   }
 }
 
-function buildRecorrenciaDates(baseDate, tipo, fimStr) {
-  const dates = [];
-  const limit = fimStr ? fimStr : addDaysLocalIso(baseDate, 365);
-  let current = baseDate;
-  const step = { diaria: 1, semanal: 7, quinzenal: 14, mensal: 30 }[tipo] ?? 7;
-  while (true) {
-    current = addDaysLocalIso(current, step);
-    if (current > limit) break;
-    dates.push(current);
-    if (dates.length > 500) break;
+// Recorrência semanal/quinzenal/mensal em dia útil. Foi reportado que séries
+// mensais caíam em sábado, domingo e feriado — a mensal somava 30 dias e
+// escorregava ~1 dia por mês. Agora:
+// - mensal = mesmo dia do mês (clamp ao último dia);
+// - toda data que cair em fim de semana/feriado vai para o próximo dia útil;
+// - o ajuste parte SEMPRE da data ideal (base + n períodos), nunca da já
+//   ajustada, então não acumula;
+// - INCLUI a data base (n = 0), já ajustada — diferente da função antiga, o
+//   chamador não prefixa [data, ...].
+// A iteração para quando a data IDEAL passa do fim; a ajustada pode ficar
+// alguns dias além — é a ocorrência daquele período.
+function buildRecorrenciaDatesUteis(baseDate, tipo, fimStr) {
+  const vazio = { datas: [], ajustadas: 0 };
+  if (!baseDate || !["semanal", "quinzenal", "mensal"].includes(tipo)) return vazio;
+  const limite = fimStr || addDaysLocalIso(baseDate, 365);
+  const passoDias = tipo === "semanal" ? 7 : 14;
+  const datas = [];
+  const vistas = new Set();
+  let ajustadas = 0;
+  for (let n = 0; datas.length < 500; n++) {
+    const ideal = tipo === "mensal" ? addMonthsClampIso(baseDate, n) : addDaysLocalIso(baseDate, passoDias * n);
+    if (ideal > limite) break;
+    const real = proximoDiaUtil(ideal);
+    if (vistas.has(real)) continue;
+    vistas.add(real);
+    datas.push(real);
+    if (real !== ideal) ajustadas++;
   }
-  return dates;
+  return { datas, ajustadas };
 }
 
 // Recorrência diária restrita a dias da semana. Foi solicitado por compradores:
 // a diária gerava sábado e domingo (ocorrência que ninguém trata vira pendência
 // eterna nos "Itens em Atraso") e não havia como pedir "diária menos sexta".
 // Reusa nextCalendarDate — o mesmo helper dos dias de compra do fornecedor.
-// ATENÇÃO: diferente de buildRecorrenciaDates, esta função JÁ INCLUI a data base
+// Como buildRecorrenciaDatesUteis, esta função JÁ INCLUI a data base
 // na varredura. Se a base cair em dia desmarcado (ex.: sábado com Seg–Sex), a
 // série começa no próximo dia marcado em vez de nascer num dia desmarcado.
 function buildDiariaDates(baseDate, fimStr, dias, pularFeriados = false) {
@@ -909,11 +956,17 @@ async function saveNewEvent() {
   // ocorrência pode não ser a data digitada (sábado com Seg–Sex vira segunda),
   // e tanto o aviso de feriado quanto a checagem de conflito precisam olhar a
   // data que realmente será criada.
-  const dates = recorrencia === "diaria"
-    ? buildDiariaDates(data, recFim, diasSemana, pularFeriados)
-    : recorrencia
-      ? [data, ...buildRecorrenciaDates(data, recorrencia, recFim)]
-      : [data];
+  let ajustadasNaCriacao = 0;
+  let dates;
+  if (recorrencia === "diaria") {
+    dates = buildDiariaDates(data, recFim, diasSemana, pularFeriados);
+  } else if (recorrencia) {
+    const geradas = buildRecorrenciaDatesUteis(data, recorrencia, recFim);
+    dates = geradas.datas;
+    ajustadasNaCriacao = geradas.ajustadas;
+  } else {
+    dates = [data];
+  }
 
   if (!dates.length) {
     feriadoWarningEl.classList.add("hidden");
