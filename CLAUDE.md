@@ -2,7 +2,7 @@
 
 Sistema web multi-tenant SaaS para gestão de agenda de compras de farmácias.
 
-> ⚠️ **LIGADO AO HUB CENTRAL (espelho + SSO, 2026-07-25):** o Painel Admin A3 lê este sistema a cada 15 min (`GET /api/v1/admin/espelho`) e o card do Hub loga direto no portal como comprador (callback `/sso/callback`, sessão com refresh que dura o dia). Compradores novos são espelhados sozinhos; quando aceitam o convite DA AGENDA, o Hub envia boas-vindas ("use a mesma senha") automaticamente. **A vigência que vale pro Hub é `clientes_licencas`** — cliente sem licença ativa fica com card fechado. **Antes de mexer no endpoint `/admin/espelho`, no `ADMIN_API_TOKEN`, no bloco de URL-params do `script_main.js` ou em `clientes_licencas`, leia `docs/integracao-hub-central.md`.** Alterou `script_*.js`? Bump do `sw.js` (cache v79 hoje).
+> ⚠️ **LIGADO AO HUB CENTRAL (espelho + SSO, 2026-07-25):** o Painel Admin A3 lê este sistema a cada 15 min (`GET /api/v1/admin/espelho`) e o card do Hub loga direto no portal como comprador (callback `/sso/callback`, sessão com refresh que dura o dia). Compradores novos são espelhados sozinhos; quando aceitam o convite DA AGENDA, o Hub envia boas-vindas ("use a mesma senha") automaticamente. **A vigência que vale pro Hub é `clientes_licencas`** — cliente sem licença ativa fica com card fechado. **Antes de mexer no endpoint `/admin/espelho`, no `ADMIN_API_TOKEN`, no bloco de URL-params do `script_main.js` ou em `clientes_licencas`, leia `docs/integracao-hub-central.md`.** Alterou `script_*.js`? Bump do `sw.js` (cache v80 hoje).
 
 ## Deploy
 
@@ -515,7 +515,7 @@ Confirmação (não-bloqueante) exibida quando o comprador trata uma agenda **mu
 
 ## Service Worker e PWA
 
-- Cache cliente: `agenda-compras-v79` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
+- Cache cliente: `agenda-compras-v80` — bumpar ao alterar JS/CSS do `frontend/` (Hard refresh não bypassa o SW no Chrome **nem no Safari**)
 - **Rodapé mostra a versão atual**: `footerVersionChip` (em [index.html](frontend/index.html)) recebe `VERSOES[0].versao` no `bootstrap` ([script_main.js](frontend/script_main.js)) — antes era fixo "v0.1.0". É o indicador para o usuário confirmar que está no mais novo. O **nº do SW (cache) pode ficar à frente** do nº do rodapé (changelog) quando há deploy só de infra/ajuda sem entrada nova em `VERSOES` — normal, o rodapé reflete o changelog.
 - Cache admin: `agenda-admin-v14` — bumpar ao alterar JS/CSS do `frontend_admin/`
 - **Estratégia NETWORK-FIRST (desde v62 / jun/2026)**: o handler `fetch` tenta a rede primeiro e só cai no cache offline. Substituiu o `cache-first` antigo, que causava um estado "Frankenstein" — mistura de arquivos de versões diferentes presos no cache (ex.: `index.html` novo + `script_state.js` velho → menu aparece mas dados/Versões quebram). Não voltar para cache-first.
@@ -602,7 +602,19 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 
 ### ⚠️ `GET /api/v1/admin/auth/admins` lista só os 50 primeiros (achado 25/jul/2026)
 
-O endpoint enumera os usuários do Auth **sem paginação**, então o painel mostra menos admins do que existem — mostrou **2** quando havia **4** (André, Alexandre, Afonso, Marcelo Cardoso, todos com `app_metadata.role = 'admin'`). Isso atrasou o diagnóstico do SSO por papel. **Fix:** `listUsers({ perPage: 1000 })` (ou paginar de verdade) e filtrar por role. Para conferir admins com segurança enquanto não estiver corrigido, consultar o Auth direto, não o endpoint.
+O endpoint enumera os usuários do Auth **sem paginação**, então o painel mostra menos admins do que existem — mostrou **2** quando havia **4** (André, Alexandre, Afonso, Marcelo Cardoso, todos com `app_metadata.role = 'admin'`). Isso atrasou o diagnóstico do SSO por papel. **Fix:** `listUsers({ perPage: 1000 })` (ou paginar de verdade) e filtrar por role. Para conferir admins com segurança enquanto não estiver corrigido, consultar o Auth direto, não o endpoint. **Status (17/09/2026):** correção feita na branch `fix/admins-paginacao` (`a234fd6`), enviada ao remoto, **não integrada nem validada**.
+
+### Entregue em 17/09/2026 — séries em dia útil e "Ajustar dias desta série" (SW v78→v80)
+
+Relato de comprador da Drogaria SV, com prints: séries diárias antigas (criadas antes da v77) tinham sábado e domingo gravados, e o escopo de exclusão só oferecia Só esta / Esta e as próximas / Toda a série — nenhuma remove dias da semana. Levantamento no banco: a equipe da SV vinha **concluindo sábados e domingos à mão** (158 concluídas, 0 vencidas) para limpar a tela. **Achado extra:** a recorrência "Mensal" **somava 30 dias** e escorregava ~1 dia por mês, por isso tantas mensais caíam em fim de semana.
+
+- **v79** — criação: semanal/quinzenal/mensal vão para o próximo dia útil (sáb/dom/feriado cadastrado), mensal no mesmo dia do mês, "Pular feriados cadastrados" marcado na diária, prévia para toda recorrência. Correção: botão **"Ajustar dias desta série"** (diária remove; periódica move). Detalhe técnico na seção "Modal Novo Evento / Edição". Spec/plano em `docs/superpowers/specs|plans/2026-09-17-ajuste-dias-uteis-series*`.
+- **Ajuda (SW v80, sem entrada em VERSOES)** — item Calendário renomeado para "Vistas, Eventos, Séries e Dias Úteis", com passo a passo do ajuste e aviso sobre cadastrar feriados do ano seguinte; item Compromissos virou resumo com ponteiro.
+- **Dados**: as 50 pendências de fim de semana do comprador que reportou foram removidas por SQL **com autorização explícita** (backup JSON antes, transação com contagem, rollback se ≠ 50). O classificador do modo automático **bloqueou a escrita pelo Claude**; o script foi rodado pelo André no terminal dele — ver memória `producao-db-acesso-local`.
+- **Decisões do André**: vale para diária e periódicas; próximo dia útil **posterior**; feriados cadastrados contam; regra também na criação; mensal no mesmo dia do mês só em séries novas (antigas não são realinhadas); **manter** a impossibilidade de periódica num sábado (achado 5 do review).
+- **Review (1 revisor, achados conferidos no código)** pegou dois bugs reais antes do merge: Aplicar podia rodar **dois laços em paralelo** (a prévia reabilitava o botão durante a gravação) e, após falha parcial, **reabrir o ajuste não fazia nada** (a ocorrência aberta tinha sido apagada e sumido do `state`). Também: mover podia duplicar numa segunda já ocupada, inferência enganada por pendentes esparsas, contagem otimista com `return=minimal`. Todos corrigidos e cobertos por teste.
+- **Validação**: 5 suítes Playwright (Chromium + Google Chrome real) + E2E real na Service Farma (cria, ajusta, relê o Supabase, confere as mensagens e apaga; sobras conferidas no banco). **WebKit/Safari não testado.**
+- **Minor conhecido, não corrigido**: após falha parcial no ajuste, o modal de edição por baixo pode continuar mostrando uma ocorrência já apagada ("Salvar" em "Só esta" faz PATCH sem efeito).
 
 ### Entregue em 06/08/2026 — nota fixa do fornecedor (SW v77→v78)
 
@@ -742,7 +754,12 @@ Resolução do incidente Total Socorro + 4 sugestões do cliente:
 
 ### Próxima sessão (prioridade máxima)
 
-**✅ v79 EM PRODUÇÃO (17/09/2026)** — séries periódicas em dia útil (mensal no mesmo dia do mês) + botão **"Ajustar dias desta série"**. Merge `feat/dias-uteis-series` → `staging` → `main` (ff, `b909506`); produção conferida no Google Chrome real (rodapé v79, funções novas presentes, `buildRecorrenciaDates` antiga ausente, zero `pageerror`). Validação: 5 suítes Playwright (Chromium + Chrome) + E2E real na Service Farma (limpeza conferida no banco). **WebKit/Safari não testado.** Origem: comprador da Drogaria SV — as 50 pendências de fim de semana dele foram removidas por SQL com autorização (backup em JSON antes). **O que acompanhar:** (a) os demais compradores da SV ainda têm **380** pendências de fim de semana em 8 séries diárias antigas, e outros tenants também (~1.780 no total) — eles resolvem pelo botão novo; (b) a mudança de comportamento da mensal (mesmo dia do mês) e do "pular feriados" marcado por padrão está nas notas de versão; (c) minor conhecido: após falha parcial no ajuste, o modal de edição por baixo pode continuar mostrando uma ocorrência já apagada. A branch `fix/admins-paginacao` (`a234fd6`, listagem de admins paginada) **continua só local**, não integrada.
+**✅ v79 + Ajuda (SW v80) EM PRODUÇÃO (17/09/2026)** — séries em dia útil e botão "Ajustar dias desta série" (detalhes em "Entregue em 17/09/2026" abaixo). `main` = `staging` = `eaedd8d`, conferido no Google Chrome real. **O que acompanhar:**
+- **Retorno do comprador da Drogaria SV que reportou** (as 50 pendências de fim de semana dele já foram removidas). Mensagem para ele entregue ao André; complemento sugerido: "passo a passo em ❓ Ajuda → 🗓️ Calendário → Ajustar dias desta série".
+- **Os outros compradores da SV ainda têm 380 pendências de fim de semana** em 8 séries diárias antigas; nos demais tenants são ~1.780 no total. Eles resolvem pelo botão — **não apagar pelo banco** sem autorização.
+- **⚠️ Feriados de 2027 só cadastrados na Drogaria SV** (levantamento 17/09/2026: os outros 21 tenants têm só 2026). A v79 pula/move feriados **cadastrados** — série que entra em 2027 nesses tenants não enxerga os feriados de 2027. Ação: importar os feriados nacionais de 2027 em cada tenant (menu Feriados → importar) ou avisar os clientes.
+- **Mudança de comportamento** a observar no retorno dos usuários: mensal agora no mesmo dia do mês; "Pular feriados cadastrados" marcado por padrão na diária; semanal/quinzenal/mensal nunca em sábado (decisão mantida).
+- **Branch `fix/admins-paginacao`** (`a234fd6`, listagem de admins paginada): enviada ao remoto em 17/09/2026 para continuar em outra máquina — **ainda não integrada** em `staging`/`main` nem validada.
 
 **✅ v78 EM PRODUÇÃO (06/08/2026)** — merge `staging` → `main` (ff, `fd14fd6`), push nas duas branches, Vercel publicou. **Produção conferida pelo Google Chrome real**: `VERSOES[0] = v78`, rodapé v78, `fixarNotaNoFornecedor`/`mesclarNotaFixa`/`ultimaNotaDoFornecedor` presentes, faixa `agendaSupplierNoteBand` no DOM exibindo a nota real do banco, rótulo "Lembrete só deste pedido", "Tratar Agenda" 100% visível, zero `pageerror`. **Falta a validação da compradora** — enviar o PDF-guia (`~/Downloads/Agenda_Compras_Nota_Fixa_Fornecedor_Guia.pdf`) e pedir o retorno. Se o portal dela travar na versão antiga (SW preso), `/?limpar=1`.
 
