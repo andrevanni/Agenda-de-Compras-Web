@@ -1453,6 +1453,10 @@ textarea::placeholder {
   max-width: 520px;
 }
 
+.serie-ajuste-modal .modal-card {
+  max-width: 560px;
+}
+
 .pedido-modal-body {
   display: grid;
   gap: 16px;

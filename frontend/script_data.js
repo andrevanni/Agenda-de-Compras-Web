@@ -529,6 +529,11 @@ function bindStaticEvents() {
   document.getElementById("newEventButtonCompromissos")?.addEventListener("click", () => openNewEventModal());
   document.getElementById("saveNewEventButton")?.addEventListener("click", saveNewEvent);
   document.getElementById("deleteNewEventButton")?.addEventListener("click", deleteGenericEvent);
+  document.getElementById("newEventAjustarSerieButton")?.addEventListener("click", openSerieAjusteModal);
+  // Listener no container pega os 7 checkboxes por bubbling (recriados a cada abertura).
+  document.getElementById("serieAjusteDias")?.addEventListener("change", atualizarPreviaAjusteSerie);
+  document.getElementById("serieAjusteRemoverFeriados")?.addEventListener("change", atualizarPreviaAjusteSerie);
+  document.getElementById("serieAjusteAplicarButton")?.addEventListener("click", aplicarAjusteSerie);
   document.getElementById("newEventRecorrencia")?.addEventListener("change", () => {
     const val = document.getElementById("newEventRecorrencia").value;
     document.getElementById("newEventRecorrenciaFimWrap").classList.toggle("hidden", !val);

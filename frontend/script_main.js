@@ -1269,6 +1269,189 @@ async function deleteGenericEvent() {
 }
 
 // ============================================================
+// AJUSTAR DIAS DE UMA SÉRIE EXISTENTE
+// ============================================================
+// Foi reportado que séries criadas antes da escolha de dias da semana (v77)
+// tinham sábado e domingo gravados, e a única saída era excluir a série toda e
+// recriar. Diária remove os dias desmarcados; semanal/quinzenal/mensal movem
+// fim de semana e feriado para o próximo dia útil.
+// Alvos SEMPRE lidos do servidor: state.agenda pode estar parcial (carga
+// progressiva) e a confirmação mostraria menos do que seria alterado.
+let _serieAjusteToken = 0;
+let _serieAjusteCtx = null;
+
+function renderSerieAjusteDias(selected) {
+  const wrap = document.getElementById("serieAjusteDias");
+  if (!wrap) return;
+  wrap.innerHTML = DIAS_SEMANA.map((dia) => `
+    <label><input type="checkbox" name="serieAjusteDia" value="${dia}" ${selected.includes(dia) ? "checked" : ""}> ${DIAS_SEMANA_LABEL_CURTO[dia]}</label>
+  `).join("");
+}
+
+async function openSerieAjusteModal() {
+  const editId = document.getElementById("newEventEditId").value.trim();
+  const occ = (state.agenda ?? []).find((o) => o.id === editId)
+    ?? (state.auditOccurrences ?? []).find((o) => o.id === editId);
+  if (!occ?.serie_id) return;
+  const s = getSettings();
+  const token = ++_serieAjusteToken;
+  _serieAjusteCtx = null;
+  const titulo = document.getElementById("newEventTitulo").value.trim() || occ.titulo || "esta série";
+
+  const previa = document.getElementById("serieAjustePrevia");
+  const botao = document.getElementById("serieAjusteAplicarButton");
+  document.getElementById("serieAjusteSubtitulo").textContent = `"${titulo}"`;
+  document.getElementById("serieAjusteDiariaWrap").classList.add("hidden");
+  document.getElementById("serieAjusteRemoverFeriados").checked = true;
+  clearFeedback(document.getElementById("serieAjusteFeedback"));
+  previa.classList.remove("alerta");
+  previa.textContent = "Carregando as ocorrências da série…";
+  botao.disabled = true;
+  botao.textContent = "Aplicar";
+  const modal = document.getElementById("serieAjusteModal");
+  if (!modal.open) modal.showModal();
+
+  let rows;
+  try {
+    rows = await fetchSupabaseAll(
+      `/rest/v1/agenda_ocorrencias?select=id,data_prevista,nota,recorrencia&serie_id=eq.${occ.serie_id}&tenant_id=eq.${s.tenantId}&status=eq.PENDENTE&order=data_prevista.asc,id.asc`
+    );
+  } catch (err) {
+    if (token !== _serieAjusteToken) return;
+    previa.textContent = `Não foi possível carregar a série: ${err.message}`;
+    previa.classList.add("alerta");
+    return;
+  }
+  if (token !== _serieAjusteToken) return;
+
+  const lista = rows ?? [];
+  const modo = inferirModoAjusteSerie(lista);
+  _serieAjusteCtx = { token, serieId: occ.serie_id, tenantId: s.tenantId, titulo, rows: lista, modo };
+  if (modo === "remover") {
+    renderSerieAjusteDias(diasDaSerie(lista) ?? DIAS_SEMANA_PADRAO_DIARIA);
+    document.getElementById("serieAjusteDiariaWrap").classList.remove("hidden");
+  }
+  atualizarPreviaAjusteSerie();
+}
+
+function getSerieAjustePlano() {
+  const ctx = _serieAjusteCtx;
+  if (!ctx) return null;
+  if (ctx.modo === "remover") {
+    const diasManter = [...document.querySelectorAll('input[name="serieAjusteDia"]:checked')].map((cb) => cb.value);
+    const removerFeriados = document.getElementById("serieAjusteRemoverFeriados").checked;
+    return planejarAjusteSerie(ctx.rows, "remover", { diasManter, removerFeriados });
+  }
+  return planejarAjusteSerie(ctx.rows, "mover", { hoje: todayLocalIso() });
+}
+
+function atualizarPreviaAjusteSerie() {
+  const ctx = _serieAjusteCtx;
+  if (!ctx) return;
+  const previa = document.getElementById("serieAjustePrevia");
+  const botao = document.getElementById("serieAjusteAplicarButton");
+  previa.classList.remove("alerta");
+  botao.disabled = true;
+  botao.textContent = ctx.modo === "remover" ? "Remover" : "Mover";
+
+  if (ctx.modo === "remover" && !document.querySelector('input[name="serieAjusteDia"]:checked')) {
+    previa.textContent = "Marque ao menos um dia para manter a série.";
+    previa.classList.add("alerta");
+    return;
+  }
+
+  const { alvos, mantidasPorLembrete } = getSerieAjustePlano();
+  const avisoLembrete = mantidasPorLembrete > 0 ? ` · ${mantidasPorLembrete} mantida(s) por terem lembrete` : "";
+  if (!alvos.length) {
+    previa.textContent = ctx.modo === "remover"
+      ? `Nenhuma ocorrência pendente para remover com esses dias.${avisoLembrete}`
+      : "Nenhuma ocorrência desta série cai em fim de semana ou feriado.";
+    return;
+  }
+  if (ctx.modo === "remover") {
+    previa.textContent = `Serão removidas ${alvos.length} ocorrência(s) · ${formatDate(alvos[0].de)} → ${formatDate(alvos[alvos.length - 1].de)}${avisoLembrete}`;
+  } else {
+    const linhas = alvos.slice(0, 8).map((a) => `${formatDate(a.de)} → ${formatDate(a.para)}`);
+    const resto = alvos.length > 8 ? ` · e mais ${alvos.length - 8}` : "";
+    previa.textContent = `Serão movidas ${alvos.length} ocorrência(s) para o próximo dia útil: ${linhas.join(" · ")}${resto}`;
+  }
+  botao.textContent = `${ctx.modo === "remover" ? "Remover" : "Mover"} ${alvos.length}`;
+  botao.disabled = false;
+}
+
+async function aplicarAjusteSerie() {
+  const ctx = _serieAjusteCtx;
+  if (!ctx || ctx.token !== _serieAjusteToken) return;
+  const plano = getSerieAjustePlano();
+  if (!plano?.alvos.length) return;
+  const total = plano.alvos.length;
+  const remover = plano.modo === "remover";
+  const mensagem = remover
+    ? `Remover ${total} ocorrência(s) pendente(s) da série "${ctx.titulo}"? Esta ação não pode ser desfeita.`
+    : `Mover ${total} ocorrência(s) da série "${ctx.titulo}" para o próximo dia útil?`;
+  if (!confirm(mensagem)) return;
+
+  const botao = document.getElementById("serieAjusteAplicarButton");
+  botao.disabled = true;
+  botao.textContent = "Aplicando...";
+  // status=PENDENTE e tenant_id em toda escrita: segunda trava caso algo tenha
+  // sido concluído entre a leitura e a gravação.
+  const travas = `&tenant_id=eq.${ctx.tenantId}&status=eq.PENDENTE`;
+  let feitas = 0;
+  try {
+    if (remover) {
+      for (let i = 0; i < total; i += 100) {
+        const lote = plano.alvos.slice(i, i + 100);
+        await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=in.(${lote.map((a) => a.id).join(",")})${travas}`, {
+          method: "DELETE",
+          headers: { Prefer: "return=minimal" },
+        });
+        feitas += lote.length;
+      }
+    } else {
+      for (const alvo of plano.alvos) {
+        await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${alvo.id}${travas}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: { data_prevista: alvo.para },
+        });
+        feitas++;
+      }
+    }
+  } catch (err) {
+    // Contexto descartado: um novo clique não pode reaplicar um plano que já
+    // foi parcialmente gravado. Reabrir o ajuste relê a série e pega só o resto.
+    _serieAjusteCtx = null;
+    botao.textContent = "Aplicar";
+    setFeedback(
+      `Parou no meio: ${feitas} de ${total} concluída(s). Feche e abra o ajuste de novo para terminar. (${err.message})`,
+      "error",
+      document.getElementById("serieAjusteFeedback")
+    );
+    try {
+      await loadPortalData({ silent: true });
+      refreshCalendar();
+    } catch {
+      // A mensagem acima já orienta o usuário; recarga falha não muda nada.
+    }
+    return;
+  }
+
+  _serieAjusteToken++;
+  _serieAjusteCtx = null;
+  closeModal("serieAjusteModal");
+  closeModal("newEventModal");
+  setFeedback(
+    remover
+      ? `${total} ocorrência(s) removida(s) da série.`
+      : `${total} ocorrência(s) movida(s) para o próximo dia útil.`,
+    "success"
+  );
+  await loadPortalData({ silent: true });
+  refreshCalendar();
+}
+
+// ============================================================
 // BOOTSTRAP
 // ============================================================
 

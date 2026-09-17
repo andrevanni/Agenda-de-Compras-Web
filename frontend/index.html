@@ -1632,6 +1632,7 @@
             <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.4;">
               Edi&ccedil;&atilde;o em massa n&atilde;o muda data nem nota nem comprador &mdash; s&oacute; t&iacute;tulo, hor&aacute;rio, categoria e observa&ccedil;&atilde;o.
             </div>
+            <button id="newEventAjustarSerieButton" class="btn btn-outline" type="button" style="margin-top:10px;">&#128467;&#65039; Ajustar dias desta s&eacute;rie</button>
           </div>
         </div>
         <div id="newEventConflictWarning" class="msg hidden"></div>
@@ -1640,6 +1641,32 @@
           <button id="saveNewEventButton" class="btn" type="button">Salvar Evento</button>
           <button id="deleteNewEventButton" class="btn btn-danger hidden" type="button">&#128465; Excluir</button>
           <button class="btn btn-outline" type="button" data-close-modal="newEventModal">Cancelar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="serieAjusteModal" class="details-modal serie-ajuste-modal">
+      <form method="dialog" class="modal-card">
+        <button class="close-button" type="button" data-close-modal="serieAjusteModal" aria-label="Fechar">
+          <span class="close-glyph">&#10005;</span>
+        </button>
+        <div class="section-title">
+          <div>
+            <h2>&#128467;&#65039; Ajustar dias desta s&eacute;rie</h2>
+            <p id="serieAjusteSubtitulo" class="muted"></p>
+          </div>
+        </div>
+        <div id="serieAjusteDiariaWrap" class="hidden">
+          <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Manter a s&eacute;rie nestes dias</span>
+          <div id="serieAjusteDias" class="weekday-grid"></div>
+          <label class="weekday-extra"><input type="checkbox" id="serieAjusteRemoverFeriados" checked> Tamb&eacute;m remover feriados cadastrados</label>
+        </div>
+        <div id="serieAjustePrevia" class="weekday-preview"></div>
+        <p class="muted" style="font-size:12px;margin:8px 0 0;">S&oacute; compromissos pendentes s&atilde;o alterados. Os j&aacute; conclu&iacute;dos ficam no hist&oacute;rico.</p>
+        <div id="serieAjusteFeedback" class="msg hidden"></div>
+        <div class="actions">
+          <button id="serieAjusteAplicarButton" class="btn" type="button" disabled>Aplicar</button>
+          <button class="btn btn-outline" type="button" data-close-modal="serieAjusteModal">Cancelar</button>
         </div>
       </form>
     </dialog>
