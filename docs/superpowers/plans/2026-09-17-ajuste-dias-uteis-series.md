@@ -1456,3 +1456,18 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - `window.__falharNaChamada = N` faz a N-ésima chamada (0-based, contando a partir do último reset de `__calls`) lançar erro.
 - **Desvio consciente do spec:** o aviso "⚠️ é feriado" continua também na **diária** (não só no avulso), porque a diária com "pular feriados" desmarcado pode começar num feriado.
 - **Desvio consciente do spec:** `diasDaSerie` pré-marca os checkboxes com os dias gravados na série (v77+), em vez de sempre seg–sex — senão uma série "quarta a sábado" proporia apagar os sábados escolhidos.
+
+## Ajustes pós-revisão (17/09/2026)
+
+Revisão única da branch; achados conferidos no código antes de corrigir.
+
+- **Aplicar duas vezes em paralelo** (qualquer `change` reabilitava o botão durante a gravação) → trava `_serieAjusteGravando`: bloqueia prévia, reabertura, 2º clique e Esc; checkboxes desabilitados durante a gravação.
+- **Reabrir após falha parcial não fazia nada** (a ocorrência aberta podia ter sido apagada e sumir do `state`) → `serie_id` guardado em `newEventEditId.dataset.serieId`; a falha parcial relê a série e mostra só o que falta.
+- **Fim da gravação fechava outro evento aberto** → `_fecharEdicaoDaSerie` só fecha se o modal ainda mostra a ocorrência de origem.
+- **Inferência enganada por pendentes esparsas** → a leitura traz todas as situações; o plano usa só as pendentes.
+- **Mover podia duplicar** (sáb + dom do mesmo comprador na mesma segunda, ou segunda já ocupada) → ocupação por comprador; conta `conflitos`.
+- **Contagem otimista** (204 sem linha alterada contava como feita) → `return=representation` + `select=id`; mensagem com o número real e aviso das ignoradas.
+- **Mensagem enganosa no modo mover** → "Nenhuma ocorrência futura…" + aviso de vencidas ignoradas; aviso quando a série atinge mais de um comprador.
+- Notas de versão, Ajuda e `CLAUDE.md` corrigidas (o "pular feriados" sempre usou os feriados cadastrados; só o rótulo estava errado).
+- Testes: harness passou a simular o servidor (aplica DELETE/PATCH em `__rows`); suítes 3 e 4 cobrem os cenários acima. E2E real confere a contagem das mensagens.
+- **Pendente de decisão de produto:** semanal/quinzenal/mensal intencionalmente num sábado não é mais possível.

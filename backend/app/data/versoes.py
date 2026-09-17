@@ -12,9 +12,9 @@ VERSOES = [
         "versao": "v79",
         "dataHora": "17/09/2026 — manhã",
         "notas": [
-            "Compromissos com repetição mensal, semanal ou quinzenal não caem mais em sábado, domingo ou feriado: a data vai automaticamente para o próximo dia útil. Antes de salvar, a janela mostra quantas datas foram ajustadas.",
+            "Compromissos novos com repetição mensal, semanal ou quinzenal não caem mais em sábado, domingo ou feriado cadastrado: a data vai automaticamente para o próximo dia útil. Antes de salvar, a janela mostra quantas datas foram ajustadas.",
             "A repetição mensal agora respeita o dia do mês: \"todo dia 10\" fica sempre no dia 10. Antes ela somava 30 dias e a data ia recuando mês a mês. Quando o dia não existe no mês (31 em fevereiro), vale o último dia.",
-            "Na repetição diária, a opção de pular feriados passou a vir marcada e considera também os feriados cadastrados pela empresa, não só os nacionais.",
+            "Na repetição diária, a opção de pular feriados passou a vir marcada. O nome dela também foi corrigido para \"Pular feriados cadastrados\": ela sempre considerou os feriados cadastrados pela empresa, não só os nacionais.",
             "Novo botão \"Ajustar dias desta série\", na janela de edição de um compromisso que se repete. Compradores relataram séries antigas com sábados e domingos e nenhuma forma de retirá-los sem apagar tudo: agora dá para escolher os dias a manter e remover só os outros. Em séries mensais, semanais ou quinzenais, o botão move para o próximo dia útil as datas que caem em fim de semana ou feriado.",
             "O ajuste só mexe em compromissos pendentes. Os já concluídos continuam no histórico, e compromissos com lembrete escrito não são apagados.",
         ],

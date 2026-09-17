@@ -534,6 +534,10 @@ function bindStaticEvents() {
   document.getElementById("serieAjusteDias")?.addEventListener("change", atualizarPreviaAjusteSerie);
   document.getElementById("serieAjusteRemoverFeriados")?.addEventListener("change", atualizarPreviaAjusteSerie);
   document.getElementById("serieAjusteAplicarButton")?.addEventListener("click", aplicarAjusteSerie);
+  // Esc não fecha a janela no meio da gravação (o usuário perderia o resultado).
+  document.getElementById("serieAjusteModal")?.addEventListener("cancel", (e) => {
+    if (_serieAjusteGravando) e.preventDefault();
+  });
   document.getElementById("newEventRecorrencia")?.addEventListener("change", () => {
     const val = document.getElementById("newEventRecorrencia").value;
     document.getElementById("newEventRecorrenciaFimWrap").classList.toggle("hidden", !val);

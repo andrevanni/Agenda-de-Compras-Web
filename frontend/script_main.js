@@ -749,6 +749,7 @@ function updateNewEventPreview() {
 function openNewEventModal(dateStr = "") {
   populateNewEventSelects();
   document.getElementById("newEventEditId").value = "";
+  document.getElementById("newEventEditId").dataset.serieId = "";
   document.getElementById("newEventModalTitle").textContent = "Novo Evento";
   document.getElementById("newEventModalSubtitle").textContent = "Preencha os dados do evento. Horário padrão calculado a partir das configurações.";
   document.getElementById("deleteNewEventButton").classList.add("hidden");
@@ -802,6 +803,7 @@ function openGenericEventDetail(occ) {
   if (!occ) return;
   populateNewEventSelects();
   document.getElementById("newEventEditId").value = occ.id;
+  document.getElementById("newEventEditId").dataset.serieId = occ.serie_id ?? "";
   document.getElementById("newEventModalTitle").textContent = "Editar Evento";
   document.getElementById("newEventModalSubtitle").textContent = "Altere os dados e salve. Clique em Excluir para remover permanentemente.";
   document.getElementById("deleteNewEventButton").classList.remove("hidden");
@@ -983,7 +985,8 @@ function diasDaSerie(rows) {
 //   Ocorrência com lembrete é preservada — apagar em massa não pode destruir
 //   texto escrito à mão.
 // - mover: pendentes de hoje em diante fora de dia útil. Vencidas ficam:
-//   mover para outra data que também já passou não resolve nada.
+//   mover para outra data que também já passou não resolve nada. Não move
+//   para um dia em que o mesmo comprador já tem ocorrência da série.
 function planejarAjusteSerie(rows, modo, opcoes = {}) {
   const lista = rows ?? [];
   if (modo === "remover") {
@@ -998,16 +1001,34 @@ function planejarAjusteSerie(rows, modo, opcoes = {}) {
         mantidasPorLembrete++;
         continue;
       }
-      alvos.push({ id: r.id, de: r.data_prevista, para: null });
+      alvos.push({ id: r.id, de: r.data_prevista, para: null, comprador_id: r.comprador_id ?? null });
     }
-    return { modo, alvos, mantidasPorLembrete };
+    return { modo, alvos, mantidasPorLembrete, vencidasIgnoradas: 0, conflitos: 0 };
   }
   const hoje = opcoes.hoje;
-  const alvos = lista
-    .filter((r) => r.data_prevista >= hoje)
-    .map((r) => ({ id: r.id, de: r.data_prevista, para: proximoDiaUtil(r.data_prevista) }))
-    .filter((a) => a.para !== a.de);
-  return { modo: "mover", alvos, mantidasPorLembrete: 0 };
+  // Ocupação por comprador: numa série multi-comprador, cada um tem a sua
+  // ocorrência na mesma data. Sábado e domingo da mesma pessoa não podem cair
+  // na mesma segunda — a segunda fica onde está e é contada como conflito.
+  const chave = (r, data) => `${r.comprador_id ?? ""}|${data}`;
+  const ocupadas = new Set(lista.map((r) => chave(r, r.data_prevista)));
+  const alvos = [];
+  let vencidasIgnoradas = 0;
+  let conflitos = 0;
+  for (const r of lista) {
+    const para = proximoDiaUtil(r.data_prevista);
+    if (para === r.data_prevista) continue;
+    if (r.data_prevista < hoje) {
+      vencidasIgnoradas++;
+      continue;
+    }
+    if (ocupadas.has(chave(r, para))) {
+      conflitos++;
+      continue;
+    }
+    ocupadas.add(chave(r, para));
+    alvos.push({ id: r.id, de: r.data_prevista, para, comprador_id: r.comprador_id ?? null });
+  }
+  return { modo: "mover", alvos, mantidasPorLembrete: 0, vencidasIgnoradas, conflitos };
 }
 
 async function saveNewEvent() {
@@ -1279,6 +1300,10 @@ async function deleteGenericEvent() {
 // progressiva) e a confirmação mostraria menos do que seria alterado.
 let _serieAjusteToken = 0;
 let _serieAjusteCtx = null;
+// Trava de gravação: enquanto os lotes estão indo, nenhuma prévia pode reabilitar
+// o botão e nenhuma abertura pode recalcular o plano — senão dois laços de
+// DELETE/PATCH rodariam em paralelo sobre a mesma série.
+let _serieAjusteGravando = false;
 
 function renderSerieAjusteDias(selected) {
   const wrap = document.getElementById("serieAjusteDias");
@@ -1288,22 +1313,35 @@ function renderSerieAjusteDias(selected) {
   `).join("");
 }
 
-async function openSerieAjusteModal() {
-  const editId = document.getElementById("newEventEditId").value.trim();
-  const occ = (state.agenda ?? []).find((o) => o.id === editId)
-    ?? (state.auditOccurrences ?? []).find((o) => o.id === editId);
-  if (!occ?.serie_id) return;
+function setSerieAjusteOpcoesHabilitadas(habilitadas) {
+  document.querySelectorAll('#serieAjusteDiariaWrap input').forEach((el) => { el.disabled = !habilitadas; });
+}
+
+// manterFeedback: usado após falha parcial, para reler a série sem apagar a
+// mensagem de erro. (Pelo clique, o 1º argumento é o evento — ignorado.)
+async function openSerieAjusteModal(opcoes = {}) {
+  if (_serieAjusteGravando) {
+    setFeedback("Um ajuste de série ainda está sendo gravado. Aguarde terminar.", "warning");
+    return;
+  }
+  const editInput = document.getElementById("newEventEditId");
+  const editId = editInput.value.trim();
+  // serie_id guardado no DOM ao abrir a edição: a ocorrência aberta pode ter
+  // saído do state (apagada pelo próprio ajuste, ou além da leva 1 da carga).
+  const serieId = editInput.dataset.serieId || "";
+  if (!serieId) return;
   const s = getSettings();
   const token = ++_serieAjusteToken;
   _serieAjusteCtx = null;
-  const titulo = document.getElementById("newEventTitulo").value.trim() || occ.titulo || "esta série";
+  const titulo = document.getElementById("newEventTitulo").value.trim() || "esta série";
 
   const previa = document.getElementById("serieAjustePrevia");
   const botao = document.getElementById("serieAjusteAplicarButton");
   document.getElementById("serieAjusteSubtitulo").textContent = `"${titulo}"`;
   document.getElementById("serieAjusteDiariaWrap").classList.add("hidden");
   document.getElementById("serieAjusteRemoverFeriados").checked = true;
-  clearFeedback(document.getElementById("serieAjusteFeedback"));
+  setSerieAjusteOpcoesHabilitadas(true);
+  if (opcoes?.manterFeedback !== true) clearFeedback(document.getElementById("serieAjusteFeedback"));
   previa.classList.remove("alerta");
   previa.textContent = "Carregando as ocorrências da série…";
   botao.disabled = true;
@@ -1311,10 +1349,13 @@ async function openSerieAjusteModal() {
   const modal = document.getElementById("serieAjusteModal");
   if (!modal.open) modal.showModal();
 
-  let rows;
+  let todas;
   try {
-    rows = await fetchSupabaseAll(
-      `/rest/v1/agenda_ocorrencias?select=id,data_prevista,nota,recorrencia&serie_id=eq.${occ.serie_id}&tenant_id=eq.${s.tenantId}&status=eq.PENDENTE&order=data_prevista.asc,id.asc`
+    // Todas as situações: a inferência do tipo precisa das concluídas (uma
+    // diária com os dias úteis já concluídos deixaria só sábados e domingos
+    // pendentes, com intervalo de 6 dias, e pareceria semanal).
+    todas = await fetchSupabaseAll(
+      `/rest/v1/agenda_ocorrencias?select=id,data_prevista,status,nota,recorrencia,comprador_id&serie_id=eq.${serieId}&tenant_id=eq.${s.tenantId}&order=data_prevista.asc,id.asc`
     );
   } catch (err) {
     if (token !== _serieAjusteToken) return;
@@ -1324,9 +1365,10 @@ async function openSerieAjusteModal() {
   }
   if (token !== _serieAjusteToken) return;
 
-  const lista = rows ?? [];
+  const lista = todas ?? [];
+  const pendentes = lista.filter((r) => r.status === "PENDENTE");
   const modo = inferirModoAjusteSerie(lista);
-  _serieAjusteCtx = { token, serieId: occ.serie_id, tenantId: s.tenantId, titulo, rows: lista, modo };
+  _serieAjusteCtx = { token, serieId, editId, tenantId: s.tenantId, titulo, rows: pendentes, modo };
   if (modo === "remover") {
     renderSerieAjusteDias(diasDaSerie(lista) ?? DIAS_SEMANA_PADRAO_DIARIA);
     document.getElementById("serieAjusteDiariaWrap").classList.remove("hidden");
@@ -1347,7 +1389,7 @@ function getSerieAjustePlano() {
 
 function atualizarPreviaAjusteSerie() {
   const ctx = _serieAjusteCtx;
-  if (!ctx) return;
+  if (!ctx || _serieAjusteGravando) return;
   const previa = document.getElementById("serieAjustePrevia");
   const botao = document.getElementById("serieAjusteAplicarButton");
   previa.classList.remove("alerta");
@@ -1360,28 +1402,41 @@ function atualizarPreviaAjusteSerie() {
     return;
   }
 
-  const { alvos, mantidasPorLembrete } = getSerieAjustePlano();
-  const avisoLembrete = mantidasPorLembrete > 0 ? ` · ${mantidasPorLembrete} mantida(s) por terem lembrete` : "";
+  const { alvos, mantidasPorLembrete, vencidasIgnoradas, conflitos } = getSerieAjustePlano();
+  const extras = [];
+  if (mantidasPorLembrete > 0) extras.push(`${mantidasPorLembrete} mantida(s) por terem lembrete`);
+  if (vencidasIgnoradas > 0) extras.push(`${vencidasIgnoradas} vencida(s) em fim de semana ou feriado não são movidas`);
+  if (conflitos > 0) extras.push(`${conflitos} não movida(s): o próximo dia útil já tem esta série`);
+  const compradores = new Set(alvos.map((a) => a.comprador_id ?? "")).size;
+  if (compradores > 1) extras.push(`atinge ${compradores} compradores`);
+  const sufixo = extras.length ? ` · ${extras.join(" · ")}` : "";
+
   if (!alvos.length) {
     previa.textContent = ctx.modo === "remover"
-      ? `Nenhuma ocorrência pendente para remover com esses dias.${avisoLembrete}`
-      : "Nenhuma ocorrência desta série cai em fim de semana ou feriado.";
+      ? `Nenhuma ocorrência pendente para remover com esses dias.${sufixo}`
+      : `Nenhuma ocorrência futura desta série cai em fim de semana ou feriado.${sufixo}`;
     return;
   }
   if (ctx.modo === "remover") {
-    previa.textContent = `Serão removidas ${alvos.length} ocorrência(s) · ${formatDate(alvos[0].de)} → ${formatDate(alvos[alvos.length - 1].de)}${avisoLembrete}`;
+    previa.textContent = `Serão removidas ${alvos.length} ocorrência(s) · ${formatDate(alvos[0].de)} → ${formatDate(alvos[alvos.length - 1].de)}${sufixo}`;
   } else {
     const linhas = alvos.slice(0, 8).map((a) => `${formatDate(a.de)} → ${formatDate(a.para)}`);
     const resto = alvos.length > 8 ? ` · e mais ${alvos.length - 8}` : "";
-    previa.textContent = `Serão movidas ${alvos.length} ocorrência(s) para o próximo dia útil: ${linhas.join(" · ")}${resto}`;
+    previa.textContent = `Serão movidas ${alvos.length} ocorrência(s) para o próximo dia útil: ${linhas.join(" · ")}${resto}${sufixo}`;
   }
   botao.textContent = `${ctx.modo === "remover" ? "Remover" : "Mover"} ${alvos.length}`;
   botao.disabled = false;
 }
 
+// Fecha o modal de edição só se ele ainda mostra a ocorrência de onde o ajuste
+// partiu — o usuário pode ter aberto outro evento durante a gravação.
+function _fecharEdicaoDaSerie(ctx) {
+  if (document.getElementById("newEventEditId").value.trim() === ctx.editId) closeModal("newEventModal");
+}
+
 async function aplicarAjusteSerie() {
   const ctx = _serieAjusteCtx;
-  if (!ctx || ctx.token !== _serieAjusteToken) return;
+  if (!ctx || ctx.token !== _serieAjusteToken || _serieAjusteGravando) return;
   const plano = getSerieAjustePlano();
   if (!plano?.alvos.length) return;
   const total = plano.alvos.length;
@@ -1391,40 +1446,46 @@ async function aplicarAjusteSerie() {
     : `Mover ${total} ocorrência(s) da série "${ctx.titulo}" para o próximo dia útil?`;
   if (!confirm(mensagem)) return;
 
+  _serieAjusteGravando = true;
   const botao = document.getElementById("serieAjusteAplicarButton");
   botao.disabled = true;
   botao.textContent = "Aplicando...";
+  setSerieAjusteOpcoesHabilitadas(false);
   // status=PENDENTE e tenant_id em toda escrita: segunda trava caso algo tenha
-  // sido concluído entre a leitura e a gravação.
-  const travas = `&tenant_id=eq.${ctx.tenantId}&status=eq.PENDENTE`;
-  let feitas = 0;
+  // sido concluído entre a leitura e a gravação. return=representation para
+  // contar o que o banco realmente alterou — uma linha barrada pela trava
+  // devolve 204 igual a uma alterada.
+  const travas = `&tenant_id=eq.${ctx.tenantId}&status=eq.PENDENTE&select=id`;
+  const cabecalhos = { Prefer: "return=representation" };
+  let processadas = 0;
+  let afetadas = 0;
   try {
     if (remover) {
       for (let i = 0; i < total; i += 100) {
         const lote = plano.alvos.slice(i, i + 100);
-        await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=in.(${lote.map((a) => a.id).join(",")})${travas}`, {
+        const resp = await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=in.(${lote.map((a) => a.id).join(",")})${travas}`, {
           method: "DELETE",
-          headers: { Prefer: "return=minimal" },
+          headers: cabecalhos,
         });
-        feitas += lote.length;
+        processadas += lote.length;
+        afetadas += Array.isArray(resp) ? resp.length : 0;
       }
     } else {
       for (const alvo of plano.alvos) {
-        await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${alvo.id}${travas}`, {
+        const resp = await fetchSupabase(`/rest/v1/agenda_ocorrencias?id=eq.${alvo.id}${travas}`, {
           method: "PATCH",
-          headers: { Prefer: "return=minimal" },
+          headers: cabecalhos,
           body: { data_prevista: alvo.para },
         });
-        feitas++;
+        processadas++;
+        afetadas += Array.isArray(resp) ? resp.length : 0;
       }
     }
   } catch (err) {
-    // Contexto descartado: um novo clique não pode reaplicar um plano que já
-    // foi parcialmente gravado. Reabrir o ajuste relê a série e pega só o resto.
+    _serieAjusteGravando = false;
     _serieAjusteCtx = null;
-    botao.textContent = "Aplicar";
     setFeedback(
-      `Parou no meio: ${feitas} de ${total} concluída(s). Feche e abra o ajuste de novo para terminar. (${err.message})`,
+      `Parou no meio: ${afetadas} de ${total} ${remover ? "removida(s)" : "movida(s)"}. A prévia abaixo já mostra o que falta — clique de novo para terminar. (${err.message})`,
       "error",
       document.getElementById("serieAjusteFeedback")
     );
@@ -1434,18 +1495,26 @@ async function aplicarAjusteSerie() {
     } catch {
       // A mensagem acima já orienta o usuário; recarga falha não muda nada.
     }
+    // Relê a série do servidor: o plano novo contém só o que não foi gravado.
+    const aindaMesmaSerie = document.getElementById("newEventEditId").dataset.serieId === ctx.serieId;
+    if (document.getElementById("serieAjusteModal").open && aindaMesmaSerie) {
+      await openSerieAjusteModal({ manterFeedback: true });
+    }
     return;
   }
 
+  _serieAjusteGravando = false;
   _serieAjusteToken++;
   _serieAjusteCtx = null;
   closeModal("serieAjusteModal");
-  closeModal("newEventModal");
+  _fecharEdicaoDaSerie(ctx);
+  const ignoradas = total - afetadas;
+  const avisoIgnoradas = ignoradas > 0 ? ` ${ignoradas} já tinha(m) sido concluída(s) ou alterada(s) e ficou(aram) como estava(m).` : "";
   setFeedback(
-    remover
-      ? `${total} ocorrência(s) removida(s) da série.`
-      : `${total} ocorrência(s) movida(s) para o próximo dia útil.`,
-    "success"
+    (remover
+      ? `${afetadas} ocorrência(s) removida(s) da série.`
+      : `${afetadas} ocorrência(s) movida(s) para o próximo dia útil.`) + avisoIgnoradas,
+    ignoradas > 0 ? "warning" : "success"
   );
   await loadPortalData({ silent: true });
   refreshCalendar();
