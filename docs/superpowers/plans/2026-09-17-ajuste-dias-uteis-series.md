@@ -1322,7 +1322,10 @@ check("CLAUDE.md cita Ajustar dias desta série", "Ajustar dias desta série" in
 with sync_playwright() as p:
     b, pg, erros = abrir(p)
     check("VERSOES[0] é v79", pg.evaluate("VERSOES[0].versao") == "v79")
-    check("notas JS == Python", all(n in py for n in pg.evaluate("VERSOES[0].notas")))
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("versoes", f"{PROJ}/backend/app/data/versoes.py")
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    check("notas JS == Python", pg.evaluate("VERSOES[0]") == mod.VERSOES[0])
     check("rodapé v79", "v79" in pg.evaluate("document.getElementById('footerVersionChip').textContent"))
     html = pg.evaluate("document.body.innerHTML")
     check("ajuda: ajustar dias da série", "Ajustar dias desta s" in html and html.count("Ajustar dias desta s") >= 2)
