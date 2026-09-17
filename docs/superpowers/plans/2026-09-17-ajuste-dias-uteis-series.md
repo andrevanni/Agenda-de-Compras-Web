@@ -378,8 +378,8 @@ with sync_playwright() as p:
 
     def set_rec(tipo, fim=""):
         pg.select_option("#newEventRecorrencia", tipo)
-        pg.fill("#newEventRecorrenciaFim", fim)
-        pg.dispatch_event("#newEventRecorrenciaFim", "change")
+        # Atribuição direta: o campo de fim fica oculto sem recorrência.
+        pg.evaluate("(v) => { const el = document.getElementById('newEventRecorrenciaFim'); el.value = v; el.dispatchEvent(new Event('change')); }", fim)
 
     def previa():
         return pg.evaluate("document.getElementById('newEventRecorrenciaPreview').textContent")

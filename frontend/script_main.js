@@ -697,43 +697,50 @@ function getNewEventDiasSemana() {
 }
 
 // Mostra, antes de salvar, quantas ocorrências a série vai criar e o período
-// coberto. Importante porque a 1ª data pode não ser a digitada (base em dia
-// desmarcado avança para o próximo dia marcado) e porque o volume de uma
-// rotina diária de 1 ano não é óbvio.
+// coberto. Importante porque a 1ª data pode não ser a digitada (dia desmarcado
+// na diária; fim de semana/feriado nas periódicas) e porque o volume de uma
+// rotina de 1 ano não é óbvio.
 function updateNewEventPreview() {
   const el = document.getElementById("newEventRecorrenciaPreview");
   if (!el) return;
   el.classList.remove("alerta");
   const tipo = document.getElementById("newEventRecorrencia").value;
-  if (tipo !== "diaria") {
-    el.textContent = "";
-    return;
-  }
   const data = brToIso(document.getElementById("newEventData").value);
   const fim = brToIso(document.getElementById("newEventRecorrenciaFim").value);
-  const dias = getNewEventDiasSemana();
-  const pular = document.getElementById("newEventPularFeriados").checked;
-  if (!data) {
+  if (!tipo || !data) {
     el.textContent = "";
     return;
   }
-  if (!dias.length) {
-    el.textContent = "Marque ao menos um dia da semana.";
-    el.classList.add("alerta");
-    return;
-  }
-  const dates = buildDiariaDates(data, fim, dias, pular);
-  if (!dates.length) {
-    el.textContent = "Nenhuma data no período — ajuste os dias da semana ou a data de fim.";
-    el.classList.add("alerta");
-    return;
-  }
+
+  let dates;
   let extra = "";
-  if (pular) {
-    const semPular = buildDiariaDates(data, fim, dias, false);
-    const pulados = semPular.length - dates.length;
-    // Com o teto de 500 batido, a diferença deixa de ser confiável.
-    if (pulados > 0 && semPular.length < 500) extra = ` · ${pulados} feriado(s) pulado(s)`;
+  if (tipo === "diaria") {
+    const dias = getNewEventDiasSemana();
+    const pular = document.getElementById("newEventPularFeriados").checked;
+    if (!dias.length) {
+      el.textContent = "Marque ao menos um dia da semana.";
+      el.classList.add("alerta");
+      return;
+    }
+    dates = buildDiariaDates(data, fim, dias, pular);
+    if (pular && dates.length) {
+      const semPular = buildDiariaDates(data, fim, dias, false);
+      const pulados = semPular.length - dates.length;
+      // Com o teto de 500 batido, a diferença deixa de ser confiável.
+      if (pulados > 0 && semPular.length < 500) extra = ` · ${pulados} feriado(s) pulado(s)`;
+    }
+  } else {
+    const geradas = buildRecorrenciaDatesUteis(data, tipo, fim);
+    dates = geradas.datas;
+    if (geradas.ajustadas > 0) extra = ` · ${geradas.ajustadas} ajustada(s) para o próximo dia útil`;
+  }
+
+  if (!dates.length) {
+    el.textContent = tipo === "diaria"
+      ? "Nenhuma data no período — ajuste os dias da semana ou a data de fim."
+      : "Nenhuma data no período — ajuste a data de fim.";
+    el.classList.add("alerta");
+    return;
   }
   const limite = dates.length >= 500 ? " (limite máximo)" : "";
   el.textContent = `📅 ${dates.length} data(s)${limite} · ${formatDate(dates[0])} → ${formatDate(dates[dates.length - 1])}${extra}`;
@@ -760,7 +767,8 @@ function openNewEventModal(dateStr = "") {
   document.getElementById("newEventRecorrenciaFimNative").value = "";
   document.getElementById("newEventRecorrenciaFimWrap").classList.add("hidden");
   document.getElementById("newEventDiasSemanaWrap").classList.add("hidden");
-  document.getElementById("newEventPularFeriados").checked = false;
+  document.getElementById("newEventPularFeriados").checked = true;
+  document.getElementById("newEventRecorrenciaPreview").classList.add("hidden");
   renderNewEventDiasSemana();
   updateNewEventPreview();
   clearFeedback(document.getElementById("newEventConflictWarning"));
@@ -800,6 +808,7 @@ function openGenericEventDetail(occ) {
   document.getElementById("newEventRecorrenciaWrap").classList.add("hidden");
   document.getElementById("newEventRecorrenciaFimWrap").classList.add("hidden");
   document.getElementById("newEventDiasSemanaWrap").classList.add("hidden");
+  document.getElementById("newEventRecorrenciaPreview").classList.add("hidden");
   document.getElementById("newEventTitulo").value = occ.titulo ?? "";
   document.getElementById("newEventData").value = isoToBr(occ.data_prevista);
   const _horaInicioEdit = occ.hora_inicio ?? "08:00";
@@ -970,13 +979,15 @@ async function saveNewEvent() {
 
   if (!dates.length) {
     feriadoWarningEl.classList.add("hidden");
-    setFeedback("Nenhuma data foi gerada com esses dias da semana. Ajuste os dias ou a data de fim.", "error", feedbackEl);
+    setFeedback("Nenhuma data foi gerada no período. Ajuste os dias da semana ou a data de fim.", "error", feedbackEl);
     feedbackEl.classList.remove("hidden");
     return;
   }
   const primeiraData = dates[0];
 
-  const feriadoNoDia = getFeriado(primeiraData);
+  // Nas periódicas a data já nasce ajustada para dia útil; o aviso só faz
+  // sentido para evento avulso e para a diária sem "pular feriados".
+  const feriadoNoDia = recorrencia && recorrencia !== "diaria" ? null : getFeriado(primeiraData);
   if (feriadoNoDia) {
     setFeedback(`⚠️ ${formatDate(primeiraData)} é feriado: "${feriadoNoDia.nome}". Revise a data antes de salvar.`, "warning", feriadoWarningEl);
     feriadoWarningEl.classList.remove("hidden");
@@ -1074,9 +1085,12 @@ async function saveNewEvent() {
           ? JSON.stringify({
               tipo: recorrencia,
               fim: recFim || null,
-              // Nada lê esses campos de volta hoje; ficam registrados para uma
-              // futura edição de dias da série.
-              ...(recorrencia === "diaria" ? { dias: diasSemana, pular_feriados: pularFeriados } : {}),
+              // Nada lê esses campos de volta na criação; dias é usado pelo
+              // "Ajustar dias desta série" para pré-marcar os checkboxes.
+              ...(recorrencia === "diaria"
+                ? { dias: diasSemana, pular_feriados: pularFeriados }
+                : { ajuste: "proximo_dia_util" }),
+              ...(recorrencia === "mensal" ? { dia_mes: Number(data.slice(8, 10)) } : {}),
             })
           : null,
         serie_id: serieId,
@@ -1094,10 +1108,13 @@ async function saveNewEvent() {
           isFirstOccurrence = false;
         }
       }
+      const avisoAjuste = ajustadasNaCriacao > 0
+        ? ` ${ajustadasNaCriacao} data(s) caíam em fim de semana ou feriado e foram para o próximo dia útil.`
+        : "";
       setFeedback(
         total > 1
-          ? `${total} evento(s) criado(s)${buyerIds.length > 1 ? ` para ${buyerIds.length} comprador(es)` : ""}${dates.length > 1 ? `, ${dates.length} datas (${recorrencia})` : ""}.`
-          : "Evento criado com sucesso.",
+          ? `${total} evento(s) criado(s)${buyerIds.length > 1 ? ` para ${buyerIds.length} comprador(es)` : ""}${dates.length > 1 ? `, ${dates.length} datas (${recorrencia})` : ""}.${avisoAjuste}`
+          : `Evento criado com sucesso.${avisoAjuste}`,
         "success"
       );
     }

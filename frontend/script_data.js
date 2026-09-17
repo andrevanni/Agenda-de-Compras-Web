@@ -533,6 +533,7 @@ function bindStaticEvents() {
     const val = document.getElementById("newEventRecorrencia").value;
     document.getElementById("newEventRecorrenciaFimWrap").classList.toggle("hidden", !val);
     document.getElementById("newEventDiasSemanaWrap").classList.toggle("hidden", val !== "diaria");
+    document.getElementById("newEventRecorrenciaPreview").classList.toggle("hidden", !val);
     updateNewEventPreview();
   });
   // Prévia acompanha tudo que muda o conjunto de datas. O listener no container

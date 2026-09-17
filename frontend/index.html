@@ -1596,8 +1596,7 @@
           <div id="newEventDiasSemanaWrap" class="hidden" style="grid-column:1/-1">
             <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Dias da semana</span>
             <div id="newEventDiasSemana" class="weekday-grid"></div>
-            <label class="weekday-extra"><input type="checkbox" id="newEventPularFeriados"> Pular feriados nacionais</label>
-            <div id="newEventRecorrenciaPreview" class="weekday-preview"></div>
+            <label class="weekday-extra"><input type="checkbox" id="newEventPularFeriados" checked> Pular feriados cadastrados</label>
           </div>
           <label id="newEventRecorrenciaFimWrap" class="hidden" style="grid-column:1/-1">Data de fim da recorr&ecirc;ncia<br>
             <div class="date-input-group">
@@ -1606,6 +1605,7 @@
               <input id="newEventRecorrenciaFimNative" class="native-date-proxy" type="date" tabindex="-1" aria-hidden="true">
             </div>
           </label>
+          <div id="newEventRecorrenciaPreview" class="weekday-preview hidden" style="grid-column:1/-1"></div>
           <label style="grid-column:1/-1">Observa&ccedil;&atilde;o<br>
             <textarea id="newEventObservacao" rows="2" placeholder="Detalhes adicionais..."></textarea>
           </label>
