@@ -1470,4 +1470,4 @@ Revisão única da branch; achados conferidos no código antes de corrigir.
 - **Mensagem enganosa no modo mover** → "Nenhuma ocorrência futura…" + aviso de vencidas ignoradas; aviso quando a série atinge mais de um comprador.
 - Notas de versão, Ajuda e `CLAUDE.md` corrigidas (o "pular feriados" sempre usou os feriados cadastrados; só o rótulo estava errado).
 - Testes: harness passou a simular o servidor (aplica DELETE/PATCH em `__rows`); suítes 3 e 4 cobrem os cenários acima. E2E real confere a contagem das mensagens.
-- **Pendente de decisão de produto:** semanal/quinzenal/mensal intencionalmente num sábado não é mais possível.
+- **Decidido manter (André, 17/09/2026):** semanal/quinzenal/mensal num sábado não é mais possível. Se algum cliente pedir, entra um checkbox "Mover fins de semana e feriados para o próximo dia útil", marcado por padrão.
