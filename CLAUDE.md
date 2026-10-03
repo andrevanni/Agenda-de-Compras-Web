@@ -779,6 +779,8 @@ Resolução do incidente Total Socorro + 4 sugestões do cliente:
 
 ### Próxima sessão (prioridade máxima)
 
+**🟡 Migração para São Paulo — decisão do André pendente (03/10/2026).** Avaliada e adiada a pedido dele. Tudo está na pendência "Levar o banco e a API para São Paulo", no topo de "Pendências". Se ele retomar, começar por ela, sem refazer a investigação. **Não** pôr `"regions": ["gru1"]` sozinho. Abrir dizendo que **é uma cópia e nenhuma tabela é recriada**: a expressão "projeto novo" o assustou.
+
 **✅ v79 + Ajuda (SW v80) EM PRODUÇÃO (17/09/2026)** — séries em dia útil e botão "Ajustar dias desta série" (detalhes em "Entregue em 17/09/2026" abaixo). `main` = `staging` = `eaedd8d`, conferido no Google Chrome real. **O que acompanhar:**
 - **Retorno do comprador da Drogaria SV que reportou** (as 50 pendências de fim de semana dele já foram removidas). Mensagem para ele entregue ao André; complemento sugerido: "passo a passo em ❓ Ajuda → 🗓️ Calendário → Ajustar dias desta série".
 - **Os outros compradores da SV ainda têm 380 pendências de fim de semana** em 8 séries diárias antigas; nos demais tenants são ~1.780 no total. Eles resolvem pelo botão — **não apagar pelo banco** sem autorização.
@@ -812,6 +814,8 @@ Resolução do incidente Total Socorro + 4 sugestões do cliente:
 
 ### Outras pendências (sem urgência)
 
+- **Levar banco (Supabase `us-west-2`) e API (Vercel `iad1`) para São Paulo**: avaliado em 03/10/2026 e adiado. Detalhes, medições, custo (~US$ 5 só na sobreposição) e armadilhas no topo de "Pendências".
+- **Rodar comandos da CLI do Supabase sempre com `SUPABASE_ACCESS_TOKEN` fictício** quando o comando não precisa de login (ex.: `db dump --db-url`). Sem isso, a CLI abre a janela de senha do Chaves do macOS na tela do André, e ele não quer isso (03/10/2026). Comandos que precisam de login (`projects list` etc.) ficam com o André ou com o MCP autorizado.
 - `SUPABASE_SERVICE_ROLE_KEY` no Vercel foi sinalizado como potencialmente exposto em abr/2026 — rotacionar quando possível (impacta envio de convites + agora o endpoint `/portal/audit-log`): Supabase → Settings → API → Reset `service_role` key → atualizar no Vercel.
 - Logo do cliente no PDF: atualmente só aparece a logo Service Farma no rodapé. Para incluir a logo do cliente, é necessário adicionar campo `logo_url` na tabela `tenants` e armazenar URL pública (Supabase Storage).
 - Ativar relatório para clientes reais (Grupo São Valentim e Grupo Velanes): apenas configuração operacional — toggle no Admin + checkboxes de notificação nos compradores.
