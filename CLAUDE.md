@@ -577,7 +577,7 @@ Confirmação (não-bloqueante) exibida quando o comprador trata uma agenda **mu
 
 ## DATABASE_URL — Conexão com Supabase (⚠️ crítico)
 
-O Vercel (região gru1/São Paulo) **não suporta IPv6**, mas o host direto do Supabase (`db.fnwsorhflueunqzkwsxu.supabase.co:5432`) resolve apenas IPv6. Usar sempre o **Connection Pooler** (IPv4):
+O Vercel **não suporta IPv6**, mas o host direto do Supabase (`db.fnwsorhflueunqzkwsxu.supabase.co:5432`) resolve apenas IPv6. Usar sempre o **Connection Pooler** (IPv4):
 
 ```
 postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.pooler.supabase.com:6543/postgres?prepare_threshold=0
@@ -599,6 +599,27 @@ postgresql+psycopg://postgres.fnwsorhflueunqzkwsxu:[SENHA]@aws-0-us-west-2.poole
 - Cron manual: `POST /api/v1/cron/relatorio-diario?tenant_id=c2f65634-b7e0-47f0-8937-94446540701a&data_ref=2026-04-30` com `X-Cron-Secret: agenda-cron-2026-sfx`
 
 ## Pendências
+
+### 🟡 Levar o banco e a API para São Paulo (avaliado em 03/10/2026, decisão do André pendente)
+
+A Agenda é o único sistema fora do Brasil. O **Supabase está em `us-west-2` (Oregon)**, e a **API roda em `iad1` (Washington)**, não em `gru1`: a Vercel recebe em São Paulo e executa em Washington (`x-vercel-id: gru1::iad1`). O `backend/vercel.json` não define `regions`.
+
+**Medido em 03/10/2026:** ~220 ms por ida e volta até Oregon, contra 14 ms até `sa-east-1`. Uma consulta do portal leva ~250 ms, dos quais o banco gasta 25 ms; o resto é distância. Como o portal fala direto do navegador com o Supabase, cada tela e cada gravação pagam isso.
+
+**Por que não é uma troca simples:**
+- O Supabase **não muda a região de um projeto existente**. É preciso criar um projeto em `sa-east-1` e **copiar** tudo: mesmas tabelas, dados e usuários com as mesmas senhas. Nenhuma tabela é criada à mão.
+- ⚠️ **Não pôr `"regions": ["gru1"]` sozinho:** com o banco ainda em Oregon, cada consulta da API ficaria mais lenta (~180 ms contra ~65 ms hoje), e o relatório noturno faz centenas em fila. Banco e função mudam juntos.
+- **Custo:** o Supabase cobra por hora e para de cobrar quando o projeto é apagado. Os ~US$ 10/mês a mais duram só enquanto os dois projetos coexistem. Com o antigo guardado 15 dias como garantia, sai por volta de US$ 5 no total, mais centavos de um projeto de ensaio. Depois que o antigo é apagado, o custo mensal volta ao de hoje.
+
+**Armadilhas já levantadas (para quem retomar):**
+- `supabase-py==2.15.2` **recusa** as chaves novas (`sb_secret_`/`sb_publishable_`); a 2.32.0 aceita as novas e a JWT legada. O projeto novo pode nascer sem chaves legadas.
+- O portal e o admin gravam a URL e a chave do Supabase no `localStorage` quando alguém salva as Configurações, e esse valor vence o padrão do código (`getSettings`). Sem descartar a URL antiga, esse navegador continuaria no projeto velho.
+- A produção conecta como papel `agenda_cron` (LOGIN, BYPASSRLS). O dump não leva a senha.
+- Os 19 arquivos do bucket `logos` não vão no dump, e 18 `clientes.observacoes` guardam a URL antiga da logo.
+- No Hub, só `SF_AGENDA_BASE_URL` e `SF_AGENDA_ADMIN_TOKEN` são usados no código. Como o endereço da API não muda, o Hub não precisa de alteração.
+- `supabase db dump --db-url` funciona via Docker **sem login** se `SUPABASE_ACCESS_TOKEN` tiver um valor fictício. Sem isso, a CLI abre a janela de senha do Chaves do macOS.
+
+**Proposta feita:** ensaio num projeto temporário (copiar, conferir contagens, medir antes e depois no Chrome) e troca **num sábado à noite**, quando as gravações são praticamente zero. O projeto antigo fica congelado como plano de volta.
 
 ### ⚠️ `GET /api/v1/admin/auth/admins` lista só os 50 primeiros (achado 25/jul/2026)
 
