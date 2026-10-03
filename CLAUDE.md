@@ -619,7 +619,11 @@ A Agenda é o único sistema fora do Brasil. O **Supabase está em `us-west-2` (
 - No Hub, só `SF_AGENDA_BASE_URL` e `SF_AGENDA_ADMIN_TOKEN` são usados no código. Como o endereço da API não muda, o Hub não precisa de alteração.
 - `supabase db dump --db-url` funciona via Docker **sem login** se `SUPABASE_ACCESS_TOKEN` tiver um valor fictício. Sem isso, a CLI abre a janela de senha do Chaves do macOS.
 
-**Proposta feita:** ensaio num projeto temporário (copiar, conferir contagens, medir antes e depois no Chrome) e troca **num sábado à noite**, quando as gravações são praticamente zero. O projeto antigo fica congelado como plano de volta.
+**Proposta feita:** troca **num sábado à noite**, quando as gravações são praticamente zero e o cron diário não roda (seg–sex 21h); o domingo fica de folga para corrigir algo antes da segunda. Duas versões:
+- **Versão de uma noite (3 a 4 h, ~40 min do André), com um projeto só:** congelar a gravação no antigo, copiar uma vez para o novo, testar tudo localmente contra o novo (portal e backend locais) e só então trocar URLs, chaves e variáveis na Vercel. Se os testes falharem, descongelar o antigo e ninguém percebe. Depois da troca, a volta leva ~10 min (variáveis antigas + `git revert` + descongelar).
+- **Versão com ensaio:** primeiro um projeto temporário de ensaio, depois a troca no definitivo.
+
+**O que NÃO muda:** pasta, VS Code, endereços do portal, do admin e da API, atalho instalado nos clientes e card do Hub. **O que muda:** URL e chave do Supabase em `frontend/script_state.js`, `frontend_admin/script.js` e `frontend_admin/setup.html`; `supabase-py` no `requirements.txt`; `"regions": ["gru1"]` no `backend/vercel.json`; bump dos dois SW e entrada em `VERSOES`; credenciais em `Agenda de Compras Web - Credenciais.txt`. ⚠️ **O `backend/.env` do Mac Mini não viaja pelo git** e precisa ser atualizado à mão. **Para os usuários:** portal mais rápido; talvez um novo login com a mesma senha (as sessões vão na cópia, a confirmar no teste); abas abertas desde antes precisam recarregar; convites das últimas 24 h precisam ser reenviados.
 
 ### ⚠️ `GET /api/v1/admin/auth/admins` lista só os 50 primeiros (achado 25/jul/2026)
 
